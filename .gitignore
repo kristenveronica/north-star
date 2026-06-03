@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS junk
+Thumbs.db
+ehthumbs.db
+
+# Node (in case anything is added later)
+node_modules/
+package-lock.json
+
+# Local environment
+.env
+.env.local
+
+# Build output (currently no build step — placeholder for future)
+dist/
+build/
