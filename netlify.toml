@@ -11,14 +11,20 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
 
-# Long-cache static assets (JS modules, CSS, fonts).
-# Invalidate by changing the path or appending a query param.
+# Always revalidate JS/CSS/HTML. Netlify still serves a 304 when nothing
+# has changed (ETag match), so this is cheap — but it means new deploys
+# are never blocked by a stale local cache.
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, no-cache, must-revalidate"
+
 [[headers]]
   for = "/js/*"
   [headers.values]
-    Cache-Control = "public, max-age=3600"
+    Cache-Control = "public, no-cache, must-revalidate"
 
 [[headers]]
   for = "/styles/*"
   [headers.values]
-    Cache-Control = "public, max-age=3600"
+    Cache-Control = "public, no-cache, must-revalidate"
