@@ -289,6 +289,28 @@ export function renderHome(container) {
       </div>
     </div>
   `;
+
+  // Coordinate the compass load: hide both layers until BOTH have decoded,
+  // then reveal them together and start the calibration animation.
+  const compass = container.querySelector(".hero-compass");
+  if (compass) {
+    const frame = compass.querySelector(".hero-compass-frame");
+    const rose  = compass.querySelector(".hero-compass-rose");
+    if (frame && rose) {
+      const ready = (img) =>
+        (img.complete && img.naturalWidth > 0)
+          ? Promise.resolve()
+          : (img.decode ? img.decode().catch(() => {}) : new Promise(r => {
+              img.addEventListener("load", r, { once: true });
+              img.addEventListener("error", r, { once: true });
+            }));
+      Promise.all([ready(frame), ready(rose)]).then(() => {
+        requestAnimationFrame(() => compass.classList.add("compass-ready"));
+      });
+      // Safety net in case decode hangs on a slow connection
+      setTimeout(() => compass.classList.add("compass-ready"), 2500);
+    }
+  }
 }
 
 

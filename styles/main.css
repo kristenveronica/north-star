@@ -1080,7 +1080,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 /* ───── Hero — tighter, more intentional ───── */
 .hero {
   position: relative;
-  display: grid; grid-template-columns: 1.25fr 1fr; gap: 64px;
+  display: grid; grid-template-columns: 1fr 1.25fr; gap: 56px;
   padding: 64px 0 76px;
   align-items: center;
   isolation: isolate;
@@ -1163,12 +1163,16 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .hero-compass {
   position: relative;
   width: 100%;
-  max-width: 680px;            /* desktop: 560–680 per brief */
+  max-width: 760px;            /* +40% from previous 680 (in 560-720 zone) */
   margin-inline: auto;
   display: block;
   isolation: isolate;
   aspect-ratio: 1536 / 1024;
+  /* Hidden until both layers have decoded — prevents the rose-arrives-first glitch */
+  opacity: 0;
+  transition: opacity 450ms ease-out;
 }
+.hero-compass.compass-ready { opacity: 1; }
 
 .hero-compass-frame {
   position: relative;
@@ -1191,8 +1195,11 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   top: 50%;
   left: 50%;
   transform-origin: 50% 50%;
-  /* The base translate -50%/-50% centres it; the rotate is layered
-     in via the keyframes so the centring is preserved. */
+  /* Initial state — rose holds at -16° until parent gets .compass-ready */
+  transform: translate(-50%, -50%) rotate(-16deg);
+}
+.hero-compass.compass-ready .hero-compass-rose {
+  /* Calibration only starts once both images are fully decoded */
   animation: heroRoseCalibrate 3.2s cubic-bezier(.16, .68, .25, 1) both;
 }
 
@@ -1235,6 +1242,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .hero-compass { transition: none !important; opacity: 1 !important; }
   .hero-compass-rose,
   .hero-compass-halo {
     animation: none !important;
@@ -1777,7 +1785,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   }
   .hero::before { right: -30%; width: 130%; opacity: 0.5; }
   .hero::after { display: none; }
-  .hero-art { order: -1; max-width: 420px; margin: 0 auto; }
+  .hero-art { order: -1; max-width: 540px; margin: 0 auto; width: 100%; }
   .hero-compass { max-width: 100%; }
   .hero h1 { font-size: clamp(28px, 6vw, 36px); margin-bottom: 14px; }
   .hero .lede { font-size: 16px; max-width: 100%; margin-bottom: 22px; }
@@ -1799,7 +1807,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .public-brand .name { font-size: 18px; }
   .public-brand .sub { font-size: 10px; }
   .public-main { padding: 0 18px 36px; }
-  .hero-art { max-width: 340px; }
+  .hero-art { max-width: 460px; }
   .core-quote { font-size: 20px; padding-left: 18px; }
   .philosophy-line { font-size: 20px; }
   .philosophy-line.muted { font-size: 16.5px; }
