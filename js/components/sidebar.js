@@ -61,7 +61,7 @@ export function renderSidebar() {
   return `
     <aside class="sidebar">
       <div class="sidebar-brand-block">
-        ${logoLockup({ size: 34, href: "#/", className: "sidebar-brand" })}
+        ${logoLockup({ size: 34, variant: "light", href: "#/", className: "sidebar-brand" })}
         <div class="sidebar-family-name">${escapeHtml(s.family?.familyName || "Your Family Journey")}</div>
       </div>
 

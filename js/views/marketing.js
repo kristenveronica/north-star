@@ -42,7 +42,7 @@ function publicHeader() {
   return `
     <header class="public-header">
       <div class="public-header-inner">
-        ${logoLockup({ size: 40, href: "#/welcome", className: "public-brand-lockup" })}
+        ${logoLockup({ size: 40, variant: "light", href: "#/welcome", className: "public-brand-lockup" })}
         <nav class="public-nav">
           ${NAV_LINKS.map(n => `<a href="#${n.path}" class="${path === n.path ? "active" : ""}">${esc(n.label)}</a>`).join("")}
           ${loggedIn
@@ -283,17 +283,18 @@ export function renderHome(container) {
 }
 
 /* ============================================================
-   COMPASS SVG — handcrafted heirloom compass.
+   HERO COMPASS SVG — handcrafted heirloom rose.
 
-   Built around 200×200 centre, viewBox 0–400 with 4px overflow
-   for the outer halo. Cardinals are placed in the bezel band
-   with text-anchor="middle" + dominant-baseline="central" for
-   pixel-perfect alignment. Ticks are graded across 72 positions
-   (every 5°), with the four cardinal positions getting the
-   tallest, boldest marks.
+   No floating needle. The compass rose itself is the directional
+   indicator: 4 long cream cardinal blades (cross), 4 shorter
+   gold intercardinal blades (X). The north blade is slightly
+   longer and carries a small decorative diamond at its tip —
+   the antique "north point" that guides the eye to the N label.
 
-   The needle is rendered as a long luminous spear that crosses
-   the centre jewel; CSS handles all motion.
+   Built around centre (200, 200), viewBox 0–400. Cardinals are
+   placed in the bezel band with text-anchor="middle" +
+   dominant-baseline="central" for pixel-perfect 12/3/6/9 o'clock
+   alignment. Ticks are graded across 72 positions (every 5°).
    ============================================================ */
 function compassSVG() {
   // Tick marks — 72 positions, graded by importance.
@@ -363,17 +364,18 @@ function compassSVG() {
           <stop offset="100%" stop-color="#E8B547" stop-opacity="0"/>
         </radialGradient>
 
-        <!-- Needle north (luminous gold) -->
-        <linearGradient id="cmp-needle-n" x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%"  stop-color="#FFF8E0"/>
-          <stop offset="35%" stop-color="#F1CB6E"/>
-          <stop offset="100%" stop-color="#8C6612"/>
+        <!-- Cardinal cross gradient (cream → soft cream → deep cream) -->
+        <linearGradient id="cmp-cardinal-grad" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%"   stop-color="#FFF8E0"/>
+          <stop offset="50%"  stop-color="#F4E9C5"/>
+          <stop offset="100%" stop-color="#D8C798"/>
         </linearGradient>
 
-        <!-- Needle south (muted slate) -->
-        <linearGradient id="cmp-needle-s" x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%"  stop-color="#2C3B58"/>
-          <stop offset="100%" stop-color="#1A2538"/>
+        <!-- Intercardinal X gradient (gold) -->
+        <linearGradient id="cmp-inter-grad" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%"   stop-color="#F5D078"/>
+          <stop offset="55%"  stop-color="#E8B547"/>
+          <stop offset="100%" stop-color="#8C6612"/>
         </linearGradient>
 
         <!-- Central jewel -->
@@ -383,10 +385,13 @@ function compassSVG() {
           <stop offset="100%" stop-color="#6E4A0A"/>
         </radialGradient>
 
-        <!-- Soft glow filter for the needle -->
-        <filter id="cmp-needle-glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="1.2"/>
-          <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+        <!-- Soft glow filter for the N letter — luminous, engraved feel -->
+        <filter id="cmp-n-glow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
         </filter>
       </defs>
 
@@ -432,47 +437,71 @@ function compassSVG() {
         <circle cx="148" cy="68"  r="0.7" opacity="0.35"/>
       </g>
 
-      <!-- 7. Cardinal labels — sit cleanly in the bezel band with breathing room from the outer rim (y≈30 for N, font-size 20) -->
+      <!-- 7. Cardinal labels — N enlarged, luminous, engraved feel; all aligned at exactly 12/3/6/9 -->
       <g class="compass-cardinals" font-family="Fraunces, Georgia, serif" fill="#F4E9C5" font-weight="600" letter-spacing="2.5">
-        <text x="200" y="30"  text-anchor="middle" dominant-baseline="central" font-size="20" class="compass-n">N</text>
-        <text x="370" y="200" text-anchor="middle" dominant-baseline="central" font-size="14" opacity="0.55">E</text>
-        <text x="200" y="370" text-anchor="middle" dominant-baseline="central" font-size="14" opacity="0.55">S</text>
-        <text x="30"  y="200" text-anchor="middle" dominant-baseline="central" font-size="14" opacity="0.55">W</text>
+        <text x="200" y="29" text-anchor="middle" dominant-baseline="central"
+              font-size="28" font-weight="700" letter-spacing="3"
+              filter="url(#cmp-n-glow)" class="compass-n">N</text>
+        <text x="370" y="200" text-anchor="middle" dominant-baseline="central" font-size="15" opacity="0.55">E</text>
+        <text x="200" y="370" text-anchor="middle" dominant-baseline="central" font-size="15" opacity="0.55">S</text>
+        <text x="30"  y="200" text-anchor="middle" dominant-baseline="central" font-size="15" opacity="0.55">W</text>
       </g>
 
-      <!-- 8. Intercardinals — even more subtle, smaller, deeper into the bezel band -->
-      <g class="compass-intercardinals" font-family="Inter, system-ui, sans-serif" fill="#F4E9C5" font-weight="500" font-size="9" letter-spacing="2" opacity="0.38">
+      <!-- 8. Intercardinals — sit precisely on the 45°/135°/225°/315° diagonals -->
+      <g class="compass-intercardinals" font-family="Inter, system-ui, sans-serif" fill="#F4E9C5" font-weight="500" font-size="9.5" letter-spacing="2" opacity="0.42">
         ${intercardinals}
       </g>
 
-      <!-- 9. Central glow — atmospheric, slightly larger but more diffuse -->
-      <circle class="compass-center-glow" cx="200" cy="200" r="105" fill="url(#cmp-glow)"/>
+      <!-- 9. Central glow — warm atmospheric halo behind the rose -->
+      <circle class="compass-center-glow" cx="200" cy="200" r="135" fill="url(#cmp-glow)"/>
 
-      <!-- 10. Centre star — refined 8-point: slimmer rays + delicate inner cross. Feels jewellery-set, not stamped. -->
-      <g class="compass-center-star" transform="translate(200 200)">
-        <!-- Main 4-point cardinal star -->
-        <path d="M0 -27 L5 -5 L27 0 L5 5 L0 27 L-5 5 L-27 0 L-5 -5 Z"
-              fill="#FFF6D8" opacity="0.95"/>
-        <!-- Shorter intercardinal star (rotated 45°) -->
-        <path d="M0 -14 L3.5 -3.5 L14 0 L3.5 3.5 L0 14 L-3.5 3.5 L-14 0 L-3.5 -3.5 Z"
-              fill="#E8B547" opacity="0.75" transform="rotate(45)"/>
+      <!-- 10. COMPASS ROSE — the directional indicator itself. No floating needle.
+            • 4 long cream cardinal blades (cross)
+            • 4 shorter gold intercardinal blades (X)
+            • North blade slightly longer + tiny antique diamond at its tip
+            All blades meet at the centre pivot.
+      -->
+      <g class="compass-rose" transform="translate(200 200)">
+
+        <!-- North decorative lozenge — sits above the north blade tip -->
+        <polygon class="cr-north-diamond"
+                 points="0,-160 6,-148 0,-138 -6,-148"
+                 fill="url(#cmp-cardinal-grad)"
+                 opacity="0.95"/>
+
+        <!-- Cardinal blades (cream cross). North is slightly longer (-145 vs -130). -->
+        <g class="cr-cardinals" fill="url(#cmp-cardinal-grad)">
+          <!-- N -->
+          <polygon points="0,-140 8,-26 0,0 -8,-26"/>
+          <!-- E -->
+          <polygon points="130,0 26,8 0,0 26,-8"/>
+          <!-- S -->
+          <polygon points="0,130 8,26 0,0 -8,26"/>
+          <!-- W -->
+          <polygon points="-130,0 -26,8 0,0 -26,-8"/>
+        </g>
+
+        <!-- Intercardinal blades (gold X) — shorter, narrower -->
+        <g class="cr-inter" fill="url(#cmp-inter-grad)">
+          <!-- NE (45°): outer tip at (sin45*90, -cos45*90) ≈ (63.6, -63.6) -->
+          <polygon points="63.64,-63.64 18.38,-12.73 0,0 12.73,-18.38"/>
+          <!-- SE (135°) -->
+          <polygon points="63.64,63.64 12.73,18.38 0,0 18.38,12.73"/>
+          <!-- SW (225°) -->
+          <polygon points="-63.64,63.64 -18.38,12.73 0,0 -12.73,18.38"/>
+          <!-- NW (315°) -->
+          <polygon points="-63.64,-63.64 -12.73,-18.38 0,0 -18.38,-12.73"/>
+        </g>
+
+        <!-- Subtle highlight ridge on the north blade (folded-paper feel) -->
+        <polygon class="cr-n-highlight"
+                 points="0,-140 0,0 1.2,-1 1.4,-50"
+                 fill="#FFF8E0" opacity="0.55"/>
+
+        <!-- Centre jewel pivot — refined gold with cream highlight -->
+        <circle cx="0" cy="0" r="8" fill="url(#cmp-jewel)" stroke="#4E3206" stroke-width="0.5"/>
+        <circle cx="-2" cy="-2" r="2" fill="#FFFCE5" opacity="0.9"/>
       </g>
-
-      <!-- 11. Needle (rotates via CSS — points to N after settling) -->
-      <g class="compass-needle" filter="url(#cmp-needle-glow)">
-        <!-- North half: luminous gold spear -->
-        <path d="M200 55 L206.5 196 L200 200 L193.5 196 Z"
-              fill="url(#cmp-needle-n)" stroke="#7A5510" stroke-width="0.3"/>
-        <!-- South half: muted slate counterweight -->
-        <path d="M200 345 L206.5 204 L200 200 L193.5 204 Z"
-              fill="url(#cmp-needle-s)" stroke="rgba(244,233,197,0.2)" stroke-width="0.3"/>
-        <!-- Subtle gold ridge highlight on the north blade -->
-        <line x1="200" y1="60" x2="200" y2="198" stroke="#FFF8E0" stroke-width="0.6" opacity="0.85"/>
-      </g>
-
-      <!-- 12. Central jewel pivot -->
-      <circle cx="200" cy="200" r="7" fill="url(#cmp-jewel)" stroke="#4E3206" stroke-width="0.4"/>
-      <circle cx="198"  cy="198"  r="1.6" fill="#FFFCE5" opacity="0.95"/>
     </svg>
   `;
 }

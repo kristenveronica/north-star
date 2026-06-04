@@ -1194,7 +1194,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   100% { opacity: 1;   transform: scale(1.06); }
 }
 
-/* Bezel / face / dots / cardinals / star / glow — initial fade-in */
+/* Bezel / face / dots / cardinals / N glow — initial fade-in */
 .compass-bezel,
 .compass-rings,
 .compass-ticks,
@@ -1202,7 +1202,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .compass-cardinals,
 .compass-intercardinals,
 .compass-center-glow,
-.compass-center-star {
+.compass-rose {
   opacity: 0;
   animation: compassFadeIn 1.6s cubic-bezier(.4,0,.2,1) forwards;
 }
@@ -1213,53 +1213,51 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .compass-cardinals     { animation-delay: 1.1s; }
 .compass-intercardinals{ animation-delay: 1.35s; }
 .compass-center-glow   { animation-delay: 1.0s; }
-.compass-center-star   { animation-delay: 1.6s; transform-origin: 200px 200px; }
 
 @keyframes compassFadeIn {
   0%   { opacity: 0; }
   100% { opacity: 1; }
 }
 
-/* The "N" gets a subtle pulse so it reads as the focus point */
+/* The N letter is the focal moment — reveals last, then luminously pulses. */
 .compass-n {
   opacity: 0;
-  animation: nReveal 1.2s cubic-bezier(.2,1.4,.4,1) 1.3s forwards,
-             nPulse 5s ease-in-out 3.5s infinite alternate;
+  animation: nReveal 1.4s cubic-bezier(.2,1.4,.4,1) 1.4s forwards,
+             nPulse 5.5s ease-in-out 4s infinite alternate;
+  transform-origin: 200px 29px;
 }
 @keyframes nReveal {
-  0%   { opacity: 0; transform-origin: 200px 22px; transform: scale(0.7); }
+  0%   { opacity: 0; transform: scale(0.6); }
+  60%  { opacity: 1; transform: scale(1.08); }
   100% { opacity: 1; transform: scale(1); }
 }
 @keyframes nPulse {
-  0%   { fill-opacity: 0.9; }
+  0%   { fill-opacity: 0.92; }
   100% { fill-opacity: 1; }
+}
+
+/* The rose: settles in with a gentle scale + rotational ease, then a continuous micro-wobble. */
+.compass-rose {
+  transform-origin: 200px 200px;
+  animation: roseSettle 2.4s cubic-bezier(.3,0,.2,1) 0.4s forwards,
+             roseBreathe 9s ease-in-out 2.8s infinite alternate;
+}
+@keyframes roseSettle {
+  0%   { opacity: 0; transform: rotate(-8deg) scale(0.92); }
+  60%  { opacity: 1; transform: rotate(2.5deg) scale(1.02); }
+  100% { opacity: 1; transform: rotate(0) scale(1); }
+}
+@keyframes roseBreathe {
+  0%   { transform: rotate(-0.4deg) scale(1); }
+  100% { transform: rotate(0.4deg)  scale(1.012); }
 }
 
 /* Concentric rings drift very slowly (continuous) */
 .compass-rings {
   transform-origin: 200px 200px;
 }
-.compass-rings { animation: compassFadeIn 1.6s 0.25s forwards, ringDrift 80s linear 2s infinite; }
+.compass-rings { animation: compassFadeIn 1.6s 0.25s forwards, ringDrift 90s linear 2s infinite; }
 @keyframes ringDrift { to { transform: rotate(360deg); } }
-
-/* Needle: dramatic settle, then continuous gentle wobble (like a real compass) */
-.compass-needle {
-  transform-origin: 200px 200px;
-  opacity: 0;
-  animation: needleSettle 2.4s cubic-bezier(.3,0,.2,1) 0.3s forwards,
-             needleWobble 7s ease-in-out 2.6s infinite alternate;
-}
-@keyframes needleSettle {
-  0%   { transform: rotate(-58deg); opacity: 0; }
-  35%  { transform: rotate(14deg);  opacity: 1; }
-  60%  { transform: rotate(-6deg); }
-  80%  { transform: rotate(2.5deg); }
-  100% { transform: rotate(0); }
-}
-@keyframes needleWobble {
-  0%   { transform: rotate(-0.8deg); }
-  100% { transform: rotate(0.8deg); }
-}
 
 /* Central glow — soft atmospheric pulse */
 .compass-center-glow {
