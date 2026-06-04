@@ -132,12 +132,18 @@ export function renderHome(container) {
       <div class="hero-art">
         <div class="hero-compass">
           <span class="hero-compass-halo" aria-hidden="true"></span>
-          <img class="hero-compass-img"
-               src="assets/images/hero-compass.png"
+          <img class="hero-compass-frame"
+               src="assets/images/hero-compass-frame.png"
                alt="Antique compass representing North Star Family Learning"
                width="1536" height="1024"
                loading="eager" decoding="async"
                fetchpriority="high"/>
+          <img class="hero-compass-rose"
+               src="assets/images/hero-compass-rose.png"
+               alt=""
+               aria-hidden="true"
+               width="464" height="464"
+               loading="eager" decoding="async"/>
         </div>
       </div>
     </section>
