@@ -5,6 +5,7 @@ import { icon } from "./ui.js";
 import { currentPath } from "../router.js";
 import { getState } from "../store.js";
 import { hasAccount, currentUserEmail } from "../auth.js";
+import { logoLockup } from "./logo.js";
 
 const GROUPS = [
   {
@@ -59,15 +60,10 @@ export function renderSidebar() {
 
   return `
     <aside class="sidebar">
-      <a class="sidebar-brand" href="#/" style="text-decoration:none;color:inherit">
-        <div class="brand-mark brand-mark-star">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 1l2.4 7.6L22 10l-6.2 4.6L18 22l-6-4.6L6 22l2.2-7.4L2 10l7.6-1.4z"/></svg>
-        </div>
-        <div>
-          <div class="brand-text">North Star</div>
-          <div class="brand-sub">${escapeHtml(s.family?.familyName || "Your Family Journey")}</div>
-        </div>
-      </a>
+      <div class="sidebar-brand-block">
+        ${logoLockup({ size: 34, href: "#/", className: "sidebar-brand" })}
+        <div class="sidebar-family-name">${escapeHtml(s.family?.familyName || "Your Family Journey")}</div>
+      </div>
 
       ${GROUPS.map(g => `
         <div class="nav-section">

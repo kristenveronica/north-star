@@ -8,6 +8,7 @@ import { esc, toast, nsIcon } from "../components/ui.js";
 import { getChildByCode } from "../store.js";
 import { navigate, currentPath } from "../router.js";
 import { hasAccount, isLoggedIn, signup, login, logout, currentUserEmail } from "../auth.js";
+import { logoLockup, logoStacked } from "../components/logo.js";
 
 const NAV_LINKS = [
   { path: "/welcome",      label: "Home" },
@@ -41,15 +42,7 @@ function publicHeader() {
   return `
     <header class="public-header">
       <div class="public-header-inner">
-        <a class="public-brand" href="#/welcome">
-          <div class="brand-mark brand-mark-star">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 1l2.4 7.6L22 10l-6.2 4.6L18 22l-6-4.6L6 22l2.2-7.4L2 10l7.6-1.4z"/></svg>
-          </div>
-          <div>
-            <div class="name">North Star</div>
-            <div class="sub">Family Learning</div>
-          </div>
-        </a>
+        ${logoLockup({ size: 40, href: "#/welcome", className: "public-brand-lockup" })}
         <nav class="public-nav">
           ${NAV_LINKS.map(n => `<a href="#${n.path}" class="${path === n.path ? "active" : ""}">${esc(n.label)}</a>`).join("")}
           ${loggedIn
@@ -69,15 +62,7 @@ function publicFooter() {
       <div class="public-footer-inner">
         <div class="public-footer-cols">
           <div>
-            <div class="public-brand" style="color:var(--starlight)">
-              <div class="brand-mark brand-mark-star">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 1l2.4 7.6L22 10l-6.2 4.6L18 22l-6-4.6L6 22l2.2-7.4L2 10l7.6-1.4z"/></svg>
-              </div>
-              <div>
-                <div class="name">North Star</div>
-                <div class="sub">Family Learning</div>
-              </div>
-            </div>
+            ${logoStacked({ size: 52 })}
             <p style="opacity:0.85; margin-top:16px; max-width:280px; font-size:14px">A personalised family learning platform for parents who want more than curriculum.</p>
           </div>
           <div>

@@ -115,7 +115,18 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 }
 .sidebar-brand {
   display: flex; align-items: center; gap: 10px;
+  padding: 4px 10px 6px;
+}
+.sidebar-brand-block {
   padding: 4px 10px 22px;
+}
+.sidebar-family-name {
+  margin-top: 8px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
 }
 .brand-mark {
   width: 36px; height: 36px; border-radius: 10px;
@@ -929,6 +940,115 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .public-brand .sub {
   font-size: 11px; color: var(--text-muted);
   letter-spacing: 0.18em; text-transform: uppercase;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   North Star Logo Lockup (Heirloom Compass + wordmark)
+   ───────────────────────────────────────────────────────────── */
+.ns-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+.ns-logo:hover { text-decoration: none; }
+.ns-logo-mark-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ns-logo-mark-wrap svg.ns-logo-mark {
+  display: block;
+  filter: drop-shadow(0 4px 10px rgba(15, 22, 38, 0.18));
+}
+.ns-logo-wordmark {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1;
+  gap: 4px;
+}
+.ns-logo-name {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  font-size: 22px;
+  letter-spacing: -0.012em;
+  color: var(--midnight);
+  line-height: 1.05;
+}
+.ns-logo-tag {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: var(--gold-ink);
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+/* Horizontal lockup (default header) */
+.ns-logo-h { flex-direction: row; gap: 12px; }
+
+/* Stacked lockup (footer / hero) */
+.ns-logo-stacked {
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+.ns-logo-stacked .ns-logo-wordmark {
+  align-items: flex-start;
+}
+.ns-logo-stacked .ns-logo-name {
+  font-size: 26px;
+}
+.ns-logo-stacked .ns-logo-tag {
+  font-size: 10px;
+}
+
+/* When the lockup is used on a dark surface (footer), invert the wordmark colours */
+.public-footer .ns-logo-name { color: var(--starlight); }
+.public-footer .ns-logo-tag  { color: rgba(244, 233, 197, 0.7); }
+.public-footer .ns-logo-mark-wrap svg.ns-logo-mark {
+  filter: drop-shadow(0 6px 18px rgba(244, 233, 197, 0.1));
+}
+
+/* Sidebar (parent portal) — slightly smaller wordmark */
+.sidebar .ns-logo {
+  padding: 4px 4px 22px;
+}
+.sidebar .ns-logo-name { font-size: 17px; font-weight: 600; }
+.sidebar .ns-logo-tag  { font-size: 8.5px; letter-spacing: 0.2em; }
+.sidebar .ns-logo-mark-wrap svg.ns-logo-mark {
+  filter: drop-shadow(0 2px 6px rgba(15, 22, 38, 0.18));
+}
+
+/* Mobile: compress the lockup on small screens */
+@media (max-width: 560px) {
+  .public-header .ns-logo-name { font-size: 18px; }
+  .public-header .ns-logo-tag  { font-size: 8.5px; letter-spacing: 0.2em; }
+}
+@media (max-width: 380px) {
+  /* Very small viewports: hide the tagline, keep mark + name */
+  .public-header .ns-logo-tag { display: none; }
+}
+
+/* Hover micro-interaction on the brand link */
+.public-header .ns-logo:hover .ns-logo-mark-wrap svg.ns-logo-mark {
+  filter: drop-shadow(0 6px 14px rgba(15, 22, 38, 0.28));
+  transform: rotate(-2deg);
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+.public-header .ns-logo .ns-logo-mark-wrap svg.ns-logo-mark {
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .public-header .ns-logo:hover .ns-logo-mark-wrap svg.ns-logo-mark {
+    transform: none;
+  }
 }
 
 .public-main { max-width: 1200px; margin: 0 auto; padding: 0 28px 48px; }

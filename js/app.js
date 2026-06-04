@@ -11,6 +11,7 @@ import { mountRouter, registerRoute, currentPath, navigate } from "./router.js";
 import { renderSidebar } from "./components/sidebar.js";
 import { startCountdownTicker } from "./components/ui.js";
 import { enableAutoVoice } from "./components/voiceInput.js";
+import { logoMarkSVG } from "./components/logo.js";
 
 import { renderOnboarding } from "./views/onboarding.js";
 import { renderDashboard } from "./views/dashboard.js";
@@ -149,6 +150,21 @@ const app = document.getElementById("app");
 mountRouter(app);
 startCountdownTicker();
 enableAutoVoice();
+
+// SVG favicon — Heirloom Compass mark.
+(function installFavicon() {
+  const svg = logoMarkSVG(64);
+  const href = "data:image/svg+xml," + encodeURIComponent(svg);
+  const existing = document.querySelector('link[rel~="icon"]');
+  if (existing) existing.href = href;
+  else {
+    const link = document.createElement("link");
+    link.rel = "icon";
+    link.type = "image/svg+xml";
+    link.href = href;
+    document.head.appendChild(link);
+  }
+})();
 
 /* Expose helpers for debugging + cross-view re-render via window. */
 export function rerender() {
