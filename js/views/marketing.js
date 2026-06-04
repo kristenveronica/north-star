@@ -159,11 +159,11 @@ export function renderHome(container) {
       <span class="section-eyebrow">The problem</span>
       <h2>Most homeschool tools start with curriculum. North Star starts with the child.</h2>
       <p class="lede">Families are often piecing together curriculum, planners, worksheets, apps, projects, values, life skills and passions from a dozen different places.</p>
-      <p class="lede" style="color:var(--text)">North Star brings everything together around one guiding question:</p>
-      <div class="problem-anchor">
-        <span class="problem-anchor-mark" aria-hidden="true">${nsIcon("compass", { size: 22 })}</span>
-        <p class="philosophy-line" style="margin:0">Who is this child, and how can we best support their growth?</p>
-      </div>
+      <p class="problem-lead">North Star brings everything together around one guiding question:</p>
+      <figure class="problem-quote">
+        <span class="problem-quote-mark" aria-hidden="true">${nsIcon("compass", { size: 16 })}</span>
+        <blockquote>Who is this child, and how can we best support their growth?</blockquote>
+      </figure>
     </section>
 
     <!-- ───────────── 3. PHILOSOPHY ───────────── -->
@@ -327,15 +327,15 @@ function compassSVG() {
     return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="${sw}" opacity="${opa}"/>`;
   }).join("");
 
-  // Intercardinal positions (NE/SE/SW/NW) — labels sit in the bezel band, r=178
+  // Intercardinal positions (NE/SE/SW/NW) — labels sit deeper in the bezel band, r=174
   const intercardinals = [
     ["NE", Math.PI / 4],
     ["SE", 3 * Math.PI / 4],
     ["SW", 5 * Math.PI / 4],
     ["NW", 7 * Math.PI / 4],
   ].map(([label, a]) => {
-    const x = 200 + Math.sin(a) * 178;
-    const y = 200 - Math.cos(a) * 178;
+    const x = 200 + Math.sin(a) * 174;
+    const y = 200 - Math.cos(a) * 174;
     return `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="middle" dominant-baseline="central">${label}</text>`;
   }).join("");
 
@@ -349,17 +349,17 @@ function compassSVG() {
           <stop offset="100%" stop-color="#E8B547" stop-opacity="0"/>
         </radialGradient>
 
-        <!-- Bezel: top-lit metallic navy with depth -->
-        <radialGradient id="cmp-bezel" cx="35%" cy="28%" r="78%">
-          <stop offset="0%"  stop-color="#586D90"/>
-          <stop offset="42%" stop-color="#34466A"/>
-          <stop offset="78%" stop-color="#1F2A40"/>
-          <stop offset="100%" stop-color="#0E1626"/>
+        <!-- Bezel: softer, less metallic, more atmospheric navy with gentle depth -->
+        <radialGradient id="cmp-bezel" cx="38%" cy="30%" r="80%">
+          <stop offset="0%"  stop-color="#4A5E82"/>
+          <stop offset="45%" stop-color="#2F4060"/>
+          <stop offset="82%" stop-color="#1B2538"/>
+          <stop offset="100%" stop-color="#101828"/>
         </radialGradient>
 
-        <!-- Bezel highlight (top crescent) -->
+        <!-- Bezel highlight (top crescent) — softer -->
         <linearGradient id="cmp-bezel-hi" x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%"  stop-color="#FFFFFF" stop-opacity="0.18"/>
+          <stop offset="0%"  stop-color="#FFFFFF" stop-opacity="0.12"/>
           <stop offset="55%" stop-color="#FFFFFF" stop-opacity="0"/>
         </linearGradient>
 
@@ -370,10 +370,11 @@ function compassSVG() {
           <stop offset="100%" stop-color="#0E1626"/>
         </radialGradient>
 
-        <!-- Central warm glow -->
+        <!-- Central warm glow — softer, warmer, more diffuse -->
         <radialGradient id="cmp-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"  stop-color="#FFF6D8" stop-opacity="0.9"/>
-          <stop offset="35%" stop-color="#F4E9C5" stop-opacity="0.45"/>
+          <stop offset="0%"  stop-color="#FFF8E0" stop-opacity="0.78"/>
+          <stop offset="25%" stop-color="#F4E0B5" stop-opacity="0.5"/>
+          <stop offset="60%" stop-color="#E8B547" stop-opacity="0.12"/>
           <stop offset="100%" stop-color="#E8B547" stop-opacity="0"/>
         </radialGradient>
 
@@ -446,28 +447,30 @@ function compassSVG() {
         <circle cx="148" cy="68"  r="0.7" opacity="0.35"/>
       </g>
 
-      <!-- 7. Cardinal labels (perfectly aligned in the bezel band, r=178) -->
-      <g class="compass-cardinals" font-family="Fraunces, Georgia, serif" fill="#F4E9C5" font-weight="600" letter-spacing="2">
-        <text x="200" y="22"  text-anchor="middle" dominant-baseline="central" font-size="26" class="compass-n">N</text>
-        <text x="378" y="200" text-anchor="middle" dominant-baseline="central" font-size="18" opacity="0.62">E</text>
-        <text x="200" y="378" text-anchor="middle" dominant-baseline="central" font-size="18" opacity="0.62">S</text>
-        <text x="22"  y="200" text-anchor="middle" dominant-baseline="central" font-size="18" opacity="0.62">W</text>
+      <!-- 7. Cardinal labels — sit cleanly in the bezel band with breathing room from the outer rim (y≈30 for N, font-size 20) -->
+      <g class="compass-cardinals" font-family="Fraunces, Georgia, serif" fill="#F4E9C5" font-weight="600" letter-spacing="2.5">
+        <text x="200" y="30"  text-anchor="middle" dominant-baseline="central" font-size="20" class="compass-n">N</text>
+        <text x="370" y="200" text-anchor="middle" dominant-baseline="central" font-size="14" opacity="0.55">E</text>
+        <text x="200" y="370" text-anchor="middle" dominant-baseline="central" font-size="14" opacity="0.55">S</text>
+        <text x="30"  y="200" text-anchor="middle" dominant-baseline="central" font-size="14" opacity="0.55">W</text>
       </g>
 
-      <!-- 8. Intercardinals (subtle, sans-serif, between bezel ticks) -->
-      <g class="compass-intercardinals" font-family="Inter, system-ui, sans-serif" fill="#F4E9C5" font-weight="500" font-size="10" letter-spacing="2" opacity="0.45">
+      <!-- 8. Intercardinals — even more subtle, smaller, deeper into the bezel band -->
+      <g class="compass-intercardinals" font-family="Inter, system-ui, sans-serif" fill="#F4E9C5" font-weight="500" font-size="9" letter-spacing="2" opacity="0.38">
         ${intercardinals}
       </g>
 
-      <!-- 9. Central glow (atmospheric) -->
-      <circle class="compass-center-glow" cx="200" cy="200" r="90" fill="url(#cmp-glow)"/>
+      <!-- 9. Central glow — atmospheric, slightly larger but more diffuse -->
+      <circle class="compass-center-glow" cx="200" cy="200" r="105" fill="url(#cmp-glow)"/>
 
-      <!-- 10. Centre 8-point star (two overlapping 4-point stars) -->
+      <!-- 10. Centre star — refined 8-point: slimmer rays + delicate inner cross. Feels jewellery-set, not stamped. -->
       <g class="compass-center-star" transform="translate(200 200)">
-        <path d="M0 -34 L9 -9 L34 0 L9 9 L0 34 L-9 9 L-34 0 L-9 -9 Z"
-              fill="#F4E9C5" opacity="0.92"/>
-        <path d="M0 -19 L5 -5 L19 0 L5 5 L0 19 L-5 5 L-19 0 L-5 -5 Z"
-              fill="#E8B547" opacity="0.85" transform="rotate(45)"/>
+        <!-- Main 4-point cardinal star -->
+        <path d="M0 -27 L5 -5 L27 0 L5 5 L0 27 L-5 5 L-27 0 L-5 -5 Z"
+              fill="#FFF6D8" opacity="0.95"/>
+        <!-- Shorter intercardinal star (rotated 45°) -->
+        <path d="M0 -14 L3.5 -3.5 L14 0 L3.5 3.5 L0 14 L-3.5 3.5 L-14 0 L-3.5 -3.5 Z"
+              fill="#E8B547" opacity="0.75" transform="rotate(45)"/>
       </g>
 
       <!-- 11. Needle (rotates via CSS — points to N after settling) -->
