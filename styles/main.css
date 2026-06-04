@@ -459,6 +459,137 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   box-shadow: var(--shadow-sm);
 }
 
+/* ============================================================
+   Celebration — confetti + sparkle burst
+   ============================================================ */
+.confetti-root, .sparkle-root {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 1000;
+}
+.confetti-piece {
+  position: fixed;
+  width: 10px; height: 14px; border-radius: 2px;
+  opacity: 0.95;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+@keyframes confettiFly {
+  0%   { transform: translate(0,0) rotate(0); opacity: 1; }
+  60%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)); opacity: 0; }
+}
+.sparkle-burst {
+  position: fixed;
+  font-size: 20px; color: var(--gold);
+  text-shadow: 0 0 12px rgba(244, 233, 197, 0.6);
+  animation: sparkleFly 1.2s cubic-bezier(.2,.6,.4,1) forwards;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+@keyframes sparkleFly {
+  0%   { transform: translate(0,0) scale(0.4); opacity: 0; }
+  20%  { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1.2); opacity: 0; }
+}
+
+/* ============================================================
+   Submission modal — upload zone + evidence tiles
+   ============================================================ */
+.upload-zone {
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: var(--card-elev);
+}
+.upload-zone:hover { border-color: var(--primary); background: var(--primary-soft); }
+.upload-zone.dragover {
+  border-color: var(--primary); background: var(--primary-soft);
+  transform: scale(1.02);
+}
+.upload-zone-icon {
+  font-size: 28px; color: var(--text-muted); margin-bottom: 8px;
+}
+
+.upload-list {
+  display: grid; gap: 8px;
+}
+.upload-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px; border-radius: var(--r-md);
+  background: var(--card-elev); border: 1px solid var(--border);
+}
+.upload-item img {
+  width: 50px; height: 50px;
+  object-fit: cover; border-radius: 6px;
+  flex-shrink: 0;
+}
+.upload-thumb {
+  width: 50px; height: 50px;
+  display: grid; place-items: center;
+  background: var(--midnight-soft); color: var(--midnight);
+  border-radius: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Evidence tiles (Project HQ + Portfolio)
+   ============================================================ */
+.evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.evidence-tile {
+  background: var(--card-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.evidence-tile img {
+  width: 100%; aspect-ratio: 1.3; object-fit: cover;
+  display: block; cursor: zoom-in;
+  transition: transform 0.2s ease;
+}
+.evidence-tile img:hover { transform: scale(1.02); }
+.evidence-tile audio,
+.evidence-tile video { display: block; margin: 8px; }
+.evidence-tile-foot {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-top: 1px solid var(--border);
+}
+.evidence-note {
+  padding: 14px;
+}
+.evidence-pdf {
+  display: block; padding: 24px 16px;
+  text-align: center; background: var(--card);
+  color: var(--text); font-weight: 600; text-decoration: none;
+}
+.evidence-pdf:hover { background: var(--bg-2); text-decoration: none; }
+
+.mission-card-wrap { display: flex; flex-direction: column; gap: 0; }
+.mission-evidence {
+  background: var(--card-elev);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  margin-top: -1px;
+  padding: 14px 16px 16px;
+}
+.submission-note {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--divider);
+}
+
+/* Sound toggle in kid header */
+#sound-toggle { font-size: 18px; padding: 4px 10px; }
+
 /* ---------- Calendar ---------- */
 .cal-grid {
   display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;

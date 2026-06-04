@@ -234,11 +234,57 @@ export function addMilestone(m) {
     starEarned: false,
     reflectionRequired: false,
     reflectionId: null,
-    evidence: null,
+    evidence: [],         // [{ id, kind:"note"|"upload", text?, fileName?, fileType?, fileSize?, dataUrl?, createdAt }]
+    submission: null,     // { text, voiceTranscript, submittedAt } — the child's typed/spoken answer
     ...m,
   };
   update(s => { s.milestones.push(mile); });
   return mile;
+}
+
+/**
+ * Attach evidence (notes, files, voice) to a milestone.
+ * `payload` shape:
+ *   { submission: { text }, evidence: [{ kind, text?, fileName?, fileType?, fileSize?, dataUrl? }] }
+ */
+export function addMilestoneSubmission(milestoneId, payload) {
+  update(s => {
+    const m = s.milestones.find(x => x.id === milestoneId);
+    if (!m) return;
+    if (payload.submission && (payload.submission.text || payload.submission.voiceTranscript)) {
+      m.submission = {
+        text: payload.submission.text || "",
+        voiceTranscript: payload.submission.voiceTranscript || "",
+        submittedAt: new Date().toISOString(),
+      };
+    }
+    if (Array.isArray(payload.evidence) && payload.evidence.length) {
+      m.evidence = (m.evidence || []).concat(payload.evidence.map(e => ({
+        id: uid("ev"),
+        createdAt: new Date().toISOString(),
+        ...e,
+      })));
+    }
+  });
+}
+
+export function removeMilestoneEvidence(milestoneId, evidenceId) {
+  update(s => {
+    const m = s.milestones.find(x => x.id === milestoneId);
+    if (m) m.evidence = (m.evidence || []).filter(e => e.id !== evidenceId);
+  });
+}
+
+export function getMilestoneEvidenceForChild(childId) {
+  const projectIds = new Set(_state.projects.filter(p => p.childId === childId).map(p => p.id));
+  const out = [];
+  _state.milestones.forEach(m => {
+    if (!projectIds.has(m.projectId)) return;
+    if (!m.evidence || !m.evidence.length) return;
+    const project = _state.projects.find(p => p.id === m.projectId);
+    m.evidence.forEach(e => out.push({ ...e, milestone: m, project }));
+  });
+  return out.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 export function updateMilestone(id, patch) {
   update(s => {

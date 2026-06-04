@@ -2,7 +2,7 @@
    portfolio.js — Each child's portfolio of completed work, reflections.
    ============================================================ */
 
-import { getState, getChildStats } from "../store.js";
+import { getState, getChildStats, getMilestoneEvidenceForChild } from "../store.js";
 import { esc, fmtDate, DOMAIN_COLOR_CLASS, openModal, toast } from "../components/ui.js";
 
 let _selectedChildId = null;
@@ -101,9 +101,46 @@ function portfolioBlock(child, s) {
       </div>
     `}
 
-    <div class="card mt-3" style="background:var(--card-elev)">
-      <h4>Evidence uploads</h4>
-      <p class="text-muted small">In a future version this is where photos, audio, video and writing samples will live. For now, you can attach evidence as notes inside reflections.</p>
+    ${(() => {
+      const ev = getMilestoneEvidenceForChild(child.id);
+      if (!ev.length) return `
+        <div class="card mt-3" style="background:var(--card-elev)">
+          <h4>Submitted evidence</h4>
+          <p class="text-muted small">Photos, audio, video, written work and PDFs the child uploads while completing missions will collect here. Optional — the child portal still works without uploads if your family prefers off-screen work only.</p>
+        </div>
+      `;
+      return `
+        <h3 class="mt-3 mb-2">Submitted evidence (${ev.length})</h3>
+        <div class="evidence-grid">
+          ${ev.map(item => renderParentEvidenceTile(item)).join("")}
+        </div>
+      `;
+    })()}
+  `;
+}
+
+function renderParentEvidenceTile(item) {
+  const ev = item;
+  const isImage = ev.fileType?.startsWith("image/");
+  const isAudio = ev.fileType?.startsWith("audio/");
+  const isVideo = ev.fileType?.startsWith("video/");
+  const isPdf = ev.fileType === "application/pdf";
+  let preview = "";
+  if (ev.kind === "note") preview = `<div class="small">${esc((ev.text || "").slice(0, 200))}${(ev.text || "").length > 200 ? "…" : ""}</div>`;
+  else if (isImage && ev.dataUrl) preview = `<a href="${ev.dataUrl}" target="_blank" rel="noopener"><img src="${ev.dataUrl}" alt="${esc(ev.fileName || "")}"/></a>`;
+  else if (isAudio && ev.dataUrl) preview = `<audio controls src="${ev.dataUrl}" style="width:100%"></audio>`;
+  else if (isVideo && ev.dataUrl) preview = `<video controls src="${ev.dataUrl}" style="width:100%;max-height:200px;border-radius:8px"></video>`;
+  else if (isPdf && ev.dataUrl) preview = `<a href="${ev.dataUrl}" target="_blank" rel="noopener" class="evidence-pdf">📄 ${esc(ev.fileName || "PDF")}</a>`;
+  else if (ev.dataUrl) preview = `<a href="${ev.dataUrl}" target="_blank" rel="noopener" download="${esc(ev.fileName || "file")}" class="evidence-pdf">📎 ${esc(ev.fileName || "Download")}</a>`;
+  return `
+    <div class="evidence-tile">
+      ${preview}
+      <div class="evidence-tile-foot">
+        <div style="flex:1;min-width:0">
+          <div class="small fw-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ev.fileName || (ev.kind === "note" ? "Written answer" : "Evidence"))}</div>
+          <div class="small text-muted">${ev.project?.title ? esc(ev.project.title) + " · " : ""}${ev.milestone?.title ? esc(ev.milestone.title) : ""}</div>
+        </div>
+      </div>
     </div>
   `;
 }

@@ -7,9 +7,75 @@ import {
   getState, getChildByCode, getChildStats, getActiveMilestonesForChild,
   completeMilestone, addReflection, updateProject, addChildSelfAssessment,
   getProject, getMilestonesForProject, getReflectionsForProject,
+  addMilestoneSubmission, removeMilestoneEvidence,
 } from "../store.js";
 import { REFLECTION_PROMPTS } from "../seed.js";
-import { esc, icon, nsIcon, renderCountdown, fmtDate, sparkle, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
+import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
+import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
+import { openSubmissionModal } from "../components/submission.js";
+
+/* ============================================================
+   handleMilestoneTap — shared milestone interaction.
+   - Tap an INCOMPLETE star  → open submission modal
+       - "Skip & mark done"  → instant completion (lightning path)
+       - "Submit & earn star" → save evidence + complete
+     Either path fires the celebration.
+   - Tap a COMPLETED star    → instant uncomplete (no modal)
+   ============================================================ */
+function handleMilestoneTap(milestoneId, targetEl, afterChange) {
+  const s = getState();
+  const m = s.milestones.find(x => x.id === milestoneId);
+  if (!m) return;
+
+  // Toggle-off path: tap a completed star to undo (mistake recovery)
+  if (m.completed) {
+    completeMilestone(milestoneId);
+    toast("Star removed");
+    setTimeout(() => afterChange?.(), 250);
+    return;
+  }
+
+  const project = getProject(m.projectId);
+  openSubmissionModal({
+    milestone: m, project,
+    onSkip: () => {
+      completeMilestone(milestoneId);
+      celebrateMilestone(targetEl);
+      const after = getState().milestones.find(x => x.id === milestoneId);
+      toast(`Star earned! +${after?.momentumPoints || 0} Momentum Points`, { type: "success", duration: 3000 });
+      const proj = getProject(m.projectId);
+      if (proj?.status === "ready-for-reflection") {
+        // All milestones done — bigger celebration if this tap was the last one
+        setTimeout(() => celebrateProject(targetEl), 400);
+      }
+      setTimeout(() => afterChange?.(), 350);
+    },
+    onSubmit: (payload) => {
+      addMilestoneSubmission(milestoneId, payload);
+      completeMilestone(milestoneId);
+      celebrateMilestone(targetEl);
+      const after = getState().milestones.find(x => x.id === milestoneId);
+      const evCount = (payload.evidence || []).length;
+      toast(`Star earned! +${after?.momentumPoints || 0} pts${evCount ? ` · ${evCount} piece${evCount === 1 ? "" : "s"} added to portfolio` : ""}`, { type: "success", duration: 3500 });
+      const proj = getProject(m.projectId);
+      if (proj?.status === "ready-for-reflection") {
+        setTimeout(() => celebrateProject(targetEl), 400);
+      }
+      setTimeout(() => afterChange?.(), 350);
+    },
+  });
+}
+
+function soundToggleHTML() {
+  return `<button class="btn btn-ghost btn-sm" id="sound-toggle" title="${isSoundOn() ? "Sound on (click to mute)" : "Sound off (click to enable)"}" aria-label="Toggle sound">${isSoundOn() ? "🔊" : "🔇"}</button>`;
+}
+function wireSoundToggle(container, importRerender) {
+  container.querySelector("#sound-toggle")?.addEventListener("click", () => {
+    const on = toggleSound();
+    toast(on ? "Sound on" : "Sound off");
+    importRerender();
+  });
+}
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 
@@ -120,6 +186,7 @@ export function renderChildPortal(container, params) {
       <div class="row" style="gap:8px">
         <span class="points-pill">⭐ ${stats.totalStars}</span>
         <span class="points-pill" style="background:var(--primary-soft);color:var(--primary-ink)">${stats.totalMomentum} pts</span>
+        ${soundToggleHTML()}
         <a href="#/" class="btn btn-ghost btn-sm">Parent view</a>
       </div>
     </div>
@@ -179,21 +246,9 @@ export function renderChildPortal(container, params) {
 
   /* ----- wiring ----- */
   container.querySelectorAll("[data-complete-ms]").forEach(b => {
-    b.addEventListener("click", () => {
-      const id = b.dataset.completeMs;
-      const m = getState().milestones.find(x => x.id === id);
-      const wasCompleted = m?.completed;
-      completeMilestone(id);
-      const after = getState().milestones.find(x => x.id === id);
-      if (after?.completed && !wasCompleted) {
-        sparkle(b);
-        toast(`⭐ Star earned! +${after.momentumPoints} Momentum Points`, { type: "success", duration: 3000 });
-      } else {
-        toast("Star removed");
-      }
-      setTimeout(rerender, 300);
-    });
+    b.addEventListener("click", () => handleMilestoneTap(b.dataset.completeMs, b, rerender));
   });
+  wireSoundToggle(container, rerender);
   container.querySelectorAll("[data-add-refl]").forEach(b => {
     b.addEventListener("click", () => openKidReflection(child, b.dataset.addRefl));
   });
@@ -293,6 +348,7 @@ export function renderChildProjectHQ(container, params) {
       <div class="row" style="gap:8px">
         <span class="points-pill"><span class="ns-icon">${nsIcon("star", { size: 12 })}</span> ${project.starsEarned}/${project.starsAvailable}</span>
         <span class="points-pill" style="background:var(--primary-soft);color:var(--primary-ink)">${project.momentumPointsEarned}/${project.momentumPointsAvailable} pts</span>
+        ${soundToggleHTML()}
       </div>
     </div>
 
@@ -331,21 +387,41 @@ export function renderChildProjectHQ(container, params) {
 
       <h2 class="mb-2">All missions</h2>
       <div class="stack mb-3">
-        ${ms.map(m => `
-          <div class="mission-card">
-            <button class="star-btn ${m.completed ? "earned" : ""}" data-complete-ms="${m.id}" style="width:48px;height:48px">
-              ${icon(m.completed ? "star" : "starOutline")}
-            </button>
-            <div style="flex:1">
-              <div class="fw-700" style="${m.completed ? "text-decoration:line-through;color:var(--text-muted)" : ""}">${esc(m.title)}</div>
-              <div class="small text-muted">${m.dueDate ? "Due " + fmtDate(m.dueDate, { short: false }) : ""} · ${m.momentumPoints} pts${m.reflectionRequired ? " · reflection" : ""}</div>
+        ${ms.map(m => {
+          const evCount = (m.evidence || []).length;
+          return `
+          <div class="mission-card-wrap">
+            <div class="mission-card">
+              <button class="star-btn ${m.completed ? "earned" : ""}" data-complete-ms="${m.id}" style="width:48px;height:48px">
+                ${icon(m.completed ? "star" : "starOutline")}
+              </button>
+              <div style="flex:1">
+                <div class="fw-700" style="${m.completed ? "text-decoration:line-through;color:var(--text-muted)" : ""}">${esc(m.title)}</div>
+                <div class="small text-muted">${m.dueDate ? "Due " + fmtDate(m.dueDate, { short: false }) : ""} · ${m.momentumPoints} pts${m.reflectionRequired ? " · reflection" : ""}${evCount ? ` · ${evCount} ${evCount === 1 ? "submission" : "submissions"}` : ""}</div>
+              </div>
+              <div class="stack-tight" style="align-items:flex-end">
+                <span class="points-pill" style="font-size:11px">+${m.momentumPoints}</span>
+                ${m.dueDate ? `<span data-countdown="${m.dueDate}" class="compact">${renderCountdown(m.dueDate, { compact: true })}</span>` : ""}
+              </div>
             </div>
-            <div class="stack-tight" style="align-items:flex-end">
-              <span class="points-pill" style="font-size:11px">+${m.momentumPoints}</span>
-              ${m.dueDate ? `<span data-countdown="${m.dueDate}" class="compact">${renderCountdown(m.dueDate, { compact: true })}</span>` : ""}
-            </div>
+            ${evCount || m.submission?.text ? `
+              <div class="mission-evidence">
+                ${m.submission?.text ? `
+                  <div class="submission-note">
+                    <div class="small text-muted fw-700" style="letter-spacing:0.1em;text-transform:uppercase">My answer</div>
+                    <p style="margin:4px 0 0">${esc(m.submission.text)}</p>
+                  </div>
+                ` : ""}
+                ${(m.evidence || []).filter(e => e.kind !== "note").length ? `
+                  <div class="evidence-grid">
+                    ${m.evidence.filter(e => e.kind !== "note").map(e => renderEvidenceTile(e, m.id)).join("")}
+                  </div>
+                ` : ""}
+              </div>
+            ` : ""}
           </div>
-        `).join("")}
+          `;
+        }).join("")}
       </div>
 
       <div class="grid grid-2 mb-3">
@@ -378,38 +454,51 @@ export function renderChildProjectHQ(container, params) {
         ` : `<div class="small text-muted">No reflections yet. The reflection prompts are: What did I do? What did I learn? What was hard? What surprised me?</div>`}
       </div>
 
-      <div class="card mb-3" style="background:var(--card-elev)">
-        <div class="row" style="gap:14px;align-items:center;flex-wrap:wrap">
-          <span class="ns-icon-wrap sage">${nsIcon("book", { size: 22 })}</span>
-          <div style="flex:1;min-width:240px">
-            <div class="fw-700" style="font-family:var(--font-serif);font-size:18px">Portfolio evidence</div>
-            <p class="small text-muted" style="margin:4px 0 0">Photos, video, written work and uploads will live here. Coming soon — for now, attach evidence inside your reflections.</p>
+      ${(() => {
+        const allEv = ms.flatMap(m => (m.evidence || []).filter(e => e.kind !== "note").map(e => ({ ev: e, milestoneId: m.id, milestoneTitle: m.title })));
+        if (allEv.length === 0) {
+          return `
+            <div class="card mb-3" style="background:var(--card-elev)">
+              <div class="row" style="gap:14px;align-items:center;flex-wrap:wrap">
+                <span class="ns-icon-wrap sage">${nsIcon("book", { size: 22 })}</span>
+                <div style="flex:1;min-width:240px">
+                  <div class="fw-700" style="font-family:var(--font-serif);font-size:18px">Portfolio evidence</div>
+                  <p class="small text-muted" style="margin:4px 0 0">Photos, written work, audio, video and PDFs you upload while completing missions will collect here — and roll into your portfolio and year-end review.</p>
+                </div>
+              </div>
+            </div>`;
+        }
+        return `
+          <div class="card mb-3">
+            <div class="row-between mb-2">
+              <h3>Portfolio evidence (${allEv.length})</h3>
+              <span class="small text-muted">Auto-collected from your submitted work</span>
+            </div>
+            <div class="evidence-grid">
+              ${allEv.map(({ ev, milestoneId, milestoneTitle }) => renderEvidenceTile(ev, milestoneId, milestoneTitle)).join("")}
+            </div>
           </div>
-        </div>
-      </div>
+        `;
+      })()}
     </div>
   `;
 
   // Wiring
   container.querySelectorAll("[data-complete-ms]").forEach(b => {
-    b.addEventListener("click", () => {
-      const id = b.dataset.completeMs;
-      const m = getState().milestones.find(x => x.id === id);
-      const wasCompleted = m?.completed;
-      completeMilestone(id);
-      const after = getState().milestones.find(x => x.id === id);
-      if (after?.completed && !wasCompleted) {
-        sparkle(b);
-        toast(`Star earned! +${after.momentumPoints} Momentum Points`, { type: "success", duration: 3000 });
-      } else {
-        toast("Star removed");
-      }
-      setTimeout(rerender, 300);
-    });
+    b.addEventListener("click", () => handleMilestoneTap(b.dataset.completeMs, b, rerender));
   });
   container.querySelectorAll("[data-add-refl]").forEach(b => {
     b.addEventListener("click", () => openKidReflection(child, b.dataset.addRefl));
   });
+  container.querySelectorAll("[data-remove-ev]").forEach(b => {
+    b.addEventListener("click", () => {
+      const [mid, eid] = b.dataset.removeEv.split("::");
+      removeMilestoneEvidence(mid, eid);
+      toast("Evidence removed");
+      setTimeout(rerender, 200);
+    });
+  });
+  wireSoundToggle(container, rerender);
 }
 
 function projectTile(p, s, child) {
@@ -542,6 +631,56 @@ function openKidReflection(child, refKey) {
     modal.close();
     setTimeout(rerender, 200);
   });
+}
+
+/* Renders one piece of evidence as a small tile (image, audio, video, PDF, etc.) */
+function renderEvidenceTile(ev, milestoneId, captionTitle = null) {
+  const removeAttr = milestoneId ? `data-remove-ev="${milestoneId}::${ev.id}"` : "";
+  if (ev.kind === "note") {
+    return `
+      <div class="evidence-tile evidence-note">
+        <div class="small text-muted" style="letter-spacing:0.1em;text-transform:uppercase">Note</div>
+        <p style="margin:4px 0 0">${esc(ev.text || "")}</p>
+        ${milestoneId ? `<button class="btn btn-ghost btn-sm" ${removeAttr}>Remove</button>` : ""}
+      </div>
+    `;
+  }
+  const isImage = ev.fileType?.startsWith("image/");
+  const isAudio = ev.fileType?.startsWith("audio/");
+  const isVideo = ev.fileType?.startsWith("video/");
+  const isPdf = ev.fileType === "application/pdf";
+
+  let preview = "";
+  if (isImage && ev.dataUrl) {
+    preview = `<a href="${ev.dataUrl}" target="_blank" rel="noopener"><img src="${ev.dataUrl}" alt="${esc(ev.fileName || "")}" /></a>`;
+  } else if (isAudio && ev.dataUrl) {
+    preview = `<audio controls src="${ev.dataUrl}" style="width:100%"></audio>`;
+  } else if (isVideo && ev.dataUrl) {
+    preview = `<video controls src="${ev.dataUrl}" style="width:100%;max-height:240px;border-radius:8px"></video>`;
+  } else if (isPdf && ev.dataUrl) {
+    preview = `<a href="${ev.dataUrl}" target="_blank" rel="noopener" class="evidence-pdf">📄 Open ${esc(ev.fileName || "PDF")}</a>`;
+  } else if (ev.dataUrl) {
+    preview = `<a href="${ev.dataUrl}" target="_blank" rel="noopener" download="${esc(ev.fileName || "file")}" class="evidence-pdf">📎 Download ${esc(ev.fileName || "file")}</a>`;
+  } else {
+    preview = `<div class="small text-muted">[${esc(ev.fileType || "file")}]</div>`;
+  }
+
+  const sizeLine = ev.fileSize
+    ? `${ev.fileSize < 1024 ? ev.fileSize + " B" : ev.fileSize < 1024 * 1024 ? (ev.fileSize / 1024).toFixed(0) + " KB" : (ev.fileSize / (1024*1024)).toFixed(1) + " MB"}`
+    : "";
+
+  return `
+    <div class="evidence-tile">
+      ${preview}
+      <div class="evidence-tile-foot">
+        <div style="flex:1;min-width:0">
+          <div class="small fw-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ev.fileName || "Evidence")}</div>
+          <div class="small text-muted">${sizeLine}${captionTitle ? ` · ${esc(captionTitle)}` : ""}</div>
+        </div>
+        ${milestoneId ? `<button class="btn btn-ghost btn-sm" ${removeAttr}>Remove</button>` : ""}
+      </div>
+    </div>
+  `;
 }
 
 function dayGreeting() {
