@@ -948,7 +948,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .ns-logo {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;                    /* refined: a touch more breathing room mark↔wordmark */
   text-decoration: none;
   color: inherit;
 }
@@ -961,28 +961,28 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 }
 .ns-logo-mark-wrap svg.ns-logo-mark {
   display: block;
-  filter: drop-shadow(0 4px 10px rgba(15, 22, 38, 0.18));
+  filter: drop-shadow(0 3px 8px rgba(15, 22, 38, 0.16));
 }
 .ns-logo-wordmark {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
   line-height: 1;
-  gap: 4px;
+  gap: 5px;                     /* refined: more space between wordmark + tagline */
 }
 .ns-logo-name {
   font-family: var(--font-serif);
   font-weight: 500;
   font-size: 22px;
-  letter-spacing: -0.012em;
+  letter-spacing: -0.015em;     /* refined: tighter tracking, editorial feel */
   color: var(--midnight);
-  line-height: 1.05;
+  line-height: 1;
 }
 .ns-logo-tag {
   font-family: var(--font-sans);
-  font-size: 9.5px;
+  font-size: 10px;              /* refined: slightly larger so it reads as deliberate */
   font-weight: 600;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.26em;       /* refined: a touch wider, more antique */
   color: var(--gold-ink);
   text-transform: uppercase;
   line-height: 1;

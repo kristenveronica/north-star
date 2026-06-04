@@ -283,47 +283,96 @@ export function renderHome(container) {
 }
 
 /* ============================================================
-   HERO COMPASS SVG — handcrafted heirloom rose.
+   HERO COMPASS — rebuilt from first principles.
 
-   No floating needle. The compass rose itself is the directional
-   indicator: 4 long cream cardinal blades (cross), 4 shorter
-   gold intercardinal blades (X). The north blade is slightly
-   longer and carries a small decorative diamond at its tip —
-   the antique "north point" that guides the eye to the N label.
+   ONE shared centre point: (200, 200) in a 400×400 viewBox.
+   Every element uses ABSOLUTE coordinates. There is no nested
+   transform on the rose, so CSS animations (which override SVG
+   transform attributes) can't drift any layer off-centre.
 
-   Built around centre (200, 200), viewBox 0–400. Cardinals are
-   placed in the bezel band with text-anchor="middle" +
-   dominant-baseline="central" for pixel-perfect 12/3/6/9 o'clock
-   alignment. Ticks are graded across 72 positions (every 5°).
+   Layered, from outer-most inwards:
+     1. Outer warm halo
+     2. Navy bezel (with depth + highlight + inner shadow)
+     3. Compass face (deeper navy)
+     4. Concentric ring details (drift slowly)
+     5. 72 graded tick marks (0°/5°/10°/30°/90° hierarchy)
+     6. Cardinal labels (N E S W) — polar-positioned at radius 178
+     7. Intercardinal labels (NE SE SW NW) — same radius 178
+     8. Tight central glow (supports, doesn't obscure)
+     9. Compass rose (8 blades + north diamond + highlight ridge)
+     10. Gold centre pivot
    ============================================================ */
 function compassSVG() {
-  // Tick marks — 72 positions, graded by importance.
+  const CX = 200, CY = 200;
+
+  // Polar helper: angle 0 = N (12 o'clock), 90 = E (3 o'clock), etc.
+  const polar = (deg, r) => {
+    const a = (deg * Math.PI) / 180;
+    return { x: CX + Math.sin(a) * r, y: CY - Math.cos(a) * r };
+  };
+
+  // Blade kite generator — absolute coords centred on (200, 200).
+  const blade = (deg, length, shoulder, halfWidth) => {
+    const a = (deg * Math.PI) / 180;
+    const dx = Math.sin(a), dy = -Math.cos(a);
+    const px = Math.cos(a), py = Math.sin(a);
+    const tip = { x: CX + dx * length, y: CY + dy * length };
+    const sh  = { x: CX + dx * shoulder, y: CY + dy * shoulder };
+    return [
+      `${tip.x.toFixed(2)},${tip.y.toFixed(2)}`,
+      `${(sh.x + px * halfWidth).toFixed(2)},${(sh.y + py * halfWidth).toFixed(2)}`,
+      `${CX},${CY}`,
+      `${(sh.x - px * halfWidth).toFixed(2)},${(sh.y - py * halfWidth).toFixed(2)}`,
+    ].join(" ");
+  };
+
+  // ── Tick marks — 72 positions, graded ─────────────────────────
   const ticks = Array.from({ length: 72 }, (_, i) => {
     const deg = i * 5;
-    const a = deg * Math.PI / 180;
+    const a = (deg * Math.PI) / 180;
     const r1 = 158;
     let r2, sw, opa;
-    if (deg % 90 === 0)       { r2 = 134; sw = 1.8; opa = 1.0;  }   // N/E/S/W
-    else if (deg % 30 === 0)  { r2 = 144; sw = 1.1; opa = 0.85; }   // 30°
-    else if (deg % 10 === 0)  { r2 = 150; sw = 0.7; opa = 0.55; }   // 10°
-    else                      { r2 = 154; sw = 0.4; opa = 0.32; }   // 5°
+    if (deg % 90 === 0)       { r2 = 134; sw = 1.8; opa = 1.0;  }
+    else if (deg % 30 === 0)  { r2 = 144; sw = 1.1; opa = 0.85; }
+    else if (deg % 10 === 0)  { r2 = 150; sw = 0.7; opa = 0.55; }
+    else                      { r2 = 154; sw = 0.4; opa = 0.32; }
     const sin = Math.sin(a), cos = Math.cos(a);
-    const x1 = 200 + sin * r1, y1 = 200 - cos * r1;
-    const x2 = 200 + sin * r2, y2 = 200 - cos * r2;
+    const x1 = CX + sin * r1, y1 = CY - cos * r1;
+    const x2 = CX + sin * r2, y2 = CY - cos * r2;
     return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="${sw}" opacity="${opa}"/>`;
   }).join("");
 
-  // Intercardinal positions (NE/SE/SW/NW) — labels sit deeper in the bezel band, r=174
-  const intercardinals = [
-    ["NE", Math.PI / 4],
-    ["SE", 3 * Math.PI / 4],
-    ["SW", 5 * Math.PI / 4],
-    ["NW", 7 * Math.PI / 4],
-  ].map(([label, a]) => {
-    const x = 200 + Math.sin(a) * 174;
-    const y = 200 - Math.cos(a) * 174;
-    return `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="middle" dominant-baseline="central">${label}</text>`;
-  }).join("");
+  // ── Direction labels — all at the same radius (178), polar-positioned ─
+  const LABEL_R = 178;
+  const cardinal = (deg) => polar(deg, LABEL_R);
+  const nP  = cardinal(0);
+  const eP  = cardinal(90);
+  const sP  = cardinal(180);
+  const wP  = cardinal(270);
+  const neP = cardinal(45);
+  const seP = cardinal(135);
+  const swP = cardinal(225);
+  const nwP = cardinal(315);
+  const fmt = p => `x="${p.x.toFixed(2)}" y="${p.y.toFixed(2)}"`;
+
+  // ── Compass rose dimensions ──────────────────────────────────
+  // Face radius is ~165. Rose cardinal tip at r=78 (north at r=86).
+  // Rose diameter ≈ 156, about 40% of the 392-px compass diameter — in spec.
+  const CARDINAL_LEN = 78;
+  const NORTH_LEN    = 86;     // slightly longer — north emphasis
+  const INTER_LEN    = 54;
+  const CARDINAL_SHOULDER = 14;
+  const INTER_SHOULDER    = 10;
+  const CARDINAL_HW = 5;
+  const INTER_HW    = 3.5;
+
+  // North antique diamond — sits on top of the north blade tip.
+  // North blade tip is at (200, 114). Diamond extends from y=100 (top)
+  // through (204, 108) and (196, 108) to y=114 (bottom, touching the tip).
+  const NORTH_TIP_Y = CY - NORTH_LEN;        // 114
+  const ND_TOP_Y    = NORTH_TIP_Y - 14;      // 100
+  const ND_MID_Y    = NORTH_TIP_Y - 6;       // 108
+  const northDiamond = `${CX},${ND_TOP_Y} ${CX + 4},${ND_MID_Y} ${CX},${NORTH_TIP_Y} ${CX - 4},${ND_MID_Y}`;
 
   return `
     <svg class="compass-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -356,11 +405,11 @@ function compassSVG() {
           <stop offset="100%" stop-color="#0E1626"/>
         </radialGradient>
 
-        <!-- Central warm glow — softer, warmer, more diffuse -->
+        <!-- Central warm glow — tight, supports the rose without obscuring -->
         <radialGradient id="cmp-glow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"  stop-color="#FFF8E0" stop-opacity="0.78"/>
-          <stop offset="25%" stop-color="#F4E0B5" stop-opacity="0.5"/>
-          <stop offset="60%" stop-color="#E8B547" stop-opacity="0.12"/>
+          <stop offset="0%"   stop-color="#FFF8E0" stop-opacity="0.5"/>
+          <stop offset="35%"  stop-color="#F4E0B5" stop-opacity="0.25"/>
+          <stop offset="70%"  stop-color="#E8B547" stop-opacity="0.06"/>
           <stop offset="100%" stop-color="#E8B547" stop-opacity="0"/>
         </radialGradient>
 
@@ -437,70 +486,67 @@ function compassSVG() {
         <circle cx="148" cy="68"  r="0.7" opacity="0.35"/>
       </g>
 
-      <!-- 7. Cardinal labels — N enlarged, luminous, engraved feel; all aligned at exactly 12/3/6/9 -->
-      <g class="compass-cardinals" font-family="Fraunces, Georgia, serif" fill="#F4E9C5" font-weight="600" letter-spacing="2.5">
-        <text x="200" y="29" text-anchor="middle" dominant-baseline="central"
-              font-size="28" font-weight="700" letter-spacing="3"
+      <!-- 7. Cardinal labels — all at radius 178, polar-positioned.
+              N is the focal moment: slightly larger, brighter, with a soft glow filter. -->
+      <g class="compass-cardinals" font-family="Fraunces, Georgia, serif" fill="#F4E9C5" font-weight="600">
+        <text ${fmt(nP)} text-anchor="middle" dominant-baseline="central"
+              font-size="24" font-weight="600" letter-spacing="3"
               filter="url(#cmp-n-glow)" class="compass-n">N</text>
-        <text x="370" y="200" text-anchor="middle" dominant-baseline="central" font-size="15" opacity="0.55">E</text>
-        <text x="200" y="370" text-anchor="middle" dominant-baseline="central" font-size="15" opacity="0.55">S</text>
-        <text x="30"  y="200" text-anchor="middle" dominant-baseline="central" font-size="15" opacity="0.55">W</text>
+        <text ${fmt(eP)} text-anchor="middle" dominant-baseline="central"
+              font-size="15" letter-spacing="2.5" opacity="0.6">E</text>
+        <text ${fmt(sP)} text-anchor="middle" dominant-baseline="central"
+              font-size="15" letter-spacing="2.5" opacity="0.6">S</text>
+        <text ${fmt(wP)} text-anchor="middle" dominant-baseline="central"
+              font-size="15" letter-spacing="2.5" opacity="0.6">W</text>
       </g>
 
-      <!-- 8. Intercardinals — sit precisely on the 45°/135°/225°/315° diagonals -->
-      <g class="compass-intercardinals" font-family="Inter, system-ui, sans-serif" fill="#F4E9C5" font-weight="500" font-size="9.5" letter-spacing="2" opacity="0.42">
-        ${intercardinals}
+      <!-- 8. Intercardinals — same radius 178, polar-positioned at exact diagonals -->
+      <g class="compass-intercardinals" font-family="Inter, system-ui, sans-serif" fill="#F4E9C5" font-weight="500" font-size="9.5" letter-spacing="2" opacity="0.45">
+        <text ${fmt(neP)} text-anchor="middle" dominant-baseline="central">NE</text>
+        <text ${fmt(seP)} text-anchor="middle" dominant-baseline="central">SE</text>
+        <text ${fmt(swP)} text-anchor="middle" dominant-baseline="central">SW</text>
+        <text ${fmt(nwP)} text-anchor="middle" dominant-baseline="central">NW</text>
       </g>
 
-      <!-- 9. Central glow — warm atmospheric halo behind the rose -->
-      <circle class="compass-center-glow" cx="200" cy="200" r="135" fill="url(#cmp-glow)"/>
+      <!-- 9. Central glow — TIGHT halo around the pivot, supports the rose without obscuring it -->
+      <circle class="compass-center-glow" cx="${CX}" cy="${CY}" r="72" fill="url(#cmp-glow)"/>
 
-      <!-- 10. COMPASS ROSE — the directional indicator itself. No floating needle.
-            • 4 long cream cardinal blades (cross)
-            • 4 shorter gold intercardinal blades (X)
-            • North blade slightly longer + tiny antique diamond at its tip
-            All blades meet at the centre pivot.
+      <!-- 10. COMPASS ROSE — absolute coordinates, single shared centre (200, 200).
+            • 4 cardinal cream blades (cross), N slightly longer
+            • 4 intercardinal gold blades (X)
+            • Antique diamond at the north blade tip
+            • Subtle highlight ridge on the north blade for luminosity
+            • Centre jewel pivot
       -->
-      <g class="compass-rose" transform="translate(200 200)">
+      <g class="compass-rose">
 
-        <!-- North decorative lozenge — sits above the north blade tip -->
-        <polygon class="cr-north-diamond"
-                 points="0,-160 6,-148 0,-138 -6,-148"
-                 fill="url(#cmp-cardinal-grad)"
-                 opacity="0.95"/>
+        <!-- North antique diamond — sits at the tip of the north blade -->
+        <polygon class="cr-north-diamond" points="${northDiamond}"
+                 fill="url(#cmp-cardinal-grad)" opacity="0.98"/>
 
-        <!-- Cardinal blades (cream cross). North is slightly longer (-145 vs -130). -->
+        <!-- Cardinal blades (cream cross) — N slightly longer for emphasis -->
         <g class="cr-cardinals" fill="url(#cmp-cardinal-grad)">
-          <!-- N -->
-          <polygon points="0,-140 8,-26 0,0 -8,-26"/>
-          <!-- E -->
-          <polygon points="130,0 26,8 0,0 26,-8"/>
-          <!-- S -->
-          <polygon points="0,130 8,26 0,0 -8,26"/>
-          <!-- W -->
-          <polygon points="-130,0 -26,8 0,0 -26,-8"/>
+          <polygon points="${blade(0,   NORTH_LEN,    CARDINAL_SHOULDER, CARDINAL_HW)}"/>
+          <polygon points="${blade(90,  CARDINAL_LEN, CARDINAL_SHOULDER, CARDINAL_HW)}"/>
+          <polygon points="${blade(180, CARDINAL_LEN, CARDINAL_SHOULDER, CARDINAL_HW)}"/>
+          <polygon points="${blade(270, CARDINAL_LEN, CARDINAL_SHOULDER, CARDINAL_HW)}"/>
         </g>
 
-        <!-- Intercardinal blades (gold X) — shorter, narrower -->
+        <!-- Intercardinal blades (gold X) -->
         <g class="cr-inter" fill="url(#cmp-inter-grad)">
-          <!-- NE (45°): outer tip at (sin45*90, -cos45*90) ≈ (63.6, -63.6) -->
-          <polygon points="63.64,-63.64 18.38,-12.73 0,0 12.73,-18.38"/>
-          <!-- SE (135°) -->
-          <polygon points="63.64,63.64 12.73,18.38 0,0 18.38,12.73"/>
-          <!-- SW (225°) -->
-          <polygon points="-63.64,63.64 -18.38,12.73 0,0 -12.73,18.38"/>
-          <!-- NW (315°) -->
-          <polygon points="-63.64,-63.64 -12.73,-18.38 0,0 -18.38,-12.73"/>
+          <polygon points="${blade(45,  INTER_LEN, INTER_SHOULDER, INTER_HW)}"/>
+          <polygon points="${blade(135, INTER_LEN, INTER_SHOULDER, INTER_HW)}"/>
+          <polygon points="${blade(225, INTER_LEN, INTER_SHOULDER, INTER_HW)}"/>
+          <polygon points="${blade(315, INTER_LEN, INTER_SHOULDER, INTER_HW)}"/>
         </g>
 
-        <!-- Subtle highlight ridge on the north blade (folded-paper feel) -->
-        <polygon class="cr-n-highlight"
-                 points="0,-140 0,0 1.2,-1 1.4,-50"
-                 fill="#FFF8E0" opacity="0.55"/>
+        <!-- Subtle highlight ridge — runs the length of the north blade for extra luminosity -->
+        <line class="cr-n-highlight" x1="${CX}" y1="${ND_TOP_Y}" x2="${CX}" y2="${CY}"
+              stroke="#FFFCE5" stroke-width="0.6" opacity="0.55"/>
 
-        <!-- Centre jewel pivot — refined gold with cream highlight -->
-        <circle cx="0" cy="0" r="8" fill="url(#cmp-jewel)" stroke="#4E3206" stroke-width="0.5"/>
-        <circle cx="-2" cy="-2" r="2" fill="#FFFCE5" opacity="0.9"/>
+        <!-- Centre jewel pivot -->
+        <circle cx="${CX}" cy="${CY}" r="7.5" fill="url(#cmp-jewel)" stroke="#4E3206" stroke-width="0.5"/>
+        <circle cx="${CX - 2}" cy="${CY - 2}" r="1.8" fill="#FFFCE5" opacity="0.9"/>
       </g>
     </svg>
   `;
