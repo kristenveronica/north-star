@@ -86,7 +86,20 @@ export function sparkleBurst(el, { count = 14 } = {}) {
   setTimeout(() => root.remove(), 1400);
 }
 
-/* ---------------- Chime ---------------- */
+/* ============================================================
+   Sound — "cha-ching" coin pickup style.
+
+   Layered synthesis (no audio files) that gives a bright,
+   slightly metallic ring with a short percussive attack and a
+   short ringing decay. Tasteful, not arcade-y.
+
+   Architecture per note:
+     1. A short high-passed noise burst → the percussive "cha"
+     2. Two triangle waves an octave apart, slightly detuned → the body
+     3. A sine harmonic on top → the metallic "ching" shimmer
+     All routed through a master gain so the overall mix sits well.
+   ============================================================ */
+
 let _audioCtx = null;
 function audioCtx() {
   if (_audioCtx) return _audioCtx;
@@ -96,61 +109,96 @@ function audioCtx() {
   return _audioCtx;
 }
 
+/** A single bright coin "ching" tone at `freq` Hz, starting at `when`. */
+function coinTone(ctx, master, freq, when, { vol = 1, dur = 0.45, percussive = true } = {}) {
+  // 1) Percussive attack — short high-passed noise burst (only on the first hit
+  //    of a phrase by default, so a chord doesn't sound like a snare drum).
+  if (percussive) {
+    const noiseLen = 0.035;
+    const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * noiseLen), ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass"; hp.frequency.value = 3500;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.18 * vol, when);
+    ng.gain.exponentialRampToValueAtTime(0.0001, when + noiseLen);
+    noise.connect(hp).connect(ng).connect(master);
+    noise.start(when);
+    noise.stop(when + noiseLen + 0.02);
+  }
+
+  // 2) Triangle body — main tone + slight detune for richness
+  const layers = [
+    { type: "triangle", freq: freq,         detune: -4, gain: 0.18 * vol, decay: dur     },
+    { type: "triangle", freq: freq,         detune: +4, gain: 0.16 * vol, decay: dur     },
+    // 3) Sine octave shimmer (the "ching" ring)
+    { type: "sine",     freq: freq * 2,     detune: 0,  gain: 0.10 * vol, decay: dur * 1.2 },
+    // 4) A very quiet sine two octaves up — adds airy sparkle without being shrill
+    { type: "sine",     freq: freq * 3.01,  detune: 0,  gain: 0.04 * vol, decay: dur * 1.4 },
+  ];
+  layers.forEach(({ type, freq, detune, gain, decay }) => {
+    const osc = ctx.createOscillator();
+    osc.type = type;
+    osc.frequency.value = freq;
+    osc.detune.value = detune;
+    const g = ctx.createGain();
+    osc.connect(g).connect(master);
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(gain, when + 0.004);   // sharp attack
+    g.gain.exponentialRampToValueAtTime(0.0001, when + decay);
+    osc.start(when);
+    osc.stop(when + decay + 0.03);
+  });
+}
+
+/** Standard "cha-ching" — two ascending notes, the second one ringing longer. */
 export function playChime() {
   if (!isSoundOn()) return;
   const ctx = audioCtx();
   if (!ctx) return;
-  // Resume context if it's been suspended by autoplay policy
   if (ctx.state === "suspended") ctx.resume().catch(() => {});
 
-  // 3-note ascending chime: C5, E5, G5
-  const notes = [
-    { freq: 523.25, when: 0,    dur: 0.55 },
-    { freq: 659.25, when: 0.08, dur: 0.55 },
-    { freq: 783.99, when: 0.16, dur: 0.7  },
-  ];
-  notes.forEach(({ freq, when, dur }) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    osc.connect(gain).connect(ctx.destination);
-    const t0 = ctx.currentTime + when;
-    gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(0.18, t0 + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.start(t0);
-    osc.stop(t0 + dur + 0.05);
-  });
+  // Master gain + a touch of low-shelf cut so it doesn't feel boomy on laptop speakers.
+  const master = ctx.createGain();
+  master.gain.value = 0.85;
+  const ls = ctx.createBiquadFilter();
+  ls.type = "lowshelf"; ls.frequency.value = 350; ls.gain.value = -6;
+  master.connect(ls).connect(ctx.destination);
+
+  // Classic "cha-ching" cadence: B5 → E6.
+  // Bright and rewarding, but the second note lingers (the "ching") so it
+  // doesn't feel like a videogame "ping-ping".
+  const t = ctx.currentTime + 0.005;
+  coinTone(ctx, master, 987.77,  t,        { vol: 1.0, dur: 0.35, percussive: true  }); // B5  — "cha"
+  coinTone(ctx, master, 1318.51, t + 0.07, { vol: 1.0, dur: 0.70, percussive: false }); // E6  — "ching"
 }
 
+/** Bigger version — used when a child finishes the LAST milestone of a project. */
 export function playBigChime() {
   if (!isSoundOn()) return;
   const ctx = audioCtx();
   if (!ctx) return;
   if (ctx.state === "suspended") ctx.resume().catch(() => {});
 
-  // Bigger 5-note phrase for project completion
-  const notes = [
-    { freq: 523.25, when: 0.00, dur: 0.4 },
-    { freq: 659.25, when: 0.10, dur: 0.4 },
-    { freq: 783.99, when: 0.20, dur: 0.4 },
-    { freq: 1046.5, when: 0.30, dur: 0.55 },
-    { freq: 1318.5, when: 0.45, dur: 1.0 },
-  ];
-  notes.forEach(({ freq, when, dur }) => {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    osc.connect(gain).connect(ctx.destination);
-    const t0 = ctx.currentTime + when;
-    gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(0.22, t0 + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.start(t0);
-    osc.stop(t0 + dur + 0.05);
-  });
+  const master = ctx.createGain();
+  master.gain.value = 0.85;
+  const ls = ctx.createBiquadFilter();
+  ls.type = "lowshelf"; ls.frequency.value = 350; ls.gain.value = -6;
+  master.connect(ls).connect(ctx.destination);
+
+  // Triumphant cha-ching: arpeggio up to a sustained shimmering top note.
+  // B5 → E6 → G#6 → B6 (held). Major-feeling, satisfying, finished.
+  const t = ctx.currentTime + 0.005;
+  coinTone(ctx, master, 987.77,  t,        { vol: 1.0, dur: 0.28, percussive: true  }); // B5
+  coinTone(ctx, master, 1318.51, t + 0.08, { vol: 1.0, dur: 0.30, percussive: false }); // E6
+  coinTone(ctx, master, 1661.22, t + 0.18, { vol: 1.0, dur: 0.35, percussive: false }); // G#6
+  coinTone(ctx, master, 1975.53, t + 0.30, { vol: 1.1, dur: 1.10, percussive: false }); // B6 (held shimmer)
+  // A soft sub-octave hit below the arpeggio for body — feels like a coin
+  // landing on something solid rather than hovering in mid-air.
+  coinTone(ctx, master, 329.63,  t + 0.02, { vol: 0.55, dur: 0.45, percussive: false }); // E4
 }
 
 /* ---------------- Convenience composite ---------------- */
