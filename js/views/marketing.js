@@ -146,8 +146,10 @@ export function renderHome(container) {
       </div>
       <div class="hero-art">
         <div class="compass-art">
+          <span class="hero-star hero-star-tr" aria-hidden="true">${heroMiniStar(34)}</span>
+          <span class="hero-star hero-star-br" aria-hidden="true">${heroMiniStar(20)}</span>
+          <span class="hero-star hero-star-bl" aria-hidden="true">${heroMiniStar(14)}</span>
           ${compassSVG()}
-          <div class="compass-glow"></div>
         </div>
       </div>
     </section>
@@ -158,7 +160,10 @@ export function renderHome(container) {
       <h2>Most homeschool tools start with curriculum. North Star starts with the child.</h2>
       <p class="lede">Families are often piecing together curriculum, planners, worksheets, apps, projects, values, life skills and passions from a dozen different places.</p>
       <p class="lede" style="color:var(--text)">North Star brings everything together around one guiding question:</p>
-      <p class="philosophy-line" style="margin-top:20px">Who is this child, and how can we best support their growth?</p>
+      <div class="problem-anchor">
+        <span class="problem-anchor-mark" aria-hidden="true">${nsIcon("compass", { size: 22 })}</span>
+        <p class="philosophy-line" style="margin:0">Who is this child, and how can we best support their growth?</p>
+      </div>
     </section>
 
     <!-- ───────────── 3. PHILOSOPHY ───────────── -->
@@ -293,94 +298,203 @@ export function renderHome(container) {
 }
 
 /* ============================================================
-   COMPASS SVG — multi-ring celestial compass.
-   Layered SVG; CSS handles the calibration animation.
+   COMPASS SVG — handcrafted heirloom compass.
+
+   Built around 200×200 centre, viewBox 0–400 with 4px overflow
+   for the outer halo. Cardinals are placed in the bezel band
+   with text-anchor="middle" + dominant-baseline="central" for
+   pixel-perfect alignment. Ticks are graded across 72 positions
+   (every 5°), with the four cardinal positions getting the
+   tallest, boldest marks.
+
+   The needle is rendered as a long luminous spear that crosses
+   the centre jewel; CSS handles all motion.
    ============================================================ */
 function compassSVG() {
+  // Tick marks — 72 positions, graded by importance.
+  const ticks = Array.from({ length: 72 }, (_, i) => {
+    const deg = i * 5;
+    const a = deg * Math.PI / 180;
+    const r1 = 158;
+    let r2, sw, opa;
+    if (deg % 90 === 0)       { r2 = 134; sw = 1.8; opa = 1.0;  }   // N/E/S/W
+    else if (deg % 30 === 0)  { r2 = 144; sw = 1.1; opa = 0.85; }   // 30°
+    else if (deg % 10 === 0)  { r2 = 150; sw = 0.7; opa = 0.55; }   // 10°
+    else                      { r2 = 154; sw = 0.4; opa = 0.32; }   // 5°
+    const sin = Math.sin(a), cos = Math.cos(a);
+    const x1 = 200 + sin * r1, y1 = 200 - cos * r1;
+    const x2 = 200 + sin * r2, y2 = 200 - cos * r2;
+    return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="${sw}" opacity="${opa}"/>`;
+  }).join("");
+
+  // Intercardinal positions (NE/SE/SW/NW) — labels sit in the bezel band, r=178
+  const intercardinals = [
+    ["NE", Math.PI / 4],
+    ["SE", 3 * Math.PI / 4],
+    ["SW", 5 * Math.PI / 4],
+    ["NW", 7 * Math.PI / 4],
+  ].map(([label, a]) => {
+    const x = 200 + Math.sin(a) * 178;
+    const y = 200 - Math.cos(a) * 178;
+    return `<text x="${x.toFixed(2)}" y="${y.toFixed(2)}" text-anchor="middle" dominant-baseline="central">${label}</text>`;
+  }).join("");
+
   return `
     <svg class="compass-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
       <defs>
-        <radialGradient id="bezelGrad" cx="50%" cy="42%" r="55%">
-          <stop offset="0%"   stop-color="#3F5278"/>
-          <stop offset="60%"  stop-color="#2A3954"/>
-          <stop offset="100%" stop-color="#171F30"/>
+        <!-- Outer warm halo (radiates beyond the bezel) -->
+        <radialGradient id="cmp-halo" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"  stop-color="#F4E9C5" stop-opacity="0.32"/>
+          <stop offset="55%" stop-color="#E8B547" stop-opacity="0.08"/>
+          <stop offset="100%" stop-color="#E8B547" stop-opacity="0"/>
         </radialGradient>
-        <radialGradient id="faceGrad" cx="50%" cy="40%" r="60%">
-          <stop offset="0%"   stop-color="#2C3B58"/>
-          <stop offset="100%" stop-color="#1B2538"/>
+
+        <!-- Bezel: top-lit metallic navy with depth -->
+        <radialGradient id="cmp-bezel" cx="35%" cy="28%" r="78%">
+          <stop offset="0%"  stop-color="#586D90"/>
+          <stop offset="42%" stop-color="#34466A"/>
+          <stop offset="78%" stop-color="#1F2A40"/>
+          <stop offset="100%" stop-color="#0E1626"/>
         </radialGradient>
-        <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%"   stop-color="#F4E9C5" stop-opacity="0.9"/>
-          <stop offset="100%" stop-color="#F4E9C5" stop-opacity="0"/>
+
+        <!-- Bezel highlight (top crescent) -->
+        <linearGradient id="cmp-bezel-hi" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%"  stop-color="#FFFFFF" stop-opacity="0.18"/>
+          <stop offset="55%" stop-color="#FFFFFF" stop-opacity="0"/>
+        </linearGradient>
+
+        <!-- Face: deeper night sky -->
+        <radialGradient id="cmp-face" cx="50%" cy="44%" r="68%">
+          <stop offset="0%"  stop-color="#2E3F60"/>
+          <stop offset="65%" stop-color="#1A2538"/>
+          <stop offset="100%" stop-color="#0E1626"/>
         </radialGradient>
-        <linearGradient id="needleGrad" x1="50%" y1="0%" x2="50%" y2="100%">
-          <stop offset="0%"   stop-color="#F4E9C5"/>
-          <stop offset="50%"  stop-color="#E8B547"/>
+
+        <!-- Central warm glow -->
+        <radialGradient id="cmp-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"  stop-color="#FFF6D8" stop-opacity="0.9"/>
+          <stop offset="35%" stop-color="#F4E9C5" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#E8B547" stop-opacity="0"/>
+        </radialGradient>
+
+        <!-- Needle north (luminous gold) -->
+        <linearGradient id="cmp-needle-n" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%"  stop-color="#FFF8E0"/>
+          <stop offset="35%" stop-color="#F1CB6E"/>
           <stop offset="100%" stop-color="#8C6612"/>
         </linearGradient>
+
+        <!-- Needle south (muted slate) -->
+        <linearGradient id="cmp-needle-s" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%"  stop-color="#2C3B58"/>
+          <stop offset="100%" stop-color="#1A2538"/>
+        </linearGradient>
+
+        <!-- Central jewel -->
+        <radialGradient id="cmp-jewel" cx="35%" cy="30%" r="65%">
+          <stop offset="0%"  stop-color="#FFFAE0"/>
+          <stop offset="55%" stop-color="#E8B547"/>
+          <stop offset="100%" stop-color="#6E4A0A"/>
+        </radialGradient>
+
+        <!-- Soft glow filter for the needle -->
+        <filter id="cmp-needle-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1.2"/>
+          <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
       </defs>
 
-      <!-- Outer bezel -->
-      <circle cx="200" cy="200" r="196" fill="url(#bezelGrad)"/>
-      <circle cx="200" cy="200" r="186" fill="none" stroke="rgba(244,233,197,0.18)" stroke-width="1"/>
+      <!-- 1. Outer halo (beyond the bezel) -->
+      <circle class="compass-halo" cx="200" cy="200" r="200" fill="url(#cmp-halo)"/>
 
-      <!-- Inner face -->
-      <circle cx="200" cy="200" r="170" fill="url(#faceGrad)"/>
-
-      <!-- Concentric rings -->
-      <g class="compass-ring-outer">
-        <circle cx="200" cy="200" r="160" fill="none" stroke="rgba(244,233,197,0.22)" stroke-width="1"/>
-        <circle cx="200" cy="200" r="148" fill="none" stroke="rgba(244,233,197,0.14)" stroke-width="0.6" stroke-dasharray="2 4"/>
-      </g>
-      <g class="compass-ring-mid">
-        <circle cx="200" cy="200" r="120" fill="none" stroke="rgba(244,233,197,0.16)" stroke-width="0.8"/>
-      </g>
-      <g class="compass-ring-inner">
-        <circle cx="200" cy="200" r="78" fill="none" stroke="rgba(244,233,197,0.25)" stroke-width="0.6"/>
+      <!-- 2. Bezel ring + depth + top-light highlight -->
+      <g class="compass-bezel">
+        <circle cx="200" cy="200" r="196" fill="url(#cmp-bezel)"/>
+        <circle cx="200" cy="200" r="196" fill="url(#cmp-bezel-hi)"/>
+        <!-- Bezel inner shadow (depth into face) -->
+        <circle cx="200" cy="200" r="168" fill="none" stroke="#070C18" stroke-width="2.5" opacity="0.55"/>
+        <!-- Bezel inner highlight (delicate gold rim) -->
+        <circle cx="200" cy="200" r="171" fill="none" stroke="rgba(244,233,197,0.18)" stroke-width="0.6"/>
+        <!-- Bezel outer edge -->
+        <circle cx="200" cy="200" r="196" fill="none" stroke="rgba(0,0,0,0.5)" stroke-width="0.8"/>
       </g>
 
-      <!-- 32 tick marks at 11.25° intervals -->
-      <g stroke="rgba(244,233,197,0.55)" stroke-linecap="round">
-        ${Array.from({ length: 32 }, (_, i) => {
-          const a = (i * 11.25) * Math.PI / 180;
-          const r1 = 160, r2 = i % 4 === 0 ? 144 : i % 2 === 0 ? 152 : 156;
-          const sw = i % 4 === 0 ? 1.4 : 0.6;
-          const x1 = 200 + Math.sin(a) * r1, y1 = 200 - Math.cos(a) * r1;
-          const x2 = 200 + Math.sin(a) * r2, y2 = 200 - Math.cos(a) * r2;
-          return `<line class="compass-tick" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke-width="${sw}"/>`;
-        }).join("")}
+      <!-- 3. Face -->
+      <circle cx="200" cy="200" r="165" fill="url(#cmp-face)"/>
+
+      <!-- 4. Concentric ring details (slowly drift on the face) -->
+      <g class="compass-rings">
+        <circle cx="200" cy="200" r="156" fill="none" stroke="rgba(244,233,197,0.16)" stroke-width="0.7"/>
+        <circle cx="200" cy="200" r="132" fill="none" stroke="rgba(244,233,197,0.09)" stroke-width="0.5" stroke-dasharray="1 4"/>
+        <circle cx="200" cy="200" r="104" fill="none" stroke="rgba(244,233,197,0.12)" stroke-width="0.5"/>
+        <circle cx="200" cy="200" r="68"  fill="none" stroke="rgba(244,233,197,0.22)" stroke-width="0.6"/>
       </g>
 
-      <!-- Cardinal labels -->
-      <g font-family="Fraunces, Georgia, serif" font-weight="600" fill="#F4E9C5">
-        <text class="compass-label n" x="200" y="56"  text-anchor="middle" font-size="22" letter-spacing="2">N</text>
-        <text class="compass-label"   x="346" y="208" text-anchor="middle" font-size="16" opacity="0.7" letter-spacing="2">E</text>
-        <text class="compass-label"   x="200" y="358" text-anchor="middle" font-size="16" opacity="0.7" letter-spacing="2">S</text>
-        <text class="compass-label"   x="54"  y="208" text-anchor="middle" font-size="16" opacity="0.7" letter-spacing="2">W</text>
+      <!-- 5. Tick marks (72 positions, graded) -->
+      <g class="compass-ticks" stroke="#F4E9C5" stroke-linecap="round">
+        ${ticks}
       </g>
 
-      <!-- Faint celestial dots scattered through outer ring -->
-      <g fill="#F4E9C5">
-        ${[[200,28],[330,90],[372,200],[330,310],[200,372],[70,310],[28,200],[70,90],[260,72],[80,250],[320,150]]
-          .map(([x,y],i) => `<circle cx="${x}" cy="${y}" r="${i%3===0?1.6:1}" opacity="${0.3 + (i%4)*0.1}"/>`).join("")}
+      <!-- 6. Faint celestial dots in the bezel band -->
+      <g class="compass-dots" fill="#F4E9C5">
+        <circle cx="260" cy="68"  r="1.1" opacity="0.55"/>
+        <circle cx="328" cy="132" r="1.4" opacity="0.65"/>
+        <circle cx="332" cy="262" r="0.9" opacity="0.45"/>
+        <circle cx="248" cy="332" r="1.0" opacity="0.5"/>
+        <circle cx="72"  cy="260" r="1.2" opacity="0.55"/>
+        <circle cx="76"  cy="142" r="0.9" opacity="0.45"/>
+        <circle cx="148" cy="68"  r="0.7" opacity="0.35"/>
       </g>
 
-      <!-- Central glow + star -->
-      <circle cx="200" cy="200" r="60" fill="url(#centerGlow)"/>
+      <!-- 7. Cardinal labels (perfectly aligned in the bezel band, r=178) -->
+      <g class="compass-cardinals" font-family="Fraunces, Georgia, serif" fill="#F4E9C5" font-weight="600" letter-spacing="2">
+        <text x="200" y="22"  text-anchor="middle" dominant-baseline="central" font-size="26" class="compass-n">N</text>
+        <text x="378" y="200" text-anchor="middle" dominant-baseline="central" font-size="18" opacity="0.62">E</text>
+        <text x="200" y="378" text-anchor="middle" dominant-baseline="central" font-size="18" opacity="0.62">S</text>
+        <text x="22"  y="200" text-anchor="middle" dominant-baseline="central" font-size="18" opacity="0.62">W</text>
+      </g>
+
+      <!-- 8. Intercardinals (subtle, sans-serif, between bezel ticks) -->
+      <g class="compass-intercardinals" font-family="Inter, system-ui, sans-serif" fill="#F4E9C5" font-weight="500" font-size="10" letter-spacing="2" opacity="0.45">
+        ${intercardinals}
+      </g>
+
+      <!-- 9. Central glow (atmospheric) -->
+      <circle class="compass-center-glow" cx="200" cy="200" r="90" fill="url(#cmp-glow)"/>
+
+      <!-- 10. Centre 8-point star (two overlapping 4-point stars) -->
       <g class="compass-center-star" transform="translate(200 200)">
-        <path d="M0 -38 L11 -11 L40 -8 L18 9 L26 38 L0 22 L-26 38 L-18 9 L-40 -8 L-11 -11 Z"
-              fill="#F4E9C5" stroke="#8C6612" stroke-width="0.6"/>
-        <circle cx="0" cy="0" r="3.5" fill="#8C6612"/>
+        <path d="M0 -34 L9 -9 L34 0 L9 9 L0 34 L-9 9 L-34 0 L-9 -9 Z"
+              fill="#F4E9C5" opacity="0.92"/>
+        <path d="M0 -19 L5 -5 L19 0 L5 5 L0 19 L-5 5 L-19 0 L-5 -5 Z"
+              fill="#E8B547" opacity="0.85" transform="rotate(45)"/>
       </g>
 
-      <!-- Needle (always points N after calibration) -->
-      <g class="compass-needle">
-        <path d="M200 65 L208 200 L200 210 L192 200 Z" fill="url(#needleGrad)" stroke="#8C6612" stroke-width="0.4"/>
-        <path d="M200 335 L208 200 L200 190 L192 200 Z" fill="rgba(244,233,197,0.15)" stroke="rgba(244,233,197,0.25)" stroke-width="0.4"/>
-        <circle cx="200" cy="200" r="6" fill="#E8B547" stroke="#8C6612" stroke-width="0.6"/>
+      <!-- 11. Needle (rotates via CSS — points to N after settling) -->
+      <g class="compass-needle" filter="url(#cmp-needle-glow)">
+        <!-- North half: luminous gold spear -->
+        <path d="M200 55 L206.5 196 L200 200 L193.5 196 Z"
+              fill="url(#cmp-needle-n)" stroke="#7A5510" stroke-width="0.3"/>
+        <!-- South half: muted slate counterweight -->
+        <path d="M200 345 L206.5 204 L200 200 L193.5 204 Z"
+              fill="url(#cmp-needle-s)" stroke="rgba(244,233,197,0.2)" stroke-width="0.3"/>
+        <!-- Subtle gold ridge highlight on the north blade -->
+        <line x1="200" y1="60" x2="200" y2="198" stroke="#FFF8E0" stroke-width="0.6" opacity="0.85"/>
       </g>
+
+      <!-- 12. Central jewel pivot -->
+      <circle cx="200" cy="200" r="7" fill="url(#cmp-jewel)" stroke="#4E3206" stroke-width="0.4"/>
+      <circle cx="198"  cy="198"  r="1.6" fill="#FFFCE5" opacity="0.95"/>
     </svg>
   `;
+}
+
+/* A small luminous star used around the compass in the hero. */
+function heroMiniStar(size = 22) {
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" aria-hidden="true">
+    <path d="M12 1.5 L13.6 9.4 L21.5 11.2 L13.7 13 L12 22.5 L10.3 13 L2.5 11.2 L10.4 9.4 Z" opacity="0.95"/>
+    <circle cx="12" cy="12" r="1.2" fill="#FFF8E0" opacity="0.9"/>
+  </svg>`;
 }
 
 
