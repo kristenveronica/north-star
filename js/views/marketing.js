@@ -132,9 +132,6 @@ export function renderHome(container) {
       <div class="hero-art">
         <div class="hero-compass">
           <span class="hero-compass-halo" aria-hidden="true"></span>
-          <span class="hero-star hero-star-tr" aria-hidden="true">${heroMiniStar(28)}</span>
-          <span class="hero-star hero-star-br" aria-hidden="true">${heroMiniStar(18)}</span>
-          <span class="hero-star hero-star-bl" aria-hidden="true">${heroMiniStar(14)}</span>
           <img class="hero-compass-img"
                src="assets/images/hero-compass.png"
                alt="Antique compass representing North Star Family Learning"
@@ -288,14 +285,6 @@ export function renderHome(container) {
   `;
 }
 
-
-/* A small luminous star used around the compass in the hero. */
-function heroMiniStar(size = 22) {
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="currentColor" aria-hidden="true">
-    <path d="M12 1.5 L13.6 9.4 L21.5 11.2 L13.7 13 L12 22.5 L10.3 13 L2.5 11.2 L10.4 9.4 Z" opacity="0.95"/>
-    <circle cx="12" cy="12" r="1.2" fill="#FFF8E0" opacity="0.9"/>
-  </svg>`;
-}
 
 
 /* ============================================================
