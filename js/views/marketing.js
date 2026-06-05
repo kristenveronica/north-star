@@ -282,14 +282,15 @@ export function renderHome(container) {
 }
 
 /* ============================================================
-   HERO COMPASS — Custom illustrated SVG for the North Star brand.
+   HERO COMPASS — North Star illustrated instrument.
 
-   Flat, vector, editorial. Designed to feel like a luxury watch
-   face on warm paper: thin navy hairlines, restrained typography,
-   muted antique gold accents. Two concentric guide rings frame
-   the cardinal label band; 12 hour-position tick marks set the
-   rhythm; an 8-point compass rose sits at the centre as the
-   only animated element (calibration).
+   Navy disc with a thin gold rim. Cream cardinal cross + muted
+   antique gold intercardinal X meet at a small gold North Star
+   in the centre — symbolically, the family's North Star sits at
+   the heart of the compass.
+
+   The outer ring + ticks + labels are STATIC. Only the inner rose
+   group rotates during the calibration animation.
 
    viewBox 0–400, every element centred on (200, 200).
    ============================================================ */
@@ -317,31 +318,31 @@ function heroCompassIllustration() {
     return { x: CX + Math.sin(a) * r, y: CY - Math.cos(a) * r };
   };
 
-  // 12 hour-position tick marks (every 30°), skipping the 4 cardinals
-  // where the labels sit. Watch-face rhythm without clutter.
+  // 8 prominent hour ticks at non-cardinal 30° positions — set rhythm
+  // on the cream band without clutter.
   const hourTicks = [30, 60, 120, 150, 210, 240, 300, 330].map(deg => {
     const a = (deg * Math.PI) / 180;
     const sin = Math.sin(a), cos = Math.cos(a);
-    const x1 = CX + sin * 170, y1 = CY - cos * 170;
+    const x1 = CX + sin * 168, y1 = CY - cos * 168;
     const x2 = CX + sin * 184, y2 = CY - cos * 184;
-    return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="0.7" opacity="0.5"/>`;
+    return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="0.9" opacity="0.7"/>`;
   }).join("");
 
-  // 60 minute ticks (every 6°) — hairline, very subtle background rhythm
+  // 60 minute hairlines — very subtle background rhythm
   const minuteTicks = Array.from({ length: 60 }, (_, i) => {
     const deg = i * 6;
-    if (deg % 30 === 0) return ""; // skip where hour ticks already sit
+    if (deg % 30 === 0) return "";
     const a = (deg * Math.PI) / 180;
     const sin = Math.sin(a), cos = Math.cos(a);
-    const x1 = CX + sin * 178, y1 = CY - cos * 178;
+    const x1 = CX + sin * 176, y1 = CY - cos * 176;
     const x2 = CX + sin * 184, y2 = CY - cos * 184;
-    return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="0.4" opacity="0.28"/>`;
+    return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="0.5" opacity="0.35"/>`;
   }).join("");
 
-  // Intercardinal labels at radius 164 — smaller, sans-serif, set well inside
+  // Intercardinal labels at radius 164 — restrained, sit inside the cardinal ring
   const interLabels = [["NE", 45], ["SE", 135], ["SW", 225], ["NW", 315]].map(([label, deg]) => {
-    const p = polar(deg, 164);
-    return `<text x="${p.x.toFixed(2)}" y="${p.y.toFixed(2)}" text-anchor="middle" dominant-baseline="central" font-size="8" letter-spacing="1.6" opacity="0.55">${label}</text>`;
+    const p = polar(deg, 158);
+    return `<text x="${p.x.toFixed(2)}" y="${p.y.toFixed(2)}" text-anchor="middle" dominant-baseline="central" font-size="8.5" letter-spacing="1.6" opacity="0.45">${label}</text>`;
   }).join("");
 
   return `
@@ -350,9 +351,37 @@ function heroCompassIllustration() {
          role="img" aria-label="North Star compass illustration">
 
       <defs>
-        <!-- Subtle soft glow for the N letter — engraved/luminous feel -->
+        <!-- Navy face: top-lit refined navy with subtle depth -->
+        <radialGradient id="hc-face" cx="38%" cy="30%" r="80%">
+          <stop offset="0%"   stop-color="#3C507A"/>
+          <stop offset="55%"  stop-color="#2A3954"/>
+          <stop offset="100%" stop-color="#162033"/>
+        </radialGradient>
+
+        <!-- Muted antique gold gradient for the intercardinal X -->
+        <linearGradient id="hc-gold" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%"   stop-color="#D9A848"/>
+          <stop offset="55%"  stop-color="#B58535"/>
+          <stop offset="100%" stop-color="#7A581F"/>
+        </linearGradient>
+
+        <!-- Cream gradient for the cardinal cross — warm not stark -->
+        <linearGradient id="hc-cream" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%"   stop-color="#FFF8E0"/>
+          <stop offset="55%"  stop-color="#F4E9C5"/>
+          <stop offset="100%" stop-color="#D9C796"/>
+        </linearGradient>
+
+        <!-- Centre North Star jewel -->
+        <radialGradient id="hc-star" cx="40%" cy="35%" r="65%">
+          <stop offset="0%"   stop-color="#FFF8E0"/>
+          <stop offset="60%"  stop-color="#E8B547"/>
+          <stop offset="100%" stop-color="#7A581F"/>
+        </radialGradient>
+
+        <!-- Soft engraved glow for the N letter -->
         <filter id="hc-n-glow" x="-100%" y="-100%" width="300%" height="300%">
-          <feGaussianBlur stdDeviation="0.7" result="b"/>
+          <feGaussianBlur stdDeviation="0.9" result="b"/>
           <feMerge>
             <feMergeNode in="b"/>
             <feMergeNode in="SourceGraphic"/>
@@ -362,75 +391,84 @@ function heroCompassIllustration() {
 
       <!-- ────────── STATIC OUTER ────────── -->
       <g class="cmp-outer">
-        <!-- Outer hairline (chapter ring) -->
-        <circle cx="${CX}" cy="${CY}" r="190" fill="none" stroke="#1B2538" stroke-width="0.8" opacity="0.75"/>
-        <!-- Inner edge of the label band -->
-        <circle cx="${CX}" cy="${CY}" r="170" fill="none" stroke="#1B2538" stroke-width="0.5" opacity="0.35"/>
+        <!-- Navy face disc with a delicate gold rim -->
+        <circle cx="${CX}" cy="${CY}" r="190" fill="url(#hc-face)" stroke="#B58535" stroke-width="0.9" opacity="1"/>
 
-        <!-- Tick marks (60 minute + 8 hour positions) -->
-        <g class="cmp-ticks" stroke="#1B2538" stroke-linecap="round">
+        <!-- Inner gold detail ring -->
+        <circle cx="${CX}" cy="${CY}" r="168" fill="none" stroke="#B58535" stroke-width="0.5" opacity="0.55"/>
+
+        <!-- Inner guide ring just outside the rose -->
+        <circle cx="${CX}" cy="${CY}" r="118" fill="none" stroke="#F4E9C5" stroke-width="0.4" opacity="0.22"/>
+
+        <!-- Hour + minute ticks in cream -->
+        <g class="cmp-ticks" stroke="#F4E9C5" stroke-linecap="round">
           ${minuteTicks}
           ${hourTicks}
         </g>
 
-        <!-- Cardinal labels: N is the focal moment (serif, larger, soft glow) -->
-        <g class="cmp-card-labels" font-family="Fraunces, Georgia, serif" fill="#1B2538" font-weight="500">
-          <text x="${CX}" y="22" text-anchor="middle" dominant-baseline="central"
-                font-size="20" font-weight="500" letter-spacing="3.5"
+        <!-- Cardinal labels in cream; N is the dominant focal moment -->
+        <g class="cmp-card-labels" font-family="Fraunces, Georgia, serif" fill="#F4E9C5" font-weight="500">
+          <text x="${CX}" y="20" text-anchor="middle" dominant-baseline="central"
+                font-size="26" font-weight="600" letter-spacing="4"
                 filter="url(#hc-n-glow)" class="cmp-n">N</text>
           <text x="378" y="${CY}" text-anchor="middle" dominant-baseline="central"
-                font-size="13" letter-spacing="2.5" opacity="0.62">E</text>
+                font-size="12" letter-spacing="2.2" opacity="0.5">E</text>
           <text x="${CX}" y="378" text-anchor="middle" dominant-baseline="central"
-                font-size="13" letter-spacing="2.5" opacity="0.62">S</text>
+                font-size="12" letter-spacing="2.2" opacity="0.5">S</text>
           <text x="22" y="${CY}" text-anchor="middle" dominant-baseline="central"
-                font-size="13" letter-spacing="2.5" opacity="0.62">W</text>
+                font-size="12" letter-spacing="2.2" opacity="0.5">W</text>
         </g>
 
-        <!-- Intercardinal labels: smaller, sans-serif -->
-        <g class="cmp-inter-labels" font-family="Inter, system-ui, sans-serif" fill="#1B2538" font-weight="500">
+        <!-- Intercardinals: smaller, sans-serif, set inside cardinals -->
+        <g class="cmp-inter-labels" font-family="Inter, system-ui, sans-serif" fill="#F4E9C5" font-weight="500">
           ${interLabels}
         </g>
 
-        <!-- Inner guide ring just outside the rose -->
-        <circle cx="${CX}" cy="${CY}" r="118" fill="none" stroke="#1B2538" stroke-width="0.5" opacity="0.3"/>
-
-        <!-- Four small gold dots at the cardinal positions on the inner guide ring -->
-        <g fill="#C99936" opacity="0.78">
-          <circle cx="${CX}" cy="${CY - 118}" r="1.7"/>
-          <circle cx="${CX + 118}" cy="${CY}" r="1.7"/>
-          <circle cx="${CX}" cy="${CY + 118}" r="1.7"/>
-          <circle cx="${CX - 118}" cy="${CY}" r="1.7"/>
+        <!-- Four small muted-gold dots at the cardinal positions on the inner ring -->
+        <g fill="#D9A848" opacity="0.85">
+          <circle cx="${CX}" cy="${CY - 118}" r="1.9"/>
+          <circle cx="${CX + 118}" cy="${CY}" r="1.9"/>
+          <circle cx="${CX}" cy="${CY + 118}" r="1.9"/>
+          <circle cx="${CX - 118}" cy="${CY}" r="1.9"/>
         </g>
       </g>
 
-      <!-- ────────── ANIMATED COMPASS ROSE ────────── -->
+      <!-- ────────── ANIMATED INNER COMPASS (cross + X + centre star) ────────── -->
       <g class="cmp-rose">
-        <!-- North-point decorative diamond — sits at the tip of the north blade -->
-        <polygon points="${CX},80 ${CX + 4},90 ${CX},100 ${CX - 4},90"
-                 fill="#1B2538" opacity="0.95"/>
 
-        <!-- Cardinal cross blades (deep navy). North reaches further than E/S/W. -->
-        <g fill="#2A3954">
-          <polygon points="${blade(0,   100, 18, 5.5)}"/>
-          <polygon points="${blade(90,   92, 18, 5.5)}"/>
-          <polygon points="${blade(180,  92, 18, 5.5)}"/>
-          <polygon points="${blade(270,  92, 18, 5.5)}"/>
-        </g>
-
-        <!-- Intercardinal X blades — muted antique gold -->
-        <g fill="#C99936">
+        <!-- Intercardinal X blades — muted antique gold, sit underneath the cream cross -->
+        <g fill="url(#hc-gold)">
           <polygon points="${blade(45,  62, 13, 4)}"/>
           <polygon points="${blade(135, 62, 13, 4)}"/>
           <polygon points="${blade(225, 62, 13, 4)}"/>
           <polygon points="${blade(315, 62, 13, 4)}"/>
         </g>
 
-        <!-- A fine cream highlight ridge down the centre of the north blade -->
-        <line x1="${CX}" y1="100" x2="${CX}" y2="${CY}" stroke="#F4E9C5" stroke-width="0.6" opacity="0.55"/>
+        <!-- Cardinal cross blades — cream, N reaches slightly further -->
+        <g fill="url(#hc-cream)">
+          <polygon points="${blade(0,   102, 16, 5.5)}"/>
+          <polygon points="${blade(90,   94, 16, 5.5)}"/>
+          <polygon points="${blade(180,  94, 16, 5.5)}"/>
+          <polygon points="${blade(270,  94, 16, 5.5)}"/>
+        </g>
 
-        <!-- Centre pivot — small jewel-toned gold with a soft cream highlight dot -->
-        <circle cx="${CX}" cy="${CY}" r="5.5" fill="#E8B547" stroke="#8C6612" stroke-width="0.4"/>
-        <circle cx="${CX - 1.6}" cy="${CY - 1.6}" r="1.4" fill="#FFF8E0" opacity="0.85"/>
+        <!-- Fine warm ridge highlight down the centre of the north blade -->
+        <line x1="${CX}" y1="100" x2="${CX}" y2="${CY}"
+              stroke="#FFFCE5" stroke-width="0.7" opacity="0.6"/>
+
+        <!-- Centre NORTH STAR — the heart of the compass.
+              8-point gold star (two overlapping 4-point stars) with a tiny
+              cream highlight at the very centre. -->
+        <g class="cmp-centre-star">
+          <!-- Outer 4-point gold star (cardinal axes) -->
+          <polygon points="${CX},${CY - 13} ${CX + 3.2},${CY - 3.2} ${CX + 13},${CY} ${CX + 3.2},${CY + 3.2} ${CX},${CY + 13} ${CX - 3.2},${CY + 3.2} ${CX - 13},${CY} ${CX - 3.2},${CY - 3.2}"
+                   fill="url(#hc-star)" stroke="#7A581F" stroke-width="0.35"/>
+          <!-- Inner 4-point star rotated 45° for the 8-point look -->
+          <polygon points="${CX},${CY - 7} ${CX + 1.8},${CY - 1.8} ${CX + 7},${CY} ${CX + 1.8},${CY + 1.8} ${CX},${CY + 7} ${CX - 1.8},${CY + 1.8} ${CX - 7},${CY} ${CX - 1.8},${CY - 1.8}"
+                   fill="#FFF8E0" opacity="0.85" transform="rotate(45 ${CX} ${CY})"/>
+          <!-- Centre highlight dot -->
+          <circle cx="${CX}" cy="${CY}" r="1.2" fill="#FFFFFF" opacity="0.9"/>
+        </g>
       </g>
     </svg>
   `;

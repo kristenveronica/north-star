@@ -1170,17 +1170,22 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 
 .hero-compass-halo {
   position: absolute;
-  inset: 8%;
+  inset: -2%;
   z-index: 1;
   border-radius: 50%;
   background:
     radial-gradient(circle at 50% 50%,
-      rgba(244, 233, 197, 0.32) 0%,
-      rgba(232, 181, 71, 0.08) 38%,
-      rgba(232, 181, 71, 0.02) 62%,
-      transparent 80%);
+      rgba(244, 233, 197, 0.38) 0%,
+      rgba(217, 168, 72, 0.16) 32%,
+      rgba(217, 168, 72, 0.05) 58%,
+      transparent 78%);
   pointer-events: none;
-  animation: heroCompassHaloPulse 8s ease-in-out 2s infinite alternate;
+  /* One-off fade-in only — no continuous breathing animation */
+  opacity: 0;
+  animation: heroHaloFadeIn 1.6s ease-out 0.1s forwards;
+}
+@keyframes heroHaloFadeIn {
+  to { opacity: 1; }
 }
 
 .hero-compass-svg {
@@ -1191,51 +1196,55 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   height: auto;
 }
 
-/* The outer group never moves — labels, rings, ticks, gold accents */
-.hero-compass-svg .cmp-outer { /* locked: no transforms, no animations */ }
+/* The outer group is fully locked — no transforms, no animations.
+   Rings, ticks, labels, and gold accents never move. */
 
-/* The inner rose calibrates from -10° toward N, slight overshoot, settles. */
+/* The inner compass (cross + X + centre star) calibrates ONCE.
+   Multi-step oscillation as the rose finds true north, then settles still. */
 .hero-compass-svg .cmp-rose {
   transform-origin: 200px 200px;
-  animation: heroRoseCalibrate 3s cubic-bezier(.18, .7, .25, 1) both;
+  animation: heroRoseCalibrate 3.2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes heroRoseCalibrate {
   0%   { transform: rotate(-10deg); }
-  40%  { transform: rotate(-5deg); }
-  75%  { transform: rotate(1.8deg); }
+  25%  { transform: rotate(7deg); }
+  50%  { transform: rotate(-4deg); }
+  75%  { transform: rotate(2deg); }
   100% { transform: rotate(0deg); }
 }
 
-/* The N letter gets a subtle reveal pulse to feel like a North Star marker */
+/* ONE-OFF subtle finish after the rose settles (~3.4s in):
+     - the N quietly brightens to full opacity once
+     - the centre North Star gives one soft glow pulse
+   Both use `forwards` so they don't loop. */
 .hero-compass-svg .cmp-n {
-  opacity: 0;
-  animation: heroNReveal 1.4s cubic-bezier(.2, 1.5, .4, 1) 2.2s forwards,
-             heroNPulse 6s ease-in-out 4s infinite alternate;
-  transform-box: fill-box;
-  transform-origin: center;
+  fill-opacity: 0.82;
+  animation: heroNBrighten 1.4s ease-out 3.4s forwards;
 }
-@keyframes heroNReveal {
-  0%   { opacity: 0; }
-  100% { opacity: 1; }
-}
-@keyframes heroNPulse {
-  0%   { fill-opacity: 0.92; }
-  100% { fill-opacity: 1; }
+@keyframes heroNBrighten {
+  to { fill-opacity: 1; }
 }
 
-@keyframes heroCompassHaloPulse {
-  0%   { opacity: 0.7; transform: scale(0.99); }
-  100% { opacity: 1;   transform: scale(1.02); }
+.hero-compass-svg .cmp-centre-star {
+  transform-origin: 200px 200px;
+  animation: heroCentreStarGlow 1.6s ease-out 3.6s forwards;
+}
+@keyframes heroCentreStarGlow {
+  0%   { transform: scale(1); filter: drop-shadow(0 0 0 transparent); }
+  35%  { transform: scale(1.12); filter: drop-shadow(0 0 6px rgba(244, 233, 197, 0.7)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 0 transparent); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-compass-svg .cmp-rose,
   .hero-compass-svg .cmp-n,
+  .hero-compass-svg .cmp-centre-star,
   .hero-compass-halo {
     animation: none !important;
   }
   .hero-compass-svg .cmp-rose { transform: rotate(0deg) !important; }
-  .hero-compass-svg .cmp-n { opacity: 1 !important; }
+  .hero-compass-svg .cmp-n { fill-opacity: 1 !important; }
+  .hero-compass-halo { opacity: 1 !important; }
 }
 
 /* ----------------- Line icons -----------------
