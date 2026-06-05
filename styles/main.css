@@ -1146,109 +1146,96 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   position: relative;
 }
 /* ─────────────────────────────────────────────────────────────
-   Hero Compass — heirloom PNG, layered
+   Hero Compass — custom illustrated SVG
 
-   Two image layers, perfectly centred:
-     • .hero-compass-frame  the gold ring, cream band, letters, ticks,
-                            dotted navy face — STATIC. Never moves.
-     • .hero-compass-rose   the inner 8-point rose only — rotates once
-                            on load (calibration), then settles at N.
+   Editorial vector instrument that lives in the design system:
+     • Thin navy hairlines, restrained typography
+     • Muted antique gold accents only
+     • No realistic metal, no drop shadows, no chrome
+     • The OUTER group (rings / ticks / labels) is fully static
+     • Only the inner .cmp-rose group rotates on calibration
 
-   The rose's 'erased' area inside the frame is the dark navy face
-   colour, so the rose sits cleanly on top of the frame at any rotation
-   angle without revealing a hole.
-
-   Reduced motion: rose shown static at final rotation 0°.
+   The illustration uses inline SVG, so there's no separate fetch,
+   no image-decode glitch, and the marks scale crisply at any size.
    ───────────────────────────────────────────────────────────── */
 .hero-compass {
   position: relative;
   width: 100%;
-  max-width: 760px;            /* +40% from previous 680 (in 560-720 zone) */
+  max-width: 640px;
   margin-inline: auto;
   display: block;
   isolation: isolate;
-  aspect-ratio: 1536 / 1024;
-  /* Hidden until both layers have decoded — prevents the rose-arrives-first glitch */
-  opacity: 0;
-  transition: opacity 450ms ease-out;
+  aspect-ratio: 1;
 }
-.hero-compass.compass-ready { opacity: 1; }
 
-.hero-compass-frame {
+.hero-compass-halo {
+  position: absolute;
+  inset: 8%;
+  z-index: 1;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%,
+      rgba(244, 233, 197, 0.32) 0%,
+      rgba(232, 181, 71, 0.08) 38%,
+      rgba(232, 181, 71, 0.02) 62%,
+      transparent 80%);
+  pointer-events: none;
+  animation: heroCompassHaloPulse 8s ease-in-out 2s infinite alternate;
+}
+
+.hero-compass-svg {
   position: relative;
   z-index: 2;
   display: block;
   width: 100%;
   height: auto;
-  filter: drop-shadow(0 30px 38px rgba(60, 40, 12, 0.28))
-          drop-shadow(0 8px 16px rgba(60, 40, 12, 0.14));
-  /* Frame is locked: no animation, no transform. */
 }
 
-.hero-compass-rose {
-  position: absolute;
-  z-index: 3;
-  /* Rose canvas is 464×464 within the 1536×1024 frame, centred on
-     image centre. Width: 464/1536 ≈ 30.21%. */
-  width: 30.21%;
-  height: auto;
-  top: 50%;
-  left: 50%;
-  transform-origin: 50% 50%;
-  /* Initial state — rose holds at -16° until parent gets .compass-ready */
-  transform: translate(-50%, -50%) rotate(-16deg);
-}
-.hero-compass.compass-ready .hero-compass-rose {
-  /* Calibration only starts once both images are fully decoded */
-  animation: heroRoseCalibrate 3.2s cubic-bezier(.16, .68, .25, 1) both;
-}
+/* The outer group never moves — labels, rings, ticks, gold accents */
+.hero-compass-svg .cmp-outer { /* locked: no transforms, no animations */ }
 
-.hero-compass-halo {
-  position: absolute;
-  /* Halo is sized relative to the frame's circular body. The frame
-     image is 1536×1024 with the compass disc centred and ~1024 high
-     (66.7% of width). We size the halo to roughly the disc and centre. */
-  width: 75%;
-  aspect-ratio: 1;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1;
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%,
-      rgba(244, 233, 197, 0.36) 0%,
-      rgba(232, 181, 71, 0.10) 35%,
-      rgba(232, 181, 71, 0.02) 60%,
-      transparent 78%);
-  pointer-events: none;
-  animation: heroCompassHaloPulse 6s ease-in-out 3.2s infinite alternate;
+/* The inner rose calibrates from -10° toward N, slight overshoot, settles. */
+.hero-compass-svg .cmp-rose {
+  transform-origin: 200px 200px;
+  animation: heroRoseCalibrate 3s cubic-bezier(.18, .7, .25, 1) both;
 }
-
-/* Calibration on the INNER ROSE ONLY.
-   Starts rotated -16°, swings toward N, slightly overshoots, settles to 0°.
-   The base translate keeps the rose perfectly centred at every keyframe. */
 @keyframes heroRoseCalibrate {
-  0%   { transform: translate(-50%, -50%) rotate(-16deg); }
-  35%  { transform: translate(-50%, -50%) rotate(-9deg); }
-  72%  { transform: translate(-50%, -50%) rotate(2.5deg); }
-  100% { transform: translate(-50%, -50%) rotate(0deg); }
+  0%   { transform: rotate(-10deg); }
+  40%  { transform: rotate(-5deg); }
+  75%  { transform: rotate(1.8deg); }
+  100% { transform: rotate(0deg); }
 }
 
-/* Subtle halo breathing. No movement of the whole compass. */
+/* The N letter gets a subtle reveal pulse to feel like a North Star marker */
+.hero-compass-svg .cmp-n {
+  opacity: 0;
+  animation: heroNReveal 1.4s cubic-bezier(.2, 1.5, .4, 1) 2.2s forwards,
+             heroNPulse 6s ease-in-out 4s infinite alternate;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes heroNReveal {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes heroNPulse {
+  0%   { fill-opacity: 0.92; }
+  100% { fill-opacity: 1; }
+}
+
 @keyframes heroCompassHaloPulse {
-  0%   { opacity: 0.7; transform: translate(-50%, -50%) scale(0.99); }
-  100% { opacity: 1;   transform: translate(-50%, -50%) scale(1.02); }
+  0%   { opacity: 0.7; transform: scale(0.99); }
+  100% { opacity: 1;   transform: scale(1.02); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-compass { transition: none !important; opacity: 1 !important; }
-  .hero-compass-rose,
+  .hero-compass-svg .cmp-rose,
+  .hero-compass-svg .cmp-n,
   .hero-compass-halo {
     animation: none !important;
   }
-  .hero-compass-rose { transform: translate(-50%, -50%) rotate(0deg) !important; }
-  .hero-compass-halo { transform: translate(-50%, -50%) !important; }
+  .hero-compass-svg .cmp-rose { transform: rotate(0deg) !important; }
+  .hero-compass-svg .cmp-n { opacity: 1 !important; }
 }
 
 /* ----------------- Line icons -----------------
@@ -1785,7 +1772,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   }
   .hero::before { right: -30%; width: 130%; opacity: 0.5; }
   .hero::after { display: none; }
-  .hero-art { order: -1; max-width: 540px; margin: 0 auto; width: 100%; }
+  .hero-art { order: -1; max-width: 420px; margin: 0 auto; width: 100%; }
   .hero-compass { max-width: 100%; }
   .hero h1 { font-size: clamp(28px, 6vw, 36px); margin-bottom: 14px; }
   .hero .lede { font-size: 16px; max-width: 100%; margin-bottom: 22px; }
@@ -1807,7 +1794,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .public-brand .name { font-size: 18px; }
   .public-brand .sub { font-size: 10px; }
   .public-main { padding: 0 18px 36px; }
-  .hero-art { max-width: 460px; }
+  .hero-art { max-width: 360px; }
   .core-quote { font-size: 20px; padding-left: 18px; }
   .philosophy-line { font-size: 20px; }
   .philosophy-line.muted { font-size: 16.5px; }

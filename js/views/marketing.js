@@ -132,18 +132,7 @@ export function renderHome(container) {
       <div class="hero-art">
         <div class="hero-compass">
           <span class="hero-compass-halo" aria-hidden="true"></span>
-          <img class="hero-compass-frame"
-               src="assets/images/hero-compass-frame.png"
-               alt="Antique compass representing North Star Family Learning"
-               width="1536" height="1024"
-               loading="eager" decoding="async"
-               fetchpriority="high"/>
-          <img class="hero-compass-rose"
-               src="assets/images/hero-compass-rose.png"
-               alt=""
-               aria-hidden="true"
-               width="464" height="464"
-               loading="eager" decoding="async"/>
+          ${heroCompassIllustration()}
         </div>
       </div>
     </section>
@@ -290,29 +279,162 @@ export function renderHome(container) {
     </div>
   `;
 
-  // Coordinate the compass load: hide both layers until BOTH have decoded,
-  // then reveal them together and start the calibration animation.
-  const compass = container.querySelector(".hero-compass");
-  if (compass) {
-    const frame = compass.querySelector(".hero-compass-frame");
-    const rose  = compass.querySelector(".hero-compass-rose");
-    if (frame && rose) {
-      const ready = (img) =>
-        (img.complete && img.naturalWidth > 0)
-          ? Promise.resolve()
-          : (img.decode ? img.decode().catch(() => {}) : new Promise(r => {
-              img.addEventListener("load", r, { once: true });
-              img.addEventListener("error", r, { once: true });
-            }));
-      Promise.all([ready(frame), ready(rose)]).then(() => {
-        requestAnimationFrame(() => compass.classList.add("compass-ready"));
-      });
-      // Safety net in case decode hangs on a slow connection
-      setTimeout(() => compass.classList.add("compass-ready"), 2500);
-    }
-  }
 }
 
+/* ============================================================
+   HERO COMPASS — Custom illustrated SVG for the North Star brand.
+
+   Flat, vector, editorial. Designed to feel like a luxury watch
+   face on warm paper: thin navy hairlines, restrained typography,
+   muted antique gold accents. Two concentric guide rings frame
+   the cardinal label band; 12 hour-position tick marks set the
+   rhythm; an 8-point compass rose sits at the centre as the
+   only animated element (calibration).
+
+   viewBox 0–400, every element centred on (200, 200).
+   ============================================================ */
+function heroCompassIllustration() {
+  const CX = 200, CY = 200;
+
+  // Blade kite (tip → shoulder → centre → shoulder), absolute coords.
+  const blade = (deg, length, shoulder, halfWidth) => {
+    const a = (deg * Math.PI) / 180;
+    const dx = Math.sin(a), dy = -Math.cos(a);
+    const px = Math.cos(a), py = Math.sin(a);
+    const tipX = CX + dx * length, tipY = CY + dy * length;
+    const sx = CX + dx * shoulder, sy = CY + dy * shoulder;
+    return [
+      `${tipX.toFixed(2)},${tipY.toFixed(2)}`,
+      `${(sx + px * halfWidth).toFixed(2)},${(sy + py * halfWidth).toFixed(2)}`,
+      `${CX},${CY}`,
+      `${(sx - px * halfWidth).toFixed(2)},${(sy - py * halfWidth).toFixed(2)}`,
+    ].join(" ");
+  };
+
+  // Polar label position helper
+  const polar = (deg, r) => {
+    const a = (deg * Math.PI) / 180;
+    return { x: CX + Math.sin(a) * r, y: CY - Math.cos(a) * r };
+  };
+
+  // 12 hour-position tick marks (every 30°), skipping the 4 cardinals
+  // where the labels sit. Watch-face rhythm without clutter.
+  const hourTicks = [30, 60, 120, 150, 210, 240, 300, 330].map(deg => {
+    const a = (deg * Math.PI) / 180;
+    const sin = Math.sin(a), cos = Math.cos(a);
+    const x1 = CX + sin * 170, y1 = CY - cos * 170;
+    const x2 = CX + sin * 184, y2 = CY - cos * 184;
+    return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="0.7" opacity="0.5"/>`;
+  }).join("");
+
+  // 60 minute ticks (every 6°) — hairline, very subtle background rhythm
+  const minuteTicks = Array.from({ length: 60 }, (_, i) => {
+    const deg = i * 6;
+    if (deg % 30 === 0) return ""; // skip where hour ticks already sit
+    const a = (deg * Math.PI) / 180;
+    const sin = Math.sin(a), cos = Math.cos(a);
+    const x1 = CX + sin * 178, y1 = CY - cos * 178;
+    const x2 = CX + sin * 184, y2 = CY - cos * 184;
+    return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke-width="0.4" opacity="0.28"/>`;
+  }).join("");
+
+  // Intercardinal labels at radius 164 — smaller, sans-serif, set well inside
+  const interLabels = [["NE", 45], ["SE", 135], ["SW", 225], ["NW", 315]].map(([label, deg]) => {
+    const p = polar(deg, 164);
+    return `<text x="${p.x.toFixed(2)}" y="${p.y.toFixed(2)}" text-anchor="middle" dominant-baseline="central" font-size="8" letter-spacing="1.6" opacity="0.55">${label}</text>`;
+  }).join("");
+
+  return `
+    <svg class="hero-compass-svg" viewBox="0 0 400 400"
+         xmlns="http://www.w3.org/2000/svg"
+         role="img" aria-label="North Star compass illustration">
+
+      <defs>
+        <!-- Subtle soft glow for the N letter — engraved/luminous feel -->
+        <filter id="hc-n-glow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="0.7" result="b"/>
+          <feMerge>
+            <feMergeNode in="b"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+
+      <!-- ────────── STATIC OUTER ────────── -->
+      <g class="cmp-outer">
+        <!-- Outer hairline (chapter ring) -->
+        <circle cx="${CX}" cy="${CY}" r="190" fill="none" stroke="#1B2538" stroke-width="0.8" opacity="0.75"/>
+        <!-- Inner edge of the label band -->
+        <circle cx="${CX}" cy="${CY}" r="170" fill="none" stroke="#1B2538" stroke-width="0.5" opacity="0.35"/>
+
+        <!-- Tick marks (60 minute + 8 hour positions) -->
+        <g class="cmp-ticks" stroke="#1B2538" stroke-linecap="round">
+          ${minuteTicks}
+          ${hourTicks}
+        </g>
+
+        <!-- Cardinal labels: N is the focal moment (serif, larger, soft glow) -->
+        <g class="cmp-card-labels" font-family="Fraunces, Georgia, serif" fill="#1B2538" font-weight="500">
+          <text x="${CX}" y="22" text-anchor="middle" dominant-baseline="central"
+                font-size="20" font-weight="500" letter-spacing="3.5"
+                filter="url(#hc-n-glow)" class="cmp-n">N</text>
+          <text x="378" y="${CY}" text-anchor="middle" dominant-baseline="central"
+                font-size="13" letter-spacing="2.5" opacity="0.62">E</text>
+          <text x="${CX}" y="378" text-anchor="middle" dominant-baseline="central"
+                font-size="13" letter-spacing="2.5" opacity="0.62">S</text>
+          <text x="22" y="${CY}" text-anchor="middle" dominant-baseline="central"
+                font-size="13" letter-spacing="2.5" opacity="0.62">W</text>
+        </g>
+
+        <!-- Intercardinal labels: smaller, sans-serif -->
+        <g class="cmp-inter-labels" font-family="Inter, system-ui, sans-serif" fill="#1B2538" font-weight="500">
+          ${interLabels}
+        </g>
+
+        <!-- Inner guide ring just outside the rose -->
+        <circle cx="${CX}" cy="${CY}" r="118" fill="none" stroke="#1B2538" stroke-width="0.5" opacity="0.3"/>
+
+        <!-- Four small gold dots at the cardinal positions on the inner guide ring -->
+        <g fill="#C99936" opacity="0.78">
+          <circle cx="${CX}" cy="${CY - 118}" r="1.7"/>
+          <circle cx="${CX + 118}" cy="${CY}" r="1.7"/>
+          <circle cx="${CX}" cy="${CY + 118}" r="1.7"/>
+          <circle cx="${CX - 118}" cy="${CY}" r="1.7"/>
+        </g>
+      </g>
+
+      <!-- ────────── ANIMATED COMPASS ROSE ────────── -->
+      <g class="cmp-rose">
+        <!-- North-point decorative diamond — sits at the tip of the north blade -->
+        <polygon points="${CX},80 ${CX + 4},90 ${CX},100 ${CX - 4},90"
+                 fill="#1B2538" opacity="0.95"/>
+
+        <!-- Cardinal cross blades (deep navy). North reaches further than E/S/W. -->
+        <g fill="#2A3954">
+          <polygon points="${blade(0,   100, 18, 5.5)}"/>
+          <polygon points="${blade(90,   92, 18, 5.5)}"/>
+          <polygon points="${blade(180,  92, 18, 5.5)}"/>
+          <polygon points="${blade(270,  92, 18, 5.5)}"/>
+        </g>
+
+        <!-- Intercardinal X blades — muted antique gold -->
+        <g fill="#C99936">
+          <polygon points="${blade(45,  62, 13, 4)}"/>
+          <polygon points="${blade(135, 62, 13, 4)}"/>
+          <polygon points="${blade(225, 62, 13, 4)}"/>
+          <polygon points="${blade(315, 62, 13, 4)}"/>
+        </g>
+
+        <!-- A fine cream highlight ridge down the centre of the north blade -->
+        <line x1="${CX}" y1="100" x2="${CX}" y2="${CY}" stroke="#F4E9C5" stroke-width="0.6" opacity="0.55"/>
+
+        <!-- Centre pivot — small jewel-toned gold with a soft cream highlight dot -->
+        <circle cx="${CX}" cy="${CY}" r="5.5" fill="#E8B547" stroke="#8C6612" stroke-width="0.4"/>
+        <circle cx="${CX - 1.6}" cy="${CY - 1.6}" r="1.4" fill="#FFF8E0" opacity="0.85"/>
+      </g>
+    </svg>
+  `;
+}
 
 
 /* ============================================================
