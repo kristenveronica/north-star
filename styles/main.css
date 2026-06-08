@@ -1844,6 +1844,487 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .cta-strip p { color: rgba(244, 233, 197, 0.85); max-width: 600px; margin: 0 auto 22px; font-size: 17px; }
 
 /* ============================================================
+   HOMEPAGE — North Star locked-copy editorial layout
+   A premium, family-centred narrative. Serif for the emotional
+   headings, sans for body. Generous spacing, strong hierarchy.
+   ============================================================ */
+
+/* ───── 1. Hero ───── */
+.ns-hero { padding-bottom: 40px; }
+.ns-hero-lead .hero-eyebrow { margin-bottom: 26px; }
+.ns-hero h1 {
+  font-size: clamp(34px, 4.6vw, 56px);
+  font-weight: 500;
+  line-height: 1.04;
+  margin-bottom: 24px;
+}
+.ns-hero-age {
+  font-family: var(--font-serif);
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--gold-ink);
+  margin-bottom: 10px;
+}
+.ns-hero-sub {
+  font-size: 18px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  max-width: 440px;
+  margin-bottom: 30px;
+}
+
+/* ───── 1b. Hero continuation — the invitation ───── */
+.ns-invitation {
+  border-top: none;
+  padding-top: 8px;
+  max-width: 880px;
+  margin: 0 auto;
+  text-align: center;
+}
+.ns-questions { margin-bottom: 38px; }
+.ns-questions p {
+  font-family: var(--font-serif);
+  font-size: clamp(20px, 2.3vw, 27px);
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: var(--text);
+  margin: 12px 0;
+}
+
+.ns-prompts {
+  list-style: none; padding: 0; margin: 0 0 44px;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 12px;
+}
+.ns-prompts li {
+  display: inline-flex; align-items: baseline; gap: 2px;
+  padding: 11px 22px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  font-family: var(--font-serif);
+  font-size: 18px; font-weight: 500;
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.ns-prompts li:hover {
+  transform: translateY(-2px);
+  border-color: var(--gold);
+  box-shadow: var(--shadow-md);
+}
+.ns-prompts li i { font-style: normal; color: var(--gold); font-weight: 600; }
+
+.ns-turn { margin: 0 auto 30px; max-width: 660px; }
+.ns-turn p {
+  font-size: 18px; line-height: 1.55; color: var(--text-muted);
+  margin: 8px 0;
+}
+.ns-turn-accent {
+  font-family: var(--font-serif);
+  font-size: clamp(24px, 2.8vw, 32px) !important;
+  font-weight: 500;
+  color: var(--text) !important;
+  letter-spacing: -0.015em;
+  margin-top: 18px !important;
+}
+.ns-lead-para {
+  font-size: 17.5px; line-height: 1.62; color: var(--text);
+  max-width: 680px; margin: 0 auto 40px;
+}
+
+/* Highlighted destination callout — the emotional anchor of the hero */
+.destination-callout {
+  position: relative;
+  margin: 0 auto;
+  max-width: 720px;
+  padding: 40px 44px;
+  border-radius: var(--r-xl);
+  background:
+    radial-gradient(ellipse at 85% 12%, rgba(232, 181, 71, 0.16) 0%, transparent 50%),
+    linear-gradient(140deg, var(--midnight-deep) 0%, var(--midnight) 55%, #3A4C72 100%);
+  box-shadow:
+    0 36px 70px -32px rgba(15, 22, 38, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.destination-callout-star {
+  display: inline-grid; place-items: center;
+  width: 44px; height: 44px; margin: 0 auto 18px;
+  border-radius: 50%;
+  background: rgba(244, 233, 197, 0.10);
+  border: 1px solid rgba(244, 233, 197, 0.28);
+  color: var(--starlight);
+}
+.destination-callout blockquote {
+  margin: 0; display: grid; gap: 10px;
+}
+.destination-callout blockquote span {
+  font-family: var(--font-serif);
+  letter-spacing: -0.015em;
+  line-height: 1.28;
+}
+.destination-callout .muted {
+  font-size: clamp(19px, 2.2vw, 24px);
+  font-weight: 400;
+  color: rgba(244, 233, 197, 0.72);
+}
+.destination-callout .lead {
+  font-size: clamp(26px, 3.2vw, 38px);
+  font-weight: 500;
+  color: var(--starlight);
+}
+
+/* ───── 2. The Big Idea ───── */
+.ns-bigidea { margin-top: 10px; }
+.ns-bigidea-pair {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  margin: 10px 0 40px;
+}
+@media (max-width: 760px) { .ns-bigidea-pair { grid-template-columns: 1fr; } }
+.ns-bigidea-card {
+  border-radius: var(--r-xl);
+  padding: 30px 32px;
+  border: 1px solid var(--border);
+}
+.ns-bigidea-card.them { background: #F4ECDC; border-style: dashed; border-color: var(--border-strong); }
+.ns-bigidea-card.us {
+  background: linear-gradient(140deg, var(--midnight-deep) 0%, var(--midnight) 100%);
+  border-color: transparent;
+  box-shadow: 0 30px 60px -32px rgba(15, 22, 38, 0.5);
+}
+.ns-bigidea-intro {
+  font-size: 14.5px; line-height: 1.45; margin: 0 0 14px;
+}
+.ns-bigidea-card.them .ns-bigidea-intro { color: var(--text-muted); }
+.ns-bigidea-card.us .ns-bigidea-intro { color: rgba(244, 233, 197, 0.7); }
+.ns-bigidea-q {
+  font-family: var(--font-serif);
+  font-size: clamp(20px, 2.3vw, 26px);
+  line-height: 1.3; font-weight: 500;
+  letter-spacing: -0.012em; margin: 0;
+}
+.ns-bigidea-card.them .ns-bigidea-q { color: var(--text-muted); }
+.ns-bigidea-card.us .ns-bigidea-q { color: var(--starlight); }
+
+.ns-bigidea-lead {
+  font-family: var(--font-serif);
+  font-size: clamp(20px, 2.2vw, 25px);
+  font-weight: 500; color: var(--text);
+  margin: 0 0 22px; letter-spacing: -0.012em;
+}
+.ns-future-list {
+  list-style: none; padding: 0; margin: 0 0 34px;
+  display: grid; gap: 0;
+  max-width: 760px;
+}
+.ns-future-list li {
+  position: relative;
+  padding: 18px 0 18px 36px;
+  border-bottom: 1px solid var(--divider);
+  font-size: 17px; line-height: 1.5; color: var(--text);
+}
+.ns-future-list li:last-child { border-bottom: none; }
+.ns-future-list li::before {
+  content: "✦";
+  position: absolute; left: 4px; top: 18px;
+  color: var(--gold); font-size: 14px;
+}
+.ns-bigidea-close {
+  font-size: 18px; line-height: 1.5; color: var(--text-muted);
+  margin: 6px 0;
+}
+.ns-bigidea-close.strong {
+  font-family: var(--font-serif);
+  font-size: clamp(21px, 2.4vw, 27px);
+  font-weight: 500; color: var(--text);
+  letter-spacing: -0.013em; margin-top: 10px;
+}
+
+/* ───── 3. Education Designed Around A Destination ───── */
+.ns-destination-head { max-width: 780px; margin-bottom: 36px; }
+.ns-destination-head .philosophy-line { margin: 10px 0; }
+.ns-destination-sub {
+  font-size: 18px; line-height: 1.6; color: var(--text-muted);
+  margin-top: 18px; max-width: 680px;
+}
+.experience-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+  margin: 8px 0 34px;
+}
+@media (max-width: 900px) { .experience-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px) { .experience-grid { grid-template-columns: repeat(2, 1fr); } }
+.experience-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.experience-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--midnight);
+  box-shadow: var(--shadow-md);
+}
+.experience-label {
+  font-family: var(--font-serif);
+  font-size: 16px; font-weight: 500; line-height: 1.2;
+  letter-spacing: -0.008em; color: var(--text);
+}
+.ns-destination-foot {
+  font-size: 18px; line-height: 1.6; color: var(--text);
+  max-width: 720px; font-weight: 500;
+}
+
+/* ───── 4. More Than A Curriculum ───── */
+.ns-operating .section-eyebrow { color: var(--midnight); opacity: 0.78; }
+.ns-operating-line {
+  font-size: clamp(18px, 2vw, 22px);
+  line-height: 1.55; color: var(--text);
+  max-width: 760px; margin: 8px 0 22px;
+}
+.ns-operating-line b {
+  font-weight: 600; color: var(--gold-ink);
+}
+.ns-operating-outcomes { margin-top: 26px; }
+.ns-operating-outcomes p {
+  font-family: var(--font-serif);
+  font-size: clamp(19px, 2.1vw, 24px);
+  line-height: 1.35; font-weight: 500;
+  letter-spacing: -0.012em; color: var(--text);
+  margin: 8px 0;
+}
+
+/* ───── 5. Imagine Looking Back (dark) ───── */
+.ns-imagine { padding: 56px 52px; }
+.ns-imagine .lede { max-width: 640px; }
+.knows-list {
+  list-style: none; padding: 0;
+  margin: 32px 0 8px;
+  display: grid; gap: 2px;
+  max-width: 720px;
+}
+.knows-list li {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 15px 4px;
+  border-bottom: 1px solid rgba(244, 233, 197, 0.12);
+  font-family: var(--font-serif);
+  font-size: clamp(18px, 2.1vw, 23px);
+  font-weight: 400; line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--starlight);
+}
+.knows-list li:last-child { border-bottom: none; }
+.knows-star {
+  display: inline-grid; place-items: center;
+  flex-shrink: 0; margin-top: 4px;
+  color: var(--gold);
+  opacity: 0.9;
+}
+.ns-imagine-close { margin-top: 28px; }
+.ns-imagine-close p {
+  font-size: 18px; line-height: 1.5;
+  color: rgba(244, 233, 197, 0.82);
+  margin: 6px 0;
+}
+.ns-imagine-close .strong {
+  font-family: var(--font-serif);
+  font-size: clamp(22px, 2.5vw, 28px);
+  font-weight: 500; color: var(--starlight);
+  letter-spacing: -0.014em;
+}
+.ns-imagine-final {
+  font-family: var(--font-serif);
+  font-size: clamp(19px, 2.1vw, 23px) !important;
+  font-style: italic;
+  color: var(--starlight) !important;
+  margin-top: 18px !important;
+  padding-top: 18px;
+  border-top: 1px solid rgba(244, 233, 197, 0.14);
+  max-width: 640px;
+}
+
+/* ───── 6. Every Family Needs A North Star — ship / coordinates ───── */
+.coordinates-panel {
+  position: relative;
+  margin-top: 24px;
+  border-radius: var(--r-xl);
+  padding: 52px 56px;
+  background:
+    radial-gradient(ellipse at 90% 10%, rgba(232, 181, 71, 0.12) 0%, transparent 50%),
+    linear-gradient(140deg, var(--midnight-deep) 0%, var(--midnight) 55%, #34456A 100%);
+  box-shadow: 0 36px 80px -34px rgba(15, 22, 38, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+.coordinates-bg {
+  position: absolute;
+  right: -90px; top: 50%; transform: translateY(-50%);
+  width: 420px; max-width: 50%;
+  opacity: 0.14;
+  pointer-events: none;
+  filter: saturate(0.7);
+}
+.coordinates-bg .hero-compass-halo { display: none; }
+.coordinates-bg .hero-compass { max-width: 420px; }
+.coordinates-body { position: relative; z-index: 1; max-width: 640px; }
+.coordinates-lead {
+  font-family: var(--font-serif);
+  font-size: clamp(21px, 2.5vw, 28px);
+  font-weight: 500; line-height: 1.32;
+  letter-spacing: -0.014em; color: var(--starlight);
+  margin: 0 0 24px;
+}
+.coordinates-detours {
+  display: flex; flex-wrap: wrap; gap: 10px 22px;
+  margin: 0 0 22px; padding-left: 18px;
+  border-left: 2px solid rgba(244, 233, 197, 0.3);
+}
+.coordinates-detours p {
+  margin: 0; font-size: 17px;
+  color: rgba(244, 233, 197, 0.72); font-style: italic;
+}
+.coordinates-line {
+  font-size: 17.5px; line-height: 1.62;
+  color: rgba(244, 233, 197, 0.9);
+  margin: 0 0 16px; max-width: 600px;
+}
+.coordinates-line:last-child { margin-bottom: 0; }
+
+/* ───── Final CTA ───── */
+.ns-final-cta h2 { font-size: clamp(32px, 4vw, 44px); margin-bottom: 8px; }
+.ns-final-cta p {
+  font-family: var(--font-serif);
+  font-size: clamp(19px, 2.2vw, 24px);
+  font-style: italic;
+  margin-bottom: 26px;
+}
+
+@media (max-width: 760px) {
+  .ns-imagine, .coordinates-panel, .destination-callout { padding-left: 28px; padding-right: 28px; }
+  .coordinates-bg { display: none; }
+}
+
+/* Two-column variant for the future / things lists */
+.ns-future-list.cols-2 {
+  grid-template-columns: 1fr 1fr;
+  column-gap: 40px;
+}
+@media (max-width: 680px) { .ns-future-list.cols-2 { grid-template-columns: 1fr; column-gap: 0; } }
+
+/* ============================================================
+   ABOUT PAGE — founders' story, same editorial system
+   ============================================================ */
+.about-hero { padding-bottom: 30px; }
+.about-hero h1 { font-size: clamp(32px, 4.2vw, 50px); }
+.about-intro { margin-top: 22px; max-width: 480px; }
+.about-intro p {
+  font-size: 16.5px; line-height: 1.5; color: var(--text-muted);
+  margin: 9px 0;
+}
+.about-intro p:last-child {
+  font-family: var(--font-serif);
+  font-size: clamp(18px, 2vw, 22px);
+  font-weight: 500; color: var(--text);
+  letter-spacing: -0.012em; margin-top: 16px;
+}
+
+/* "Some offered structure…" puzzle pieces */
+.about-puzzle {
+  display: flex; flex-wrap: wrap; gap: 12px; margin-top: 22px;
+}
+.about-puzzle-piece {
+  padding: 13px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  font-size: 15.5px; color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s ease, border-color 0.18s ease;
+}
+.about-puzzle-piece:hover { transform: translateY(-2px); border-color: var(--midnight); }
+
+/* Short aside lines (For children. For parents.) */
+.about-aside {
+  font-size: 17px; line-height: 1.55; color: var(--text-muted);
+  margin: 6px 0 18px; max-width: 680px;
+}
+
+/* Children need / Parents need columns */
+.about-cols {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  margin-top: 24px;
+}
+@media (max-width: 760px) { .about-cols { grid-template-columns: 1fr; } }
+.about-col-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-xl); padding: 30px 32px;
+  box-shadow: var(--shadow-sm);
+}
+.about-col-card h3 {
+  font-family: var(--font-serif); font-size: 21px; font-weight: 500;
+  margin-bottom: 12px; letter-spacing: -0.01em;
+}
+.about-col-card p {
+  font-size: 16.5px; line-height: 1.5; color: var(--text-muted);
+  margin: 7px 0;
+}
+.about-col-card p:first-of-type { color: var(--text); font-weight: 500; }
+
+/* destination-callout closing line (About variant) */
+.destination-callout-foot {
+  position: relative; z-index: 1;
+  margin: 20px 0 0; text-align: center;
+  font-size: 16px; color: rgba(244, 233, 197, 0.8);
+  font-style: italic;
+}
+
+/* "Learn through what they love" examples */
+.about-examples {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  margin: 26px 0 8px;
+}
+@media (max-width: 860px) { .about-examples { grid-template-columns: 1fr; } }
+.about-example-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-xl); padding: 28px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.about-example-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.about-example-card p {
+  font-size: 16px; line-height: 1.55; color: var(--text); margin: 0;
+}
+
+/* The goal isn't / The goal is */
+.about-goal {
+  margin-top: 30px; padding: 28px 32px;
+  border-left: 3px solid var(--gold);
+  background: linear-gradient(135deg, rgba(244, 233, 197, 0.18), transparent 80%);
+  border-radius: 0 var(--r-lg) var(--r-lg) 0;
+}
+.about-goal .muted {
+  font-size: 17px; color: var(--text-muted); margin: 0 0 8px;
+}
+.about-goal .lead {
+  font-family: var(--font-serif);
+  font-size: clamp(21px, 2.4vw, 27px);
+  font-weight: 500; color: var(--text);
+  letter-spacing: -0.014em; margin: 0;
+}
+
+/* Our Hope — welcome flourish */
+.about-hope .knows-list { margin-top: 30px; }
+.about-welcome {
+  font-family: var(--font-serif);
+  font-size: clamp(26px, 3vw, 36px);
+  font-weight: 500; color: var(--starlight);
+  letter-spacing: -0.015em;
+  margin-top: 36px; padding-top: 28px;
+  border-top: 1px solid rgba(244, 233, 197, 0.16);
+}
+
+/* ============================================================
    Learning Guild — tabs, cards, timeline
    ============================================================ */
 .guild-tabs {
