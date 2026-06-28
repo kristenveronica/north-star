@@ -44,17 +44,12 @@ export function renderDashboard(container) {
       </div>
     ` : ""}
 
-    <div class="card mb-3" style="background:linear-gradient(135deg,#2C3D5E 0%,#1B2335 100%);border:none;color:#F4ECD8;padding:34px 32px">
-      <div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:12px">Our Family Vision</div>
-      ${family.mission
-        ? `<p style="font-family:var(--font-serif);font-size:23px;line-height:1.5;color:#FBF6EE;margin:0;max-width:780px">${esc(family.mission)}</p>`
-        : `<p style="color:#E8DEC9;margin:0">Define who your family is becoming in <a href="#/vision" style="color:#F5D9A8;text-decoration:underline">Family North Star</a>.</p>`}
-      ${family.motto ? `
-        <div style="height:1px;background:rgba(255,255,255,0.14);margin:24px 0"></div>
-        <div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:8px">Family Credo</div>
-        <p style="font-family:var(--font-serif);font-style:italic;font-size:19px;line-height:1.4;color:#F4ECD8;margin:0">${esc(family.motto)}</p>
-      ` : ""}
-    </div>
+    ${family.motto || family.mission ? `
+      <div class="row-between mb-3" style="padding:2px 6px;flex-wrap:wrap;gap:8px;align-items:baseline">
+        <p style="font-family:var(--font-serif);font-style:italic;font-size:16px;color:var(--text-muted);margin:0">${esc(family.motto || "Your family's North Star.")}</p>
+        <a href="#/vision" class="small text-muted" style="white-space:nowrap">Your Family Vision →</a>
+      </div>
+    ` : ""}
 
     <div class="grid grid-auto mb-3">
       ${s.children.map(c => childStatCard(c)).join("")}

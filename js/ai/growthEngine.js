@@ -423,14 +423,15 @@ function inferThemes(text) {
 
 function analyseVisionAlignment(ctx) {
   const { family, child, projects } = ctx;
-  const outcomes = family?.desiredOutcomes || [];
-  // Also pull from acronym meanings and "values" in vision
-  const extraOutcomes = [];
-  (family?.acronym || []).forEach(a => a.meaning && extraOutcomes.push(a.meaning));
-  if (family?.vision?.values) extraOutcomes.push(family.vision.values);
+  // Reflect against the family's OWN defined identity — the Core Word's letter
+  // meanings (their named values), the Family Credo and any stated values —
+  // not a separate "desired outcomes" list and never against grade levels.
+  const allOutcomes = [];
+  (family?.acronym || []).forEach(a => a.meaning && allOutcomes.push(a.meaning));
+  if (family?.motto) allOutcomes.push(family.motto);
+  if (family?.vision?.values) allOutcomes.push(family.vision.values);
 
   const items = [];
-  const allOutcomes = [...outcomes, ...extraOutcomes];
 
   allOutcomes.forEach(text => {
     const themes = inferThemes(text);
@@ -467,9 +468,9 @@ function analyseVisionAlignment(ctx) {
   return {
     overall,
     items,
-    note: outcomes.length === 0
-      ? "Add desired outcomes in Family Vision to make this section richer."
-      : "These percentages are heuristic — they reflect how strongly your projects mirror each desired outcome, not how the child is performing.",
+    note: allOutcomes.length === 0
+      ? "Add your Core Word and Family Credo in Family North Star to make this reflection richer."
+      : "Reflected against your family's own values — not grade levels or other children. These show how strongly this quarter's real work mirrors who you set out to become.",
   };
 }
 

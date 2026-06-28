@@ -286,40 +286,49 @@ export function renderReportDetail(container, params) {
     <div class="report-doc" id="report-doc">
       ${renderReportHeader(report, child, s.family)}
 
-      ${section(1, "Executive Summary", `
-        ${report.sections.executiveSummary.paragraphs.map(p => `<p class="lead">${esc(p)}</p>`).join("")}
-      `)}
+      ${section(1, "Your Family Compass", renderFamilyCompass(s.family))}
 
-      ${section(2, "Key Strengths", `
+      ${section(2, "Reflection Against Your Vision", renderVisionAlignment(report.sections.visionAlignment, s.family))}
+
+      ${section(3, "Strengths This Quarter", `
+        <p class="small text-muted mb-2">Evidence that the family you set out to become is becoming real — patterns, not isolated achievements.</p>
         <div class="stack">
           ${report.sections.strengths.map(strengthBlock).join("")}
         </div>
       `)}
 
-      ${section(3, "Areas Currently Developing", `
+      ${section(4, "Greatest Opportunity Next Quarter", renderOpportunity(report.sections.recommendations, s.family))}
+
+      ${section(5, "Has Your Vision Evolved?", renderVisionEvolved(s.family))}
+
+      <div class="divider" style="margin:36px 0"></div>
+      <div class="t-eyebrow no-print" style="margin-bottom:6px">The supporting detail</div>
+      <p class="small text-muted no-print" style="margin:0 0 18px">The evidence and metrics behind the reflection above — measured against this child over time, never against other children.</p>
+
+      ${section(6, "Executive Summary", `
+        ${report.sections.executiveSummary.paragraphs.map(p => `<p class="lead">${esc(p)}</p>`).join("")}
+      `)}
+
+      ${section(7, "Areas Currently Developing", `
         <p class="small text-muted mb-2">Never weaknesses. The growth edge — what's coming online next.</p>
         <div class="stack">
           ${report.sections.developing.map(developingBlock).join("")}
         </div>
       `)}
 
-      ${section(4, "Growth Since Last Report", renderGrowthDelta(report.sections.growthSinceLast))}
+      ${section(8, "Growth Since Last Report", renderGrowthDelta(report.sections.growthSinceLast))}
 
-      ${section(5, "Domain Breakdown", `
+      ${section(9, "Domain Breakdown", `
         <div class="grid grid-2">
           ${report.sections.domains.map(domainBlock).join("")}
         </div>
       `)}
 
-      ${section(6, "Family Vision Alignment", renderVisionAlignment(report.sections.visionAlignment, s.family))}
+      ${section(10, "Next Term Builder", renderTermBuilder(report.sections.recommendations))}
 
-      ${section(7, "Recommended Next Steps", renderRecommendations(report.sections.recommendations))}
+      ${section(11, "Longitudinal Growth", renderLongitudinal(report.sections.longitudinal))}
 
-      ${section(8, "Next Term Builder", renderTermBuilder(report.sections.recommendations))}
-
-      ${section(9, "Longitudinal Growth", renderLongitudinal(report.sections.longitudinal))}
-
-      ${section(10, "Export & Archive", renderExport(report))}
+      ${section(12, "Export & Archive", renderExport(report))}
     </div>
   `;
 
@@ -329,7 +338,7 @@ export function renderReportDetail(container, params) {
     toast("Saved to portfolio (visible on the Portfolio page)", { type: "success" });
   });
   container.querySelector("#next-term").addEventListener("click", () => {
-    document.getElementById("section-8")?.scrollIntoView({ behavior: "smooth" });
+    document.getElementById("section-10")?.scrollIntoView({ behavior: "smooth" });
   });
 
   container.querySelectorAll("[data-create-proj]").forEach(b => {
@@ -367,6 +376,52 @@ export function renderReportDetail(container, params) {
       card.querySelector(".tb-state").innerHTML = `<span class="tag">Not now</span>`;
     });
   });
+}
+
+/* The centrepiece: the family's own compass, the lens for the whole report. */
+function renderFamilyCompass(family) {
+  return `
+    <p class="text-muted" style="margin:0 0 16px;font-size:15px">Three months ago, this is the family you set out to become.</p>
+    <div class="card" style="background:linear-gradient(135deg,#2C3D5E,#1B2335);border:none;color:#F4ECD8;padding:28px 30px">
+      ${family?.mission ? `
+        <div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:10px">Family Vision</div>
+        <p style="font-family:var(--font-serif);font-size:20px;line-height:1.5;color:#FBF6EE;margin:0 0 22px">${esc(family.mission)}</p>` : ""}
+      <div class="row" style="gap:34px;flex-wrap:wrap">
+        ${family?.coreWord ? `<div><div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:6px">Core Word</div><div style="font-family:var(--font-serif);font-size:30px;font-weight:600;color:#FBF6EE;line-height:1">${esc(family.coreWord)}</div></div>` : ""}
+        ${family?.motto ? `<div style="flex:1;min-width:200px"><div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:6px">Family Credo</div><div style="font-family:var(--font-serif);font-style:italic;font-size:17px;color:#F4ECD8">${esc(family.motto)}</div></div>` : ""}
+      </div>
+    </div>`;
+}
+
+/* One or two meaningful growth areas next quarter — always tied to the vision. */
+function renderOpportunity(recs, family) {
+  const top = (recs || []).slice(0, 2);
+  if (!top.length) {
+    return `<p class="text-muted">No single opportunity stands out this quarter — keep deepening the strengths above.</p>`;
+  }
+  return `
+    <p class="small text-muted mb-2">One or two meaningful areas to grow next quarter — always in service of who your family is becoming.</p>
+    <div class="stack">
+      ${top.map(r => `
+        <div class="card" style="background:var(--card-elev)">
+          <div class="fw-700">${esc(r.focus)}</div>
+          ${r.reason ? `<p class="small text-muted" style="margin:4px 0 8px">${esc(r.reason)}</p>` : ""}
+          ${(r.activities || []).slice(0, 3).map(a => `<div class="small" style="margin:2px 0">• <span class="fw-600">${esc(a.name)}</span>${a.note ? ` — <span class="text-muted">${esc(a.note)}</span>` : ""}</div>`).join("")}
+        </div>`).join("")}
+    </div>
+    ${family?.coreWord ? `<p class="small text-muted" style="margin-top:12px;font-style:italic">Each of these moves <b>${esc(family.coreWord)}</b> from words on a page toward lived reality.</p>` : ""}`;
+}
+
+/* A gentle quarterly invitation to refine the family's compass — never a correction. */
+function renderVisionEvolved(family) {
+  return `
+    <div class="card" style="background:var(--card-elev)">
+      <p style="margin:0 0 8px">As your family has grown this quarter, would you like to refine your Family Vision, Core Word or Family Credo?</p>
+      <p class="small text-muted" style="margin:0 0 16px">This isn't about correcting earlier answers — healthy families keep evolving, and so does the language that guides them.</p>
+      <div class="small text-muted">Vision: <span style="color:var(--text)">${esc(family?.mission || "—")}</span></div>
+      <div class="small text-muted" style="margin-top:4px">Core Word: <span style="color:var(--text)">${esc(family?.coreWord || "—")}</span> · Credo: <span style="color:var(--text)">${esc(family?.motto || "—")}</span></div>
+      <a href="#/vision" class="btn btn-primary no-print" style="margin-top:16px;text-decoration:none">Revisit your Family North Star →</a>
+    </div>`;
 }
 
 function renderReportHeader(r, child, family) {
@@ -494,16 +549,17 @@ function domainBlock(d) {
 
 function renderVisionAlignment(v, family) {
   if (!v.items.length) {
-    return `<div class="empty" style="padding:24px"><div class="emoji">🧭</div>Add desired outcomes in Family Vision to populate this section.</div>`;
+    return `<div class="empty" style="padding:24px"><div class="emoji">🧭</div>Set your Core Word and Family Credo in Family North Star, and this becomes a reflection of your child's quarter against your family's own values.</div>`;
   }
   return `
+    <p class="small text-muted mb-2">North Star doesn't measure ${esc(family?.parentName ? "your" : "this")} child against other children or grade levels — only against the family you're intentionally becoming.</p>
     ${v.overall != null ? `
       <div class="card mb-2" style="background:linear-gradient(135deg, var(--primary-soft), var(--card-elev));border-color:var(--primary-soft)">
         <div class="row" style="gap:18px">
           <div class="progress-ring" style="--p:${v.overall};--size:84px"><span class="ring-label" style="font-size:18px">${v.overall}%</span></div>
           <div>
-            <h3 style="font-family:var(--font-serif)">Overall alignment</h3>
-            <p class="text-muted small">How closely the projects this child is doing reflect what your family said it cares about.</p>
+            <h3 style="font-family:var(--font-serif)">Living the vision</h3>
+            <p class="text-muted small">How strongly this quarter's real work mirrors the values your family set out to grow.</p>
           </div>
         </div>
       </div>
