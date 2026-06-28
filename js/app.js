@@ -284,20 +284,7 @@ setCloudSync(syncCore);
   });
 })();
 
-// SVG favicon — Heirloom Compass mark.
-(function installFavicon() {
-  const svg = logoMarkSVG(64);
-  const href = "data:image/svg+xml," + encodeURIComponent(svg);
-  const existing = document.querySelector('link[rel~="icon"]');
-  if (existing) existing.href = href;
-  else {
-    const link = document.createElement("link");
-    link.rel = "icon";
-    link.type = "image/svg+xml";
-    link.href = href;
-    document.head.appendChild(link);
-  }
-})();
+// Favicon is now served statically (favicon.svg + PNG/apple-touch) from index.html.
 
 /* Expose helpers for debugging + cross-view re-render via window. */
 export function rerender() {
