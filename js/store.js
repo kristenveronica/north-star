@@ -452,13 +452,32 @@ export function getChildByCode(code) {
   return _state.children.find(c => c.accessCode === code);
 }
 
-function generateAccessCode() {
-  const letters = "BCDFGHJKLMNPQRSTVWXYZ";
-  const digits = "23456789";
+/* Derive an INTENTIONAL 3-letter prefix from the child's name:
+   - 3+ word names → initials (e.g. "Mary Jane Smith" → "MJS")
+   - 1–2 word names → first three letters (e.g. "Noah" → "NOA", "Jetty" → "JET")
+   Returns null when the name has no usable letters (caller falls back to random). */
+function deriveCodeLetters(name) {
+  const clean = String(name || "").toUpperCase().replace(/[^A-Z\s]/g, "").trim();
+  if (!clean) return null;
+  const words = clean.split(/\s+/).filter(Boolean);
+  const letters = words.length >= 3
+    ? words.slice(0, 3).map(w => w[0]).join("")
+    : clean.replace(/\s+/g, "").slice(0, 3);
+  return (letters + "XX").slice(0, 3);   // pad very short names
+}
+function randomLetters(n) {
+  const pool = "BCDFGHJKLMNPQRSTVWXYZ";   // consonants only → never an accidental word
   let out = "";
-  for (let i = 0; i < 3; i++) out += letters[Math.floor(Math.random() * letters.length)];
-  for (let i = 0; i < 3; i++) out += digits[Math.floor(Math.random() * digits.length)];
+  for (let i = 0; i < n; i++) out += pool[Math.floor(Math.random() * pool.length)];
   return out;
+}
+/* Access code = meaningful 3-letter prefix (from the name, or random) + 3 digits.
+   Digits use 2–9 (no 0/1 to avoid O/I confusion) and keep each code unique. */
+export function generateAccessCode(name = "") {
+  const digitPool = "23456789";
+  let digits = "";
+  for (let i = 0; i < 3; i++) digits += digitPool[Math.floor(Math.random() * digitPool.length)];
+  return (deriveCodeLetters(name) || randomLetters(3)) + digits;
 }
 
 /* ---------------- Projects ---------------- */

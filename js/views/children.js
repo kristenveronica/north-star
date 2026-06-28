@@ -2,7 +2,7 @@
    children.js — List + detail/edit for each child.
    ============================================================ */
 
-import { getState, update, addChild, updateChild, removeChild, getChild, getChildStats, ageOf } from "../store.js";
+import { getState, update, addChild, updateChild, removeChild, getChild, getChildStats, ageOf, generateAccessCode } from "../store.js";
 import { attachCityAutocomplete } from "../lib/cities.js";
 import { esc, toast, icon, openModal, confirmDialog } from "../components/ui.js";
 import { navigate } from "../router.js";
@@ -345,7 +345,14 @@ function openChildModal(childId = null) {
       </div>
       <span class="hint">You can always print from the parent portal, whatever you choose here.</span>
     </div>
-    ${existing ? `<div class="small text-muted">Access code: <span class="kbd">${esc(existing.accessCode)}</span></div>` : ""}
+    <div class="field">
+      <label>Access code <span class="text-muted small" style="font-weight:400">— what ${esc(draft.name || "your child")} types to open their portal</span></label>
+      <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+        <input class="input" id="f-access" maxlength="8" value="${esc(draft.accessCode || "")}" placeholder="${existing ? "" : "auto from name"}" style="max-width:180px;letter-spacing:0.18em;text-transform:uppercase;font-weight:700;text-align:center"/>
+        <button class="btn btn-sm" type="button" id="f-access-name">↻ From name</button>
+      </div>
+      <span class="hint">Make the first letters mean something to you — ${esc(draft.name || "your child")}'s initials, or a little trio that's special to your family (like your core word). The digits keep it unique. <span class="text-muted">e.g. NOA274.</span></span>
+    </div>
   `;
 
   const footer = document.createElement("div");
@@ -378,10 +385,29 @@ function openChildModal(childId = null) {
   // City-of-birth autocomplete (captures country too)
   attachCityAutocomplete(body.querySelector("#f-bd-city"), body.querySelector("#f-bd-country"));
 
+  // Access code: keep it tidy (UPPERCASE, letters+digits), let the parent derive
+  // a meaningful code from the name, and auto-fill a blank one on name blur.
+  const accessInput = body.querySelector("#f-access");
+  accessInput.addEventListener("input", () => {
+    accessInput.value = accessInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+  });
+  body.querySelector("#f-access-name").addEventListener("click", () => {
+    accessInput.value = generateAccessCode(body.querySelector("#f-name").value.trim());
+  });
+  if (!existing) {
+    body.querySelector("#f-name").addEventListener("blur", () => {
+      if (!accessInput.value.trim()) accessInput.value = generateAccessCode(body.querySelector("#f-name").value.trim());
+    });
+  }
+
   // Read the whole form into a child patch.
   const gatherPatch = () => {
     const birthday = body.querySelector("#f-birthday").value || null;
+    // Only include accessCode when the field has a value, so a mid-edit blank
+    // never wipes an existing code (and a new child falls back to name-derived).
+    const codeVal = (body.querySelector("#f-access")?.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
     return {
+      ...(codeVal ? { accessCode: codeVal } : {}),
       name: body.querySelector("#f-name").value.trim(),
       gender: body.querySelector("#f-gender")?.value || "",
       age: ageOf({ birthday }),
@@ -436,6 +462,8 @@ function openChildModal(childId = null) {
       updateChild(existing.id, patch);
       toast(`${patch.name} updated`, { type: "success" });
     } else {
+      // New child with no chosen code → derive a meaningful one from the name.
+      if (!patch.accessCode) patch.accessCode = generateAccessCode(patch.name);
       addChild(patch);
       toast(`${patch.name} added`, { type: "success" });
     }
