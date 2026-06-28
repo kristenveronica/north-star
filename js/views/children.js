@@ -458,6 +458,11 @@ function openChildModal(childId = null) {
     clearTimeout(autosaveTimer);
     const patch = gatherPatch();
     if (!patch.name) { toast("Name is required", { type: "warning" }); return; }
+    // Guard against two children in this family sharing an access code.
+    if (patch.accessCode && getState().children.some(c => c.id !== existing?.id && (c.accessCode || "").toUpperCase() === patch.accessCode)) {
+      toast("That access code is already used by another child — change the letters or tap ↻ From name.", { type: "warning", duration: 4000 });
+      return;
+    }
     if (existing) {
       updateChild(existing.id, patch);
       toast(`${patch.name} updated`, { type: "success" });

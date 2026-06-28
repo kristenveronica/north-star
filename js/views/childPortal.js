@@ -142,7 +142,9 @@ export function renderChildLogin(container) {
         child = await childPortalLogin(code);
       } catch (e) {
         b.disabled = false; b.textContent = "Open my portal →";
-        toast(/not_found/i.test(e.message) ? "Code not recognised" : "Couldn't open your portal — try again", { type: "warning" });
+        toast(/not_found/i.test(e.message) ? "Code not recognised"
+          : /ambiguous/i.test(e.message) ? "This code needs resetting — ask your parent."
+          : "Couldn't open your portal — try again", { type: "warning" });
         return;
       }
     }

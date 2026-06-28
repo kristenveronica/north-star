@@ -56,14 +56,6 @@ export function renderFamilyVision(container) {
         <textarea class="textarea" id="${q.id}" rows="2" data-voice data-voice-label="Speak your answer" placeholder="${esc(q.ph)}">${v(q.id)}</textarea>
       </div>`).join("")}`;
 
-  const outcomesBody = `
-    <p class="ns-acc__intro">North Star can suggest outcomes based on your answers. Edit freely.</p>
-    <div class="row mb-2" style="gap:10px;align-items:center;flex-wrap:wrap">
-      <button class="btn btn-suggest" id="suggest-outcomes" type="button">✨ Suggest Desired Outcomes</button>
-      <span class="small text-muted" id="outcomes-status"></span>
-    </div>
-    <textarea class="textarea" id="outcomes" rows="6" data-voice data-voice-label="Dictate your desired outcomes" placeholder="e.g. Love of learning&#10;Strong family relationships&#10;Entrepreneurial thinking&#10;Courage and resilience&#10;Service and contribution&#10;Independence">${esc((fam.desiredOutcomes || []).join("\n"))}</textarea>`;
-
   const mmcBody = `
     <p class="ns-acc__intro" style="font-family:var(--font-serif);font-size:18px;font-style:italic;color:var(--text);border-left:2px solid var(--primary);padding-left:15px;margin:0 0 18px;max-width:46ch;line-height:1.4">If you don't intentionally instill your family's values in your children, the world will gladly do it for them.</p>
     <p class="ns-acc__intro" style="margin-bottom:8px">Most of us first met mission, vision and values at work — rarely at home. Yet the world's most enduring families share one thing: a clear set of values, deeply embedded in their children, that becomes a compass for life — clarity about who you are as a family, who each child is, and how you move through the world. This section is where you define that language and begin weaving it through their learning journey.</p>
@@ -71,12 +63,12 @@ export function renderFamilyVision(container) {
     <p class="ns-acc__intro" style="margin-bottom:28px">North Star can suggest these from your answers. Edit anything.</p>
 
     <div class="field">
-      <label>Mission Statement</label>
-      <p class="ns-acc__intro" style="margin:4px 0 10px">The "why" behind your family's learning journey. It doesn't have to sound polished or formal — it simply captures what this education is designed to produce, and becomes a compass when hard decisions arise.</p>
-      <textarea class="textarea" id="mission" rows="2" data-voice data-voice-label="Speak your mission" placeholder="e.g. We are raising capable, thoughtful young people who love learning, solve problems and contribute wherever they go.">${esc(fam.mission || "")}</textarea>
+      <label>Family Vision</label>
+      <p class="ns-acc__intro" style="margin:4px 0 10px">The "why" behind your family's learning journey — who you are becoming together. It doesn't have to sound polished or formal — it simply captures what this education is designed to produce, and becomes a compass when hard decisions arise.</p>
+      <textarea class="textarea" id="mission" rows="2" data-voice data-voice-label="Speak your family vision" placeholder="e.g. We are raising capable, thoughtful young people who love learning, solve problems and contribute wherever they go.">${esc(fam.mission || "")}</textarea>
       <p class="ns-acc__intro" style="margin:8px 0 0;font-size:12.5px">Write from identity — "We are…", "We believe…", "We cultivate…" — rather than "We want our children to…".</p>
       <div class="row mt-1" style="gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-suggest" id="suggest-mission" type="button">✨ Suggest Mission</button>
+        <button class="btn btn-suggest" id="suggest-mission" type="button">✨ Suggest Family Vision</button>
         <button class="btn btn-suggest hidden" id="regen-mission" type="button">Suggest Alternative</button>
         <span class="small text-muted" id="mission-status"></span>
       </div>
@@ -95,11 +87,11 @@ export function renderFamilyVision(container) {
     </div>
 
     <div class="field" style="margin-top:30px">
-      <label>Family Motto</label>
+      <label>Family Credo</label>
       <p class="ns-acc__intro" style="margin:4px 0 10px">A short phrase related to your children's learning journey that they can remember, repeat and grow up with. Children rarely remember lectures — they remember simple sayings woven into everyday conversation.</p>
       <input class="input" id="motto" value="${esc(fam.motto || "")}" placeholder="e.g. Love learning. Grow always. Leave the world better."/>
       <div class="row mt-1" style="gap:8px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-suggest" id="suggest-motto" type="button">✨ Suggest Motto</button>
+        <button class="btn btn-suggest" id="suggest-motto" type="button">✨ Suggest Family Credo</button>
         <button class="btn btn-suggest hidden" id="regen-motto" type="button">Suggest Alternative</button>
         <span class="small text-muted" id="motto-status"></span>
       </div>
@@ -130,8 +122,7 @@ export function renderFamilyVision(container) {
   const SECTIONS = [
     { id: "identity", icon: "🏡", title: "Family Identity", blurb: "Your family's name and the parent guiding the journey.", body: identityBody },
     { id: "vision", icon: "🌅", title: "Deeper Vision", blurb: "Six reflections that become the foundation of everything North Star builds.", body: visionBody },
-    { id: "outcomes", icon: "🎯", title: "Desired Outcomes", blurb: "The handful of outcomes you most want this education to produce.", body: outcomesBody },
-    { id: "mmc", icon: "🧭", title: "Mission, Core Word & Motto", blurb: "Your family's mission, an acronym Core Word, and a motto to grow up with.", body: mmcBody },
+    { id: "mmc", icon: "🧭", title: "Vision, Core Word & Credo", blurb: "Your family's vision, an acronym Core Word, and a credo to grow up with.", body: mmcBody },
   ];
 
   container.innerHTML = `
@@ -208,8 +199,8 @@ export function renderFamilyVision(container) {
       <div class="stack" style="gap:11px;margin-top:20px">
         ${acronym.map(r => `<div class="row" style="gap:12px;align-items:center"><span style="display:grid;place-items:center;width:28px;height:28px;border-radius:7px;background:var(--primary);color:var(--starlight);font-family:var(--font-serif);font-weight:700;font-size:15px;flex-shrink:0;box-shadow:var(--shadow-sm)">${esc(r.letter)}</span><span class="t-body-sm" style="color:var(--text)">${esc(r.meaning || "…")}</span></div>`).join("")}
       </div>
-      ${motto ? `<div style="margin-top:28px;padding-top:20px;border-top:1px solid var(--divider)"><div class="t-eyebrow">Motto</div><div class="t-subhead" style="font-style:italic;margin-top:8px;line-height:1.45;overflow-wrap:anywhere">${esc(motto)}</div></div>` : ""}
-      ${mission ? `<div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--divider)"><div class="t-eyebrow">Mission</div><div class="t-body-sm" style="margin-top:8px;max-width:32ch;overflow-wrap:anywhere">${esc(mission)}</div></div>` : ""}
+      ${mission ? `<div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--divider)"><div class="t-eyebrow">Vision</div><div class="t-body-sm" style="margin-top:8px;max-width:32ch;overflow-wrap:anywhere">${esc(mission)}</div></div>` : ""}
+      ${motto ? `<div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--divider)"><div class="t-eyebrow">Credo</div><div class="t-subhead" style="font-style:italic;margin-top:8px;line-height:1.45;overflow-wrap:anywhere">${esc(motto)}</div></div>` : ""}
     `;
   };
 
@@ -238,26 +229,7 @@ export function renderFamilyVision(container) {
   const busy = (btn, status, msg) => { btn.disabled = true; if (status) status.textContent = msg; };
   const done = (btn, label) => { btn.disabled = false; btn.textContent = label; };
 
-  // Desired Outcomes
-  const outBtn = container.querySelector("#suggest-outcomes");
-  const outStatus = container.querySelector("#outcomes-status");
-  outBtn.addEventListener("click", async () => {
-    const label = outBtn.textContent;
-    busy(outBtn, outStatus, "North Star is reflecting on your answers…");
-    outBtn.textContent = "Thinking…";
-    try {
-      const out = await aiSuggestVision("outcomes", gatherVision(), gatherCtx());
-      const list = out?.outcomes || [];
-      if (list.length) {
-        container.querySelector("#outcomes").value = list.join("\n");
-        outStatus.textContent = "Suggested based on your answers — edit freely.";
-        outBtn.textContent = "Suggest Alternative";
-      } else { outStatus.textContent = "Add a little more above first, then try again."; outBtn.textContent = label; }
-    } catch (e) { outStatus.textContent = e.message || "Couldn't suggest just now."; outBtn.textContent = label; }
-    finally { outBtn.disabled = false; }
-  });
-
-  // Motto + Mission (generic text suggest)
+  // Family Vision + Family Credo (generic text suggest)
   const wireText = (kind, suggestId, regenId, statusId, fieldId) => {
     const sBtn = container.querySelector(suggestId);
     const rBtn = container.querySelector(regenId);
@@ -314,7 +286,6 @@ export function renderFamilyVision(container) {
       parentName: container.querySelector("#parentName").value.trim(),
       familyName: container.querySelector("#familyName").value.trim(),
       vision: { ...(fam.vision || {}), ...gatherVision() },
-      desiredOutcomes: container.querySelector("#outcomes").value.split("\n").map(s => s.trim()).filter(Boolean),
       motto: container.querySelector("#motto").value.trim(),
       mission: container.querySelector("#mission").value.trim(),
       coreWord,

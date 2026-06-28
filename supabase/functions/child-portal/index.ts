@@ -34,9 +34,12 @@ async function login(code: string) {
 
   // Match the access code case-insensitively (children type it however).
   const { data: kids } = await admin
-    .from("children").select("*").ilike("access_code", norm).limit(1);
-  const child = kids?.[0];
-  if (!child) return json({ error: "not_found" }, 404);
+    .from("children").select("*").ilike("access_code", norm).limit(2);
+  if (!kids || kids.length === 0) return json({ error: "not_found" }, 404);
+  // Fail safe: if a code somehow collides across families, open NEITHER portal
+  // (better to ask for a reset than to ever show the wrong child's data).
+  if (kids.length > 1) return json({ error: "ambiguous" }, 409);
+  const child = kids[0];
 
   const { data: projects } = await admin
     .from("projects").select("*").eq("child_id", child.id);

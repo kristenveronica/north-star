@@ -13,7 +13,7 @@ import { VISION_QS, autosize, attachTidy } from "./familyVision.js";
 import { REL_OPTIONS } from "./familySettings.js";
 import { saveDraft, loadDraft, clearDraft } from "../lib/drafts.js";
 
-const STEPS = ["welcome", "vision", "outcomes", "core-word", "done"];
+const STEPS = ["welcome", "vision", "core-word", "done"];
 
 let _step = 0;
 let _draft = {
@@ -45,7 +45,6 @@ function captureDraft(card) {
   VISION_QS.forEach(q => { const el = g(q.id); if (el) _draft[q.id] = el.value; });
   const faith = g("faithEnabled"); if (faith) _draft.faithEnabled = faith.checked;
   text("faithTradition", "faithTradition");
-  text("outcomes", "desiredOutcomes");
   text("mission", "mission");
   text("motto", "motto");
   const cw = g("coreWord"); if (cw) _draft.coreWord = cw.value.toUpperCase().slice(0, 12);
@@ -179,57 +178,21 @@ function paint(card) {
     });
   }
 
-  /* ---------- Step 3: Desired Outcomes ---------- */
-  if (step === "outcomes") {
-    card.innerHTML = `
-      ${indicator}
-      <h1>Desired Outcomes</h1>
-      <p class="lede">Based on your answers, North Star can suggest the outcomes your family may want this journey to produce. You can edit these freely.</p>
-      <div class="row mb-2" style="gap:10px;align-items:center;flex-wrap:wrap">
-        <button class="btn btn-suggest" id="suggest-outcomes" type="button">✨ Suggest Desired Outcomes</button>
-        <span class="small text-muted" id="outcomes-status">Not sure where to start? Let North Star suggest some from your vision.</span>
-      </div>
-      <textarea class="textarea" id="outcomes" rows="9" data-voice data-voice-label="Dictate your outcomes" placeholder="e.g. Love of learning&#10;Strong family relationships&#10;Entrepreneurial thinking&#10;Courage and resilience&#10;Emotional maturity&#10;Financial capability&#10;Service and contribution&#10;Problem-solving&#10;Independence&#10;Healthy confidence and inner happiness">${esc(_draft.desiredOutcomes)}</textarea>
-      <span class="hint">One per line.</span>
-      <div class="row-between mt-3">
-        <button class="btn" id="back">← Back</button>
-        <button class="btn btn-primary btn-lg" id="next">Continue →</button>
-      </div>
-    `;
-    const oBtn = card.querySelector("#suggest-outcomes");
-    const oStatus = card.querySelector("#outcomes-status");
-    const oField = card.querySelector("#outcomes");
-    autosize(oField);
-    oBtn.addEventListener("click", async () => {
-      oBtn.disabled = true; const label = oBtn.textContent; oBtn.textContent = "Thinking…";
-      oStatus.textContent = "North Star is reflecting on your answers…";
-      try {
-        const out = await aiSuggestVision("outcomes", visionForCtx(), familyForCtx());
-        const list = out?.outcomes || [];
-        if (list.length) { oField.value = list.join("\n"); oStatus.textContent = "Suggested from your answers — edit freely."; oBtn.textContent = "Suggest Alternative"; }
-        else { oStatus.textContent = "Add a little more in Deeper Vision first."; oBtn.textContent = label; }
-      } catch (e) { oStatus.textContent = e.message || "Couldn't suggest just now."; oBtn.textContent = label; }
-      finally { oBtn.disabled = false; }
-    });
-    card.querySelector("#back").addEventListener("click", () => { _draft.desiredOutcomes = oField.value; _step--; paint(card); });
-    card.querySelector("#next").addEventListener("click", () => { _draft.desiredOutcomes = oField.value; _step++; paint(card); });
-  }
-
-  /* ---------- Step 4: Motto, Mission & Core Word ---------- */
+  /* ---------- Step 3: Vision, Core Word & Credo ---------- */
   if (step === "core-word") {
     card.innerHTML = `
       ${indicator}
-      <h1>Mission, Core Word & Motto.</h1>
+      <h1>Vision, Core Word & Credo.</h1>
       <p style="font-family:var(--font-serif);font-size:19px;font-style:italic;color:var(--text);border-left:2px solid var(--primary);padding-left:15px;margin:0 0 16px;max-width:48ch;line-height:1.4">If you don't intentionally instill your family's values in your children, the world will gladly do it for them.</p>
       <p class="lede">Most of us first met mission, vision and values at work — rarely at home. Yet the world's most enduring families share one thing: a clear set of values, deeply embedded in their children, that becomes a compass for life. This is where you define that language and begin weaving it through their learning journey. Big visions are remembered through small words — and small phrases, repeated often, become identity.</p>
 
       <div class="field">
-        <label>Mission Statement</label>
-        <p class="text-muted small" style="margin:2px 0 6px">The "why" behind your family's learning journey. It doesn't have to sound polished or formal — it simply captures what this education is designed to produce, and becomes a compass when hard decisions arise.</p>
-        <textarea class="textarea" id="mission" data-voice data-voice-label="Dictate your mission" placeholder="e.g. We are raising capable, thoughtful young people who love learning, solve problems and contribute wherever they go.">${esc(_draft.mission)}</textarea>
+        <label>Family Vision</label>
+        <p class="text-muted small" style="margin:2px 0 6px">The "why" behind your family's learning journey — who you are becoming together. It doesn't have to sound polished or formal — it simply captures what this education is designed to produce, and becomes a compass when hard decisions arise.</p>
+        <textarea class="textarea" id="mission" data-voice data-voice-label="Dictate your family vision" placeholder="e.g. We are raising capable, thoughtful young people who love learning, solve problems and contribute wherever they go.">${esc(_draft.mission)}</textarea>
         <p class="text-muted small" style="margin:6px 0 0;font-size:12.5px">Write from identity — "We are…", "We believe…", "We cultivate…" — rather than "We want our children to…".</p>
         <div class="row mt-1" style="gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-suggest" id="suggest-mission" type="button">✨ Suggest Mission</button>
+          <button class="btn btn-suggest" id="suggest-mission" type="button">✨ Suggest Family Vision</button>
           <button class="btn btn-suggest hidden" id="regen-mission" type="button">Suggest Alternative</button>
           <span class="small text-muted" id="mission-status"></span>
         </div>
@@ -248,11 +211,11 @@ function paint(card) {
       </div>
 
       <div class="field" style="margin-top:20px">
-        <label>Family Motto</label>
+        <label>Family Credo</label>
         <p class="text-muted small" style="margin:2px 0 6px">A short phrase related to your children's learning journey that they can remember, repeat and grow up with. Children rarely remember lectures — they remember simple sayings woven into everyday conversation.</p>
         <input class="input" id="motto" value="${esc(_draft.motto)}" placeholder="e.g. Love learning. Grow always. Leave the world better." />
         <div class="row mt-1" style="gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-suggest" id="suggest-motto" type="button">✨ Suggest Motto</button>
+          <button class="btn btn-suggest" id="suggest-motto" type="button">✨ Suggest Family Credo</button>
           <button class="btn btn-suggest hidden" id="regen-motto" type="button">Suggest Alternative</button>
           <span class="small text-muted" id="motto-status"></span>
         </div>
@@ -363,7 +326,6 @@ function paint(card) {
           motto: _draft.motto,
           coreWord: _draft.coreWord,
           acronym: _draft.acronym,
-          desiredOutcomes: _draft.desiredOutcomes.split("\n").map(s => s.trim()).filter(Boolean),
           faithEnabled: _draft.faithEnabled,
           faithTradition: _draft.faithTradition,
           learningStyleDefault: state.family?.learningStyleDefault ?? 5,

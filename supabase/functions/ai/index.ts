@@ -174,7 +174,7 @@ async function suggestVision(payload: any, apiKey: string) {
   const f = payload?.family || {};
   const ctx = `THIS FAMILY'S REFLECTIONS
 ${visionLines(v)}
-- Family name: ${f.familyName || "—"}${f.coreWord ? `\n- Core word: ${f.coreWord}` : ""}${f.motto ? `\n- Motto: ${f.motto}` : ""}`;
+- Family name: ${f.familyName || "—"}${f.coreWord ? `\n- Core word: ${f.coreWord}` : ""}${f.motto ? `\n- Family Credo: ${f.motto}` : ""}`;
 
   if (kind === "letter") {
     const letter = (f.letter || "").toString().toUpperCase();
@@ -192,17 +192,17 @@ character, capability, relationships, contribution and wellbeing. Return them in
     return callClaude(system, ctx + "\n\nPropose the desired outcomes.", OUTCOMES_SCHEMA, apiKey);
   }
   if (kind === "motto") {
-    const system = `TASK: Suggest ONE short, memorable FAMILY MOTTO — a phrase children can remember,
+    const system = `TASK: Suggest ONE short, memorable FAMILY CREDO — a phrase children can remember,
 repeat and grow up with (ideally 3–8 words; two short clauses is fine). It must capture THIS family's
-values and hopes, in their spirit. Warm and true, never corporate or cliché. Return only the motto in "value".`;
-    return callClaude(system, ctx + "\n\nSuggest one motto.", TEXT_VALUE_SCHEMA, apiKey);
+values and hopes, in their spirit. Warm and true, never corporate or cliché. Return only the credo in "value".`;
+    return callClaude(system, ctx + "\n\nSuggest one family credo.", TEXT_VALUE_SCHEMA, apiKey);
   }
-  // mission
-  const system = `TASK: Suggest ONE warm MISSION STATEMENT (1–2 sentences) — the deeper "why" behind THIS
-family's educational journey, a guiding light for the projects and experiences North Star will suggest.
-Write in the family's own voice (e.g. "We are raising…"). Grounded in their answers, never generic.
-Return it in "value".`;
-  return callClaude(system, ctx + "\n\nSuggest one mission statement.", TEXT_VALUE_SCHEMA, apiKey);
+  // family vision (the field key remains "mission")
+  const system = `TASK: Suggest ONE warm FAMILY VISION (1–2 sentences) — the deeper "why" behind THIS
+family's educational journey and who they are becoming together, a guiding light for the projects and
+experiences North Star will suggest. Write in the family's own voice (e.g. "We are raising…"). Grounded
+in their answers, never generic. Return it in "value".`;
+  return callClaude(system, ctx + "\n\nSuggest one family vision.", TEXT_VALUE_SCHEMA, apiKey);
 }
 
 // ---- Action: tidy text (normalize formatting ONLY — never rewrite) ----------
@@ -666,8 +666,8 @@ ${tech_.lines.map((l: string) => `- ${l}`).join("\n")}${techConstraintLines.leng
   const pronouns = GENDER_PRONOUNS[(c.gender || "").toString()] || "they/them (gender not specified)";
   const userText = `FAMILY NORTH STAR
 - Family: ${f.familyName || "—"}
-- Mission: ${f.mission || "—"}
-- Motto: ${f.motto || "—"}
+- Family Vision (who they are becoming): ${f.mission || "—"}
+- Family Credo (their memorable line): ${f.motto || "—"}
 - Core word: ${f.coreWord || "—"}${acronym ? ` (${acronym})` : ""}
 - Values / vision: ${JSON.stringify(f.vision || {})}
 - Learning style (1 Explorer – 10 Traditional): ${f.learningStyleDefault ?? 5}

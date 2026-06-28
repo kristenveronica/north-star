@@ -684,7 +684,7 @@ export function renderAbout(container) {
    ============================================================ */
 export function renderHowItWorks(container) {
   const parentSteps = [
-    ["Create your Family North Star", "Define what you actually believe — values, mission, motto, core word, character priorities, capabilities, learning priorities. This becomes the lens for every decision the platform helps you make. Without it, every suggestion feels generic. With it, everything aligns."],
+    ["Create your Family North Star", "Define what you actually believe — values, family vision, credo, core word, character priorities, capabilities, learning priorities. This becomes the lens for every decision the platform helps you make. Without it, every suggestion feels generic. With it, everything aligns."],
     ["Create child profiles",          "Passions, strengths, goals, learning preferences, areas developing. Each child is honoured as the unique person they already are. Every suggestion the platform makes downstream is tuned to this child, not the average."],
     ["Choose a learning style",        "A 1–10 slider, from Explorer (unschooling) to Traditional Academic. There is no right answer — only the one that fits your family right now. The platform meets you where you are."],
     ["Select learning domains",        "Brain Gigs · Build Gigs · Money Gigs · House Gigs · Community Gigs · Body Gigs (and optionally Faith Gigs). These are the dimensions of a whole-child rhythm — the platform watches the balance for you."],
@@ -790,7 +790,7 @@ export function renderHowItWorks(container) {
 export function renderFeaturesPublic(container) {
   const featureGroups = [
     ["Foundations", [
-      ["🧭", "Family Vision Builder", "Mission, motto, values, desired outcomes."],
+      ["🧭", "Family Vision Builder", "Family vision, credo, core word, values."],
       ["✦", "Core Word / Acronym Builder", "Make a single word the lens for everything."],
       ["📏", "Learning Style Slider", "1–10 from unschooling to traditional academic."],
       ["✂", "DIY Materials Slider", "Buy ready-made or make at home — tuned to your time + energy."],
@@ -1095,7 +1095,9 @@ export function renderLogin(container) {
         child = await childPortalLogin(code);
       } catch (e) {
         cLogin.disabled = false; cLogin.textContent = "Open my view →";
-        toast(/not_found/i.test(e.message) ? "Code not recognised" : "Couldn't open the portal — try again", { type: "warning" });
+        toast(/not_found/i.test(e.message) ? "Code not recognised"
+          : /ambiguous/i.test(e.message) ? "This code needs resetting — ask your parent."
+          : "Couldn't open the portal — try again", { type: "warning" });
         return;
       }
     }
