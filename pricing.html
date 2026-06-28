@@ -4,32 +4,40 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>North Star — Choose your plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Mulish:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
-  :root{ --cream:#faf6ef; --card:#fff; --ink:#2c2a26; --muted:#7a7468; --clay:#b9744f; --sage:#8aa18a; --border:#e7e0d4; --r:16px; }
-  *{ box-sizing:border-box; } body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--cream); color:var(--ink); }
+  :root{ --cream:#FBF6EE; --card:#FFFFFF; --ink:#2D2317; --muted:#7A6F60; --clay:#C97B4E; --clay-hover:#B36A3F; --sage:#7FA68A; --border:#EADFCD; --r:16px;
+    --serif:"Cormorant Garamond",Georgia,serif; --sans:"Mulish",system-ui,-apple-system,"Segoe UI",sans-serif; }
+  *{ box-sizing:border-box; } body{ margin:0; font-family:var(--sans); background:var(--cream); color:var(--ink); -webkit-font-smoothing:antialiased; }
   .wrap{ max-width:560px; margin:0 auto; padding:40px 20px 80px; }
-  h1{ font-size:30px; margin:0 0 6px; } .sub{ color:var(--muted); margin:0 0 24px; }
-  .card{ background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:22px; margin-bottom:18px; }
-  label{ display:block; font-weight:600; margin:14px 0 6px; }
-  input[type=email], input[type=text]{ width:100%; padding:11px 12px; border:1px solid var(--border); border-radius:10px; font-size:15px; }
+  h1{ font-family:var(--serif); font-weight:500; font-size:38px; line-height:1.1; letter-spacing:0; margin:0 0 8px; }
+  .sub{ color:var(--muted); margin:0 0 24px; font-size:16px; line-height:1.55; }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:22px; margin-bottom:18px; box-shadow:0 1px 3px rgba(45,35,23,0.04); }
+  label{ display:block; font-weight:600; margin:14px 0 6px; font-size:15px; }
+  .help{ color:var(--muted); font-size:13px; line-height:1.5; margin:0 0 10px; }
+  input[type=email], input[type=text]{ width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:10px; font-size:16px; font-family:var(--sans); background:#FFFDF9; }
+  input::placeholder{ color:#A99F8E; }
   .seg{ display:flex; gap:8px; }
-  .seg button{ flex:1; padding:10px; border:1px solid var(--border); background:#fff; border-radius:10px; cursor:pointer; font-size:14px; }
-  .seg button.on{ border-color:var(--clay); background:#fdf3ec; color:var(--clay); font-weight:700; }
+  .seg button{ flex:1; padding:11px; border:1px solid var(--border); background:#fff; border-radius:10px; cursor:pointer; font-size:14px; font-family:var(--sans); font-weight:600; color:var(--ink); }
+  .seg button.on{ border-color:var(--clay); background:#FBEFE6; color:var(--clay); }
   .stepper{ display:flex; align-items:center; gap:14px; }
-  .stepper button{ width:38px; height:38px; border:1px solid var(--border); background:#fff; border-radius:10px; font-size:18px; cursor:pointer; }
+  .stepper button{ width:42px; height:42px; border:1px solid var(--border); background:#fff; border-radius:10px; font-size:20px; cursor:pointer; color:var(--ink); }
   .stepper .n{ font-size:18px; font-weight:700; min-width:2ch; text-align:center; }
-  .row{ display:flex; justify-content:space-between; margin:6px 0; }
+  .row{ display:flex; justify-content:space-between; margin:6px 0; font-size:15px; }
   .total{ display:flex; justify-content:space-between; font-weight:700; font-size:18px; border-top:1px solid var(--border); padding-top:10px; margin-top:10px; }
-  .go{ width:100%; padding:14px; background:var(--clay); color:#fff; border:0; border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; margin-top:10px; }
+  .go{ width:100%; padding:15px; background:var(--clay); color:#fff; border:0; border-radius:12px; font-size:16px; font-weight:700; font-family:var(--sans); cursor:pointer; margin-top:12px; }
+  .go:active{ background:var(--clay-hover); }
   .go[disabled]{ opacity:.5; cursor:not-allowed; }
-  .muted{ color:var(--muted); font-size:13px; } .err{ color:#b4452f; font-size:14px; margin-top:8px; }
-  .trial{ background:#eef5ee; color:#456b45; border-radius:10px; padding:10px 12px; font-size:14px; margin-top:10px; }
+  .muted{ color:var(--muted); font-size:13px; } .err{ color:#B4452F; font-size:14px; margin-top:8px; }
+  .trial{ background:#EEF5EE; color:#456B45; border-radius:10px; padding:10px 12px; font-size:14px; margin-top:10px; line-height:1.5; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Choose your plan</h1>
-  <p class="sub">Start your family's North Star. Your plan includes 1 child; add seats for more children or AI-using adults.</p>
+  <p class="sub">Start your family's North Star. Your plan includes 1 child; add seats for more children or contributing adults.</p>
 
   <div class="card">
     <label>Your email</label>
@@ -45,9 +53,9 @@
     <div class="stepper"><button data-step-child="-1">−</button><span class="n" id="children">1</span><button data-step-child="1">+</button>
       <span class="muted" id="child-note">includes 1</span></div>
 
-    <label>Additional adults who'll use AI <span class="muted">(optional)</span></label>
-    <div class="stepper"><button data-step-adult="-1">−</button><span class="n" id="adults">0</span><button data-step-adult="1">+</button>
-      <span class="muted">co-parents, tutors, mentors</span></div>
+    <label>Contributing adults <span class="muted">(optional)</span></label>
+    <div class="help">Co-parents, tutors or mentors you invite to help — with permission to generate projects &amp; growth reports. Each is a paid seat.</div>
+    <div class="stepper"><button data-step-adult="-1">−</button><span class="n" id="adults">0</span><button data-step-adult="1">+</button></div>
 
     <label>Promo code <span class="muted">(optional)</span></label>
     <input id="promo" type="text" placeholder="e.g. your beta code" autocomplete="off" />
@@ -101,7 +109,7 @@
     else $("breakdown").innerHTML = `
       <div class="row"><span>Base plan (incl. 1 child)</span><span>${money(baseAmt,cur)}${per}</span></div>
       ${extraChild>0 ? `<div class="row"><span>${extraChild} × child seat</span><span>${money(seatAmt!=null?seatAmt*extraChild:null,cur)}${per}</span></div>`:""}
-      ${adults>0 ? `<div class="row"><span>${adults} × adult AI seat</span><span>${money(aiAmt!=null?aiAmt*adults:null,cur)}${per}</span></div>`:""}
+      ${adults>0 ? `<div class="row"><span>${adults} × contributing adult</span><span>${money(aiAmt!=null?aiAmt*adults:null,cur)}${per}</span></div>`:""}
       <div class="total"><span>Total</span><span>${money(total,cur)}${per}</span></div>`;
     $("go").disabled = !prices || baseAmt == null;
   }
