@@ -23,21 +23,29 @@ async function loadJsPDF() {
   return _jsPDFCtor;
 }
 
-export async function createDoc({ pageSize = "a4" } = {}) {
+export async function createDoc({ pageSize = "a4", orientation = "portrait" } = {}) {
   const jsPDF = await loadJsPDF();
   const fmt = pageSize === "letter" ? "letter" : "a4";
-  const doc = new jsPDF({ unit: "pt", format: fmt, compress: true });
-  return new PdfDoc(doc, fmt);
+  const doc = new jsPDF({ unit: "pt", format: fmt, orientation, compress: true });
+  return new PdfDoc(doc, fmt, orientation);
 }
 
 export class PdfDoc {
-  constructor(doc, fmt) {
+  constructor(doc, fmt, orientation = "portrait") {
     this.doc = doc;
     this.t = THEME;
     this.fmt = fmt;
-    const size = PAGE[fmt] || PAGE.a4;
-    this.pw = size.w;
-    this.ph = size.h;
+    this._applyDims(orientation);
+  }
+
+  // Set page geometry for the current orientation. Shared by the constructor,
+  // page() and landscapePage() so portrait/landscape maths stays in one place.
+  _applyDims(orientation = "portrait") {
+    const size = PAGE[this.fmt] || PAGE.a4;
+    const landscape = orientation === "landscape";
+    this.orientation = orientation;
+    this.pw = landscape ? size.h : size.w;
+    this.ph = landscape ? size.w : size.h;
     this.mx = THEME.margin.x;
     this.cw = this.pw - THEME.margin.x * 2;   // content width
     this.top = THEME.margin.top;
@@ -53,7 +61,9 @@ export class PdfDoc {
   lineHeightOf(size) { return size * THEME.lineHeight; }
 
   /* ---------- flow control ---------- */
-  page() { this.doc.addPage(this.fmt); this.y = this.top; return this; }
+  page() { this.doc.addPage(this.fmt, "portrait"); this._applyDims("portrait"); return this; }
+  // Append a LANDSCAPE page — used by the framable completion certificate.
+  landscapePage() { this.doc.addPage(this.fmt, "landscape"); this._applyDims("landscape"); return this; }
   // Ensure `h` points fit before the bottom margin; otherwise break the page.
   ensure(h) { if (this.y + h > this.bottom) this.page(); return this; }
   gap(h) { this.y += h; return this; }
@@ -239,6 +249,16 @@ export class PdfDoc {
     this.doc.triangle(cx, cy + r, cx - w, cy, cx + w, cy, "F");
     this.doc.triangle(cx - r, cy, cx, cy - w, cx, cy + w, "F");
     this.doc.triangle(cx + r, cy, cx, cy - w, cx, cy + w, "F");
+    return this;
+  }
+
+  // A small "North Star" compass motif: a thin ring with a 4-point star inside.
+  // Used as the subtle illustration on the Workbook cover & certificate.
+  compassMark(cx, cy, r, opts = {}) {
+    this._draw(opts.stroke || THEME.color.warm);
+    this.doc.setLineWidth(opts.weight || 1);
+    this.doc.circle(cx, cy, r, "S");
+    this.sparkle(cx, cy, r * 0.6, opts.star || THEME.color.accent);
     return this;
   }
 

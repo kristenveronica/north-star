@@ -103,6 +103,81 @@ export function certificateStatement(project, child) {
   return s;
 }
 
+/* ---- Identity-first language for the redesigned certificate ---- */
+// Map a project's leading capability domain to the "person they became".
+const ROLE_BY_DOMAIN = {
+  literacy: "communicator", maths: "problem-solver", science: "investigator",
+  creativity: "maker", music: "performer", digital: "creator", practical: "contributor",
+  enterprise: "entrepreneur", health: "carer", sport: "athlete",
+  relationships: "friend", leadership: "leader", nature: "steward",
+  faith: "soul", travel: "explorer",
+};
+const TRAITS_BY_DOMAIN = {
+  practical:     ["capable", "confident", "helpful"],
+  creativity:    ["imaginative", "expressive", "bold"],
+  science:       ["curious", "careful", "inventive"],
+  maths:         ["logical", "persistent", "precise"],
+  literacy:      ["thoughtful", "articulate", "curious"],
+  enterprise:    ["resourceful", "determined", "bold"],
+  leadership:    ["responsible", "courageous", "caring"],
+  sport:         ["determined", "disciplined", "resilient"],
+  nature:        ["observant", "caring", "responsible"],
+  health:        ["caring", "mindful", "responsible"],
+  music:         ["expressive", "dedicated", "confident"],
+  digital:       ["inventive", "careful", "creative"],
+  relationships: ["kind", "thoughtful", "brave"],
+  leadership_:   ["responsible", "courageous", "caring"],
+  default:       ["capable", "confident", "curious"],
+};
+
+// ONE powerful, identity-affirming line — celebrates WHO the child became,
+// never "participation". e.g. ‘Jetty completed "The Little Kitchen Keeper" and
+// grew as a capable, confident and helpful contributor.’
+export function certAffirmation(project, child) {
+  const name = firstName(child?.name);
+  const primary = (project.capabilityMap?.primary?.[0]) || (project.domains || [])[0] || "default";
+  const role = ROLE_BY_DOMAIN[primary] || "young person";
+  const traits = TRAITS_BY_DOMAIN[primary] || TRAITS_BY_DOMAIN.default;
+  const art = /^[aeiou]/i.test(traits[0]) ? "an" : "a";
+  return `${name} completed “${project.title}” and grew as ${art} ${traits[0]}, ${traits[1]} and ${traits[2]} ${role}.`;
+}
+
+// A short, warm parent affirmation the parent can keep, edit, or replace.
+// (Local generator — labelled as North Star; an AI version can slot in later.)
+const PARENT_MESSAGES = [
+  "We're so proud of how hard you worked on this.",
+  "We loved watching your confidence grow.",
+  "We're proud of your determination from start to finish.",
+  "We noticed how carefully you kept going, even when it was tricky.",
+  "We love the person you're becoming.",
+  "Watching you see this through made us so proud.",
+];
+export function suggestParentMessage(project, child) {
+  const i = Math.floor(Math.random() * PARENT_MESSAGES.length);
+  return PARENT_MESSAGES[i];
+}
+
+// A tight overview for the Quick Summary (1–2 sentences).
+export function quickOverview(project, child) {
+  const desc = (project.description || "").trim();
+  if (desc) {
+    const cut = desc.length > 300 ? desc.slice(0, 297).replace(/\s+\S*$/, "") + "…" : desc;
+    return cut;
+  }
+  // Fall back to the first sentence of the "why it matters" framing.
+  return whyItMatters(project, child).split(". ")[0].replace(/\.?$/, ".");
+}
+
+// The inviting cover lede — prefer the child-facing description (speaks TO the
+// child), then the AI "why this fits", then the woven "why it matters".
+export function coverLede(project, child) {
+  const childFacing = (project.childDescription || "").trim();
+  if (childFacing) return childFacing;
+  const purpose = (project.purpose || "").trim();
+  if (purpose) return purpose;
+  return whyItMatters(project, child);
+}
+
 // Group a project's materials into checklist buckets using any ownership
 // signal we have (resource records + family inventory). Best-effort: anything
 // we can't classify defaults to "Need to Get".

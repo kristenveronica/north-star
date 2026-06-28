@@ -8,50 +8,108 @@
    ============================================================ */
 
 import {
-  whyItMatters, certificateStatement, durationLabel, fmtDate, fmtDateShort,
-  firstName, domainNames, joinList,
+  whyItMatters, certAffirmation, durationLabel, fmtDate, fmtDateShort,
+  firstName, domainNames, joinList, quickOverview, coverLede,
 } from "./content.js";
 
-/* ---------------- Project Overview (≈2–3 pages) ---------------- */
-export function sectionOverview(doc, ctx) {
+/* ---------------- Workbook Cover (page 1 — the invitation) ---------------- */
+export function sectionCover(doc, ctx) {
   const { project, child } = ctx;
   const T = doc.t;
 
-  doc.gap(8);
-  doc.wordmark({ size: 12, gapAfter: 8 });
-  doc.rule(doc.y, { inset: doc.cw * 0.42, color: T.color.warm, weight: 0.8 });
-  doc.gap(16);
+  doc.gap(22);
+  doc.wordmark({ size: 12, gapAfter: 0 });
 
-  doc.eyebrow("Project Workbook", { align: "center" });
-  doc.title(project.title, { align: "center" });
+  // A calm compass motif as the focal illustration.
+  const cx = doc.mx + doc.cw / 2;
+  doc.gap(52);
+  doc.compassMark(cx, doc.y + 22, 22, { weight: 1.1 });
+  doc.gap(70);
 
-  const meta = [child ? child.name : "", durationLabel(project)].filter(Boolean).join("   ·   ");
-  doc.paragraph(meta, { align: "center", size: T.size.h3, color: T.color.muted, gapAfter: 4 });
+  doc.eyebrow("Project Workbook", { align: "center", size: T.size.coverEyebrow, color: T.color.warm });
+  doc.title(project.title, { align: "center", size: T.size.coverTitle, lineHeight: T.size.coverTitle * 1.08, gapAfter: 14 });
+
+  const who = [child ? child.name : "", durationLabel(project)].filter(Boolean).join("    ·    ");
+  doc.paragraph(who, { align: "center", size: T.size.coverName, color: T.color.muted, gapAfter: 6 });
+  const doms = domainNames(project);
+  if (doms.length) doc.paragraph(joinList(doms), { align: "center", size: T.size.small, color: T.color.faint, gapAfter: 0 });
+
+  // Inviting lede — the child-facing description / why this was chosen for them.
+  doc.gap(30);
+  doc.rule(doc.y, { inset: doc.cw * 0.40, color: T.color.warm, weight: 0.8 });
+  doc.gap(24);
+  doc.paragraph(coverLede(project, child), {
+    align: "center", size: T.size.coverLede, color: T.color.body, style: "italic", family: T.fonts.serif,
+    width: doc.cw * 0.84, x: doc.mx + doc.cw * 0.08, lineHeight: T.size.coverLede * 1.5,
+  });
+}
+
+/* ---------------- Project Overview (workbook, page 2+) ---------------- */
+export function sectionOverview(doc, ctx) {
+  const { project, child } = ctx;
+  const T = doc.t;
+  doc.sectionBreak();
+
+  doc.eyebrow("The Project");
+  doc.h2("Why this project matters", { gapBefore: 2 });
+  doc.paragraph(whyItMatters(project, child), { gapAfter: 14 });
+
   const doms = domainNames(project);
   if (doms.length) {
-    doc.paragraph(joinList(doms), { align: "center", size: T.size.small, color: T.color.faint, gapAfter: 6 });
+    doc.h2("Capability domains");
+    doc.paragraph("The real-world capabilities this project quietly grows:", { color: T.color.muted, gapAfter: 7 });
+    doc.bullets(doms, { gapAfter: 14 });
   }
-
-  doc.divider({ gapBefore: 12, gapAfter: 14 });
-
-  doc.h2("Why this project matters");
-  doc.paragraph(whyItMatters(project, child), { gapAfter: 12 });
 
   const outcomes = (project.learningOutcomes || []).filter(Boolean);
   if (outcomes.length) {
     doc.h2(`What ${firstName(child?.name)} will learn`);
-    doc.bullets(outcomes, { gapAfter: 12 });
+    doc.bullets(outcomes, { gapAfter: 14 });
   }
-
-  const matNames = (project.materials || [])
-    .map(m => (typeof m === "string" ? m : m?.name)).filter(Boolean);
-  doc.h2("What you'll need");
-  if (matNames.length) doc.bullets(matNames, { gapAfter: 12 });
-  else doc.paragraph("Gathered along the way — see the Materials Checklist, or nothing special required.", { color: T.color.muted, gapAfter: 12 });
 
   if (project.description) {
     doc.h2("About this project");
-    doc.paragraph(project.description, { gapAfter: 12 });
+    doc.paragraph(project.description, { gapAfter: 14 });
+  }
+
+  overviewQr(doc, ctx);
+}
+
+/* ---------------- Quick Project Summary (1–2 pages, minimal ink) ---------------- */
+export function sectionQuickSummary(doc, ctx) {
+  const { project, child, milestones } = ctx;
+  const T = doc.t;
+
+  doc.gap(4);
+  doc.wordmark({ size: 11, gapAfter: 12 });
+  doc.eyebrow("Quick Project Summary");
+  doc.title(project.title, { gapAfter: 7 });
+  const who = [child ? child.name : "", durationLabel(project)].filter(Boolean).join("    ·    ");
+  doc.paragraph(who, { size: T.size.h3, color: T.color.muted, gapAfter: 4 });
+  const doms = domainNames(project);
+  if (doms.length) doc.paragraph(joinList(doms), { size: T.size.small, color: T.color.faint, gapAfter: 10 });
+
+  doc.divider({ gapBefore: 4, gapAfter: 14 });
+
+  doc.h3("Overview");
+  doc.paragraph(quickOverview(project, child), { gapAfter: 14 });
+
+  const mat = ctx.materials || {};
+  const allMats = [...(mat.have || []), ...(mat.get || []), ...(mat.borrow || [])];
+  doc.h3("Materials");
+  if (allMats.length) allMats.forEach(n => doc.checkbox(n, { gapAfter: 4 }));
+  else doc.paragraph("Nothing special required.", { color: T.color.muted, gapAfter: 6 });
+  doc.gap(8);
+
+  doc.h3("Milestones");
+  const list = milestones || [];
+  if (list.length) {
+    list.forEach((m, i) => {
+      const due = m.dueDate ? fmtDateShort(m.dueDate) : "";
+      doc.checkbox(`${m.title || ("Milestone " + (i + 1))}${due ? "    —    due " + due : ""}`, { gapAfter: 5 });
+    });
+  } else {
+    doc.paragraph("No milestones added yet.", { color: T.color.muted, gapAfter: 6 });
   }
 
   overviewQr(doc, ctx);
@@ -110,29 +168,30 @@ export function sectionMilestones(doc, ctx) {
     if (i === 0) doc.sectionBreak(); else doc.page();
     const T = doc.t;
 
-    doc.eyebrow(`Milestone ${i + 1}`);
+    doc.eyebrow(`Milestone ${i + 1} of ${list.length}`);
     doc.title(m.title || `Milestone ${i + 1}`);
     doc.metaRow([
       ["Project", project.title],
       ...(m.dueDate ? [["Due", fmtDate(m.dueDate)]] : []),
-    ], { gapAfter: 12 });
+    ], { gapAfter: 10 });
+    doc.divider({ gapBefore: 2, gapAfter: 14 });
 
     if (m.description) {
       doc.h3("Objective");
-      doc.paragraph(m.description, { gapAfter: 10 });
+      doc.paragraph(m.description, { gapAfter: 12 });
     }
 
     doc.h3("Today's tasks");
     const tasks = (m.instructions || []).filter(Boolean);
     if (tasks.length) tasks.forEach(t => doc.checkbox(t));
     else { doc.checkbox(""); doc.checkbox(""); doc.checkbox(""); }
-    doc.gap(8);
+    doc.gap(10);
 
     doc.h3("Notes");
-    doc.writingLines(3, { gapAfter: 12 });
+    doc.writingLines(3, { gapAfter: 14 });
 
     doc.h3("Reflection");
-    doc.paragraph("What did you notice today?", { color: T.color.muted, style: "italic", family: T.fonts.serif, gapAfter: 6 });
+    doc.paragraph("What did you notice or feel proud of today?", { color: T.color.muted, style: "italic", family: T.fonts.serif, gapAfter: 8 });
     doc.writingLines(3);
   });
 }
@@ -209,47 +268,70 @@ export function sectionParentNotes(doc, ctx) {
     { color: T.color.muted, style: "italic", family: T.fonts.serif });
 }
 
-/* ---------------- Completion Certificate ---------------- */
+/* ---------------- Completion Certificate (LANDSCAPE, framable) ----------------
+   Assumes the orchestrator has already added a fresh landscape page. Premium,
+   minimal, identity-first — and deliberately carries NO metadata footer. */
 export function sectionCertificate(doc, ctx) {
   const { project, child } = ctx;
   const T = doc.t;
-  doc.sectionBreak();
 
-  // Double frame — thin lines only, no heavy fills.
-  const x0 = doc.mx - 16, y0 = doc.top - 14;
-  const w = doc.cw + 32, h = (doc.ph - T.margin.bottom + 8) - y0;
-  doc._draw(T.color.accent); doc.doc.setLineWidth(1.4);
-  doc.doc.roundedRect(x0, y0, w, h, 12, 12, "S");
+  const pw = doc.pw, ph = doc.ph;
+  const inset = 34;
+  const x0 = inset, y0 = inset, w = pw - inset * 2, h = ph - inset * 2;
+
+  // Elegant double border + corner flourishes — thin lines, no heavy fills.
+  doc._draw(T.color.accent); doc.doc.setLineWidth(1.6);
+  doc.doc.rect(x0, y0, w, h, "S");
   doc._draw(T.color.gold); doc.doc.setLineWidth(0.7);
-  doc.doc.roundedRect(x0 + 7, y0 + 7, w - 14, h - 14, 9, 9, "S");
-  [[x0 + 22, y0 + 22], [x0 + w - 22, y0 + 22], [x0 + 22, y0 + h - 22], [x0 + w - 22, y0 + h - 22]]
+  doc.doc.rect(x0 + 8, y0 + 8, w - 16, h - 16, "S");
+  [[x0 + 26, y0 + 26], [x0 + w - 26, y0 + 26], [x0 + 26, y0 + h - 26], [x0 + w - 26, y0 + h - 26]]
     .forEach(([cx, cy]) => doc.sparkle(cx, cy, 5, T.color.gold));
 
-  doc.y = y0 + 56;
-  doc.wordmark({ size: 12 });
-  doc.gap(18);
-  doc.eyebrow("Certificate of Completion", { align: "center", color: T.color.gold, size: T.size.certEyebrow, charSpace: 3 });
-  doc.gap(12);
-  doc.paragraph("This certifies that", { align: "center", size: 12, family: T.fonts.serif, style: "italic", color: T.color.muted, gapAfter: 8 });
-  doc.paragraph(firstName(child?.name), { align: "center", size: T.size.certName, family: T.fonts.serif, color: T.color.ink, gapAfter: 8 });
-  doc.paragraph("has completed", { align: "center", size: 12, family: T.fonts.serif, style: "italic", color: T.color.muted, gapAfter: 6 });
-  doc.paragraph(`“${project.title}”`, { align: "center", size: T.size.certTitle, family: T.fonts.serif, color: T.color.accent, gapAfter: 14 });
+  const cx = pw / 2;
+  // Centred text helper. Returns the y just below the drawn block.
+  const center = (text, y, { size, font = "serif", style = "normal", color = T.color.ink, cs = 0, wrap = 0 } = {}) => {
+    doc._font(T.fonts[font], style, size); doc._text(color);
+    if (cs) doc.doc.setCharSpace(cs);
+    let endY;
+    if (wrap) {
+      const lh = size * 1.42;
+      const lines = doc.doc.splitTextToSize(String(text), wrap);
+      let yy = y;
+      lines.forEach(ln => { doc.doc.text(ln, cx, yy, { align: "center", baseline: "top" }); yy += lh; });
+      endY = yy;
+    } else {
+      doc.doc.text(String(text), cx, y, { align: "center", baseline: "top" });
+      endY = y + size * 1.3;
+    }
+    if (cs) doc.doc.setCharSpace(0);
+    return endY;
+  };
 
-  doc.paragraph(certificateStatement(project, child), {
-    align: "center", size: 11, color: T.color.body,
-    width: doc.cw * 0.78, x: doc.mx + doc.cw * 0.11, gapAfter: 14,
-  });
+  let y = y0 + 42;
+  doc.y = y; doc.wordmark({ size: 12, gapAfter: 0 }); y = doc.y + 10;
 
-  const completedStr = ctx.completedDate ? fmtDateShort(ctx.completedDate) : "_____________________";
-  doc.paragraph(`Completed  ${completedStr}`,
-    { align: "center", size: 10.5, color: T.color.muted, family: T.fonts.sans });
+  y = center("CERTIFICATE OF COMPLETION", y, { size: T.size.certEyebrow, font: "sans", style: "bold", color: T.color.gold, cs: 3 }) + 16;
+  y = center("This is proudly presented to", y, { size: 12, style: "italic", color: T.color.muted }) + 12;
+  y = center(firstName(child?.name), y, { size: T.size.certName, color: T.color.ink }) + 12;
+  y = center("for completing", y, { size: 12, style: "italic", color: T.color.muted }) + 6;
+  y = center(`“${project.title}”`, y, { size: T.size.certTitle, color: T.color.accent }) + 20;
 
-  // Signature lines near the base of the frame.
-  const sy = y0 + h - 70;
+  // The ONE powerful, identity-affirming line.
+  y = center(certAffirmation(project, child), y, { size: T.size.certAffirm, color: T.color.body, wrap: w * 0.72 }) + 14;
+
+  // Optional parent message.
+  const pm = (ctx.options?.parentMessage || "").trim();
+  if (pm) y = center(`“${pm}”`, y, { size: T.size.certMessage, style: "italic", color: T.color.warm, wrap: w * 0.62 }) + 10;
+
+  const dateStr = ctx.completedDate ? fmtDateShort(ctx.completedDate) : "____________________";
+  center(`Completed  ${dateStr}`, y, { size: 10.5, font: "sans", color: T.color.muted });
+
+  // Signature lines spread across the base of the frame.
+  const sy = y0 + h - 54;
   const cols = [
-    { label: "Parent", x: doc.mx, w: doc.cw * 0.3 },
-    { label: "Child", x: doc.mx + doc.cw * 0.35, w: doc.cw * 0.3 },
-    { label: "Mentor (optional)", x: doc.mx + doc.cw * 0.7, w: doc.cw * 0.3 },
+    { label: "Parent", x: x0 + w * 0.12, w: w * 0.22 },
+    { label: "Child", x: x0 + w * 0.39, w: w * 0.22 },
+    { label: "Mentor (optional)", x: x0 + w * 0.66, w: w * 0.22 },
   ];
   doc._draw(T.color.line); doc.doc.setLineWidth(0.7);
   cols.forEach(c => {

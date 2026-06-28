@@ -45,9 +45,17 @@ export const THEME = {
     body: 10.5,
     small: 9,
     tiny: 8,
+    // Cover page (Workbook) — larger, more editorial.
+    coverEyebrow: 10,
+    coverTitle: 33,
+    coverName: 15,
+    coverLede: 11.5,
+    // Certificate (landscape) — premium, minimal, framable.
     certEyebrow: 11,
-    certName: 36,
-    certTitle: 17,
+    certName: 44,
+    certTitle: 18,
+    certAffirm: 13,
+    certMessage: 12,
   },
 
   margin: { x: 56, top: 60, bottom: 58 },

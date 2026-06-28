@@ -1,36 +1,44 @@
 /* ============================================================
-   pdf/templates.js — the template registry.
+   pdf/templates.js — the print FORMAT registry.
 
-   A template decides WHICH sections render and in what order. Adding a new
-   one (dyslexia-friendly, colour workbook, minimal-ink, travel/teacher/mentor
+   North Star offers three intentionally different print experiences. The two
+   PORTRAIT documents are defined here as formats (which sections, in order);
+   the LANDSCAPE Completion Certificate is handled specially by the orchestrator
+   (index.js) because it's its own page geometry and carries no footer.
+
+   Adding a new portrait format (dyslexia-friendly, colour edition, teacher
    edition, other languages) is just another entry here — no engine changes.
-   Each template exposes { id, label, description, build(doc, ctx) }.
    ============================================================ */
 
 import {
-  sectionOverview, sectionMilestones, sectionMaterials,
-  sectionReflection, sectionParentNotes, sectionCertificate,
+  sectionCover, sectionOverview, sectionQuickSummary,
+  sectionMaterials, sectionMilestones, sectionParentNotes,
 } from "./sections.js";
 
-export const PDF_TEMPLATES = [
+export const PDF_FORMATS = [
   {
-    id: "home-print",
-    label: "Home Print",
-    description: "Minimal-ink, black-and-white friendly workbook for everyday home printing.",
+    id: "summary",
+    label: "Quick Summary",
+    blurb: "A clean 1–2 page reference sheet. Minimal ink, prints fast — perfect for the kitchen bench.",
     build(doc, ctx) {
-      const o = ctx.options || {};
-      if (o.overview) sectionOverview(doc, ctx);
-      if (o.milestones) sectionMilestones(doc, ctx);
-      if (o.materials) sectionMaterials(doc, ctx);
-      if (o.reflection) sectionReflection(doc, ctx);
-      if (o.parentNotes) sectionParentNotes(doc, ctx);
-      if (o.certificate) sectionCertificate(doc, ctx);
+      sectionQuickSummary(doc, ctx);
     },
   },
-  // Future: { id: "dyslexia-friendly", ... }, { id: "colour-workbook", ... },
-  // { id: "travel-edition", ... }, { id: "teacher-edition", ... } …
+  {
+    id: "workbook",
+    label: "Project Workbook",
+    blurb: "A premium journal — beautiful cover, a page per milestone, reflection space and coaching notes.",
+    recommended: true,
+    build(doc, ctx) {
+      sectionCover(doc, ctx);
+      sectionOverview(doc, ctx);
+      sectionMaterials(doc, ctx);
+      sectionMilestones(doc, ctx);
+      sectionParentNotes(doc, ctx);
+    },
+  },
 ];
 
-export function getTemplate(id) {
-  return PDF_TEMPLATES.find(t => t.id === id) || PDF_TEMPLATES[0];
+export function getFormat(id) {
+  return PDF_FORMATS.find(f => f.id === id) || PDF_FORMATS[1];
 }
