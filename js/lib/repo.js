@@ -228,7 +228,7 @@ function toChildRow(c, familyId) {
     mobility_profile: orNull(c.mobilityProfile),
   };
 }
-function fromChildRow(r) {
+export function fromChildRow(r) {
   return {
     id: r.id,
     familyId: r.family_id,
@@ -319,7 +319,7 @@ function toProjectRow(p, familyId) {
     experience_type: orNull(p.experienceType),
   };
 }
-function fromProjectRow(r) {
+export function fromProjectRow(r) {
   const gm = (r.generation_meta && typeof r.generation_meta === "object" && !Array.isArray(r.generation_meta)) ? r.generation_meta : {};
   return {
     id: r.id,
@@ -385,7 +385,7 @@ function toMilestoneRow(m, familyId) {
     submission: m.submission || null,
   };
 }
-function fromMilestoneRow(r) {
+export function fromMilestoneRow(r) {
   return {
     id: r.id,
     projectId: r.project_id,

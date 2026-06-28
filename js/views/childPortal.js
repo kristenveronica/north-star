@@ -10,6 +10,7 @@ import {
   addMilestoneSubmission, removeMilestoneEvidence,
 } from "../store.js";
 import { REFLECTION_PROMPTS } from "../seed.js";
+import { childPortalLogin } from "../lib/childPortalCloud.js";
 import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
 import { openSubmissionModal } from "../components/submission.js";
@@ -128,12 +129,28 @@ export function renderChildLogin(container) {
       </div>
     </div>
   `;
-  const go = () => {
+  const goBtn = () => container.querySelector("#go");
+  const go = async () => {
     const code = container.querySelector("#code").value.trim().toUpperCase();
     const pin = container.querySelector("#pin").value.trim();
-    const child = getChildByCode(code);
-    if (!child) { toast("Code not recognised", { type: "warning" }); return; }
-    if (child.pin && child.pin !== pin) { toast("That PIN doesn't match", { type: "warning" }); return; }
+    if (!code) { toast("Enter your access code", { type: "warning" }); return; }
+    let child = getChildByCode(code);     // same-device fast path
+    if (!child) {
+      // Cross-device: look the child up in the cloud by their access code.
+      const b = goBtn(); b.disabled = true; b.textContent = "Checking…";
+      try {
+        child = await childPortalLogin(code);
+      } catch (e) {
+        b.disabled = false; b.textContent = "Open my portal →";
+        toast(/not_found/i.test(e.message) ? "Code not recognised" : "Couldn't open your portal — try again", { type: "warning" });
+        return;
+      }
+    }
+    if (child.pin && child.pin !== pin) {
+      const b = goBtn(); b.disabled = false; b.textContent = "Open my portal →";
+      toast("That PIN doesn't match", { type: "warning" });
+      return;
+    }
     navigate("/kid/" + child.accessCode);
   };
   container.querySelector("#go").addEventListener("click", go);

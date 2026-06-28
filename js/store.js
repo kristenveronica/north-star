@@ -195,6 +195,19 @@ export function subscribe(cb) {
   return () => _subs.delete(cb);
 }
 
+/* Load a CHILD-PORTAL session fetched from the cloud (the child is on their own
+   device with no parent data). Sets just the child's slices locally and does NOT
+   schedule a cloud write (the child isn't an authed parent). family stays unset,
+   so syncCore early-returns and the read-only portal renders from these. */
+export function loadChildPortalSession({ children = [], projects = [], milestones = [] }) {
+  _state.children = children;
+  _state.projects = projects;
+  _state.milestones = milestones;
+  _state.meta = { ..._state.meta, childPortalMode: true };
+  persist();
+  _subs.forEach(cb => cb(_state));
+}
+
 export function resetAll() {
   _state = structuredClone(DEFAULT_STATE);
   persist();

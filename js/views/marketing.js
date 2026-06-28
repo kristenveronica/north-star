@@ -6,6 +6,7 @@
 
 import { esc, toast, nsIcon } from "../components/ui.js";
 import { getChildByCode } from "../store.js";
+import { childPortalLogin } from "../lib/childPortalCloud.js";
 import { navigate, currentPath } from "../router.js";
 import { hasAccount, isLoggedIn, signup, login, logout, currentUserEmail, requestPasswordReset, updatePassword } from "../auth.js";
 import { logoLockup, logoStacked } from "../components/logo.js";
@@ -1082,13 +1083,24 @@ export function renderLogin(container) {
 
   // Child login submit
   const cLogin = container.querySelector("#c-login");
-  cLogin?.addEventListener("click", () => {
+  cLogin?.addEventListener("click", async () => {
     const code = container.querySelector("#c-code").value.trim().toUpperCase();
     const pin = container.querySelector("#c-pin").value.trim();
     if (!code) { toast("Enter your access code", { type: "warning" }); return; }
-    const child = getChildByCode(code);
-    if (!child) { toast("Code not recognised", { type: "warning" }); return; }
+    let child = getChildByCode(code);     // same-device fast path
+    if (!child) {
+      // Cross-device: look the child up in the cloud by their access code.
+      cLogin.disabled = true; cLogin.textContent = "Checking…";
+      try {
+        child = await childPortalLogin(code);
+      } catch (e) {
+        cLogin.disabled = false; cLogin.textContent = "Open my view →";
+        toast(/not_found/i.test(e.message) ? "Code not recognised" : "Couldn't open the portal — try again", { type: "warning" });
+        return;
+      }
+    }
     if (child.pin && child.pin !== pin) {
+      cLogin.disabled = false; cLogin.textContent = "Open my view →";
       toast("That PIN doesn't match", { type: "warning" });
       return;
     }

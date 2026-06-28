@@ -11,3 +11,9 @@ verify_jwt = false
 # (no data access), so it's safe to run unauthenticated.
 [functions.public-checkout]
 verify_jwt = false
+
+# A child opening their portal on their own device has no parent session, so
+# this lookup runs unauthenticated. It returns only the one child matched by
+# access code (no family-wide data), keyed by the access code as the credential.
+[functions.child-portal]
+verify_jwt = false
