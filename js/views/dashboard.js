@@ -16,7 +16,7 @@ export function renderDashboard(container) {
     <div class="topbar">
       <div>
         <h1>Welcome back, ${esc(family.parentName || "Parent")}.</h1>
-        <div class="sub">${esc(family.familyName)} · ${esc(family.motto || "Your family's North Star.")}</div>
+        <div class="sub">${esc(family.familyName)}</div>
       </div>
       <div class="btn-row">
         <button class="btn" data-go="/calendar">${icon("calendar")} Calendar</button>
@@ -113,7 +113,7 @@ function childStatCard(c) {
         </div>
       ` : `<div class="small text-muted">No active milestones yet.</div>`}
       <div class="divider"></div>
-      <a class="btn btn-ghost btn-sm" href="#/kid/${c.accessCode}">${icon("child")} Open ${esc(c.name)}'s view →</a>
+      <a class="btn-portal avatar-${c.avatarIndex}" href="#/kid/${c.accessCode}">${icon("child")} Open ${esc(c.name)}'s view →</a>
     </div>
   `;
 }

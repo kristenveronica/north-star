@@ -6,6 +6,7 @@ import { currentPath } from "../router.js";
 import { getState } from "../store.js";
 import { hasAccount, currentUserEmail } from "../auth.js";
 import { logoLockup } from "./logo.js";
+import { currentMember, canAccessPath, getViewAs } from "../lib/permissions.js";
 
 const GROUPS = [
   {
@@ -18,10 +19,12 @@ const GROUPS = [
     label: "Plan",
     items: [
       { label: "Family North Star", path: "/vision", icon: "vision" },
+      { label: "Family Settings", path: "/family-settings", icon: "familySettings" },
       { label: "Children", path: "/children", icon: "children" },
-      { label: "Learning Style", path: "/style", icon: "style" },
-      { label: "Learning Domains", path: "/domains", icon: "domains" },
-      { label: "Suggested Materials", path: "/materials", icon: "materials" },
+      { label: "Learning Profile", path: "/style", icon: "style" },
+      { label: "Capability Domains", path: "/domains", icon: "domains" },
+      { label: "Family Inventory", path: "/inventory", icon: "inventory" },
+      { label: "Learning Resources", path: "/materials", icon: "materials" },
       { label: "Projects", path: "/projects", icon: "projects" },
       { label: "Term Planner", path: "/planner", icon: "plan" },
       { label: "Calendar", path: "/calendar", icon: "calendar" },
@@ -32,6 +35,7 @@ const GROUPS = [
     label: "Track",
     items: [
       { label: "Progress", path: "/progress", icon: "progress" },
+      { label: "Reflections", path: "/reflections", icon: "vision" },
       { label: "Portfolio", path: "/portfolio", icon: "portfolio" },
       { label: "Growth Reports", path: "/reports", icon: "report" },
       { label: "Child Insights", path: "/insights", icon: "insights", premium: true },
@@ -58,6 +62,17 @@ export function renderSidebar() {
   const s = getState();
   const cartCount = s.cart.length;
 
+  // Dynamic navigation: built from the CURRENT user's permissions. Pages they
+  // can't access are omitted entirely (never shown disabled), and empty groups
+  // disappear — so each person's portal feels intentionally designed for them.
+  const member = currentMember(s);
+  const viewing = getViewAs();
+  const groups = GROUPS
+    .map(g => ({ ...g, items: g.items.filter(item => canAccessPath(member, item.path)) }))
+    .filter(g => g.items.length);
+  const canSeeChildPortals = canAccessPath(member, "/children");
+  const previewable = !viewing ? (s.family?.relationships || []).filter(r => r.name && r.id) : [];
+
   return `
     <aside class="sidebar">
       <div class="sidebar-brand-block">
@@ -65,7 +80,7 @@ export function renderSidebar() {
         <div class="sidebar-family-name">${escapeHtml(s.family?.familyName || "Your Family Journey")}</div>
       </div>
 
-      ${GROUPS.map(g => `
+      ${groups.map(g => `
         <div class="nav-section">
           <div class="nav-label">${g.label}</div>
           ${g.items.map(item => `
@@ -79,15 +94,28 @@ export function renderSidebar() {
         </div>
       `).join("")}
 
-      <div class="nav-section">
-        <div class="nav-label">Child Portals</div>
-        ${(s.children || []).map(c => `
-          <a class="nav-item" href="#/kid/${c.accessCode}">
-            <span class="child-card-avatar avatar-${c.avatarIndex}" style="width:24px;height:24px;font-size:11px">${initials(c.name)}</span>
-            <span>${escapeHtml(c.name)}'s view</span>
-          </a>
-        `).join("")}
-      </div>
+      ${canSeeChildPortals && (s.children || []).length ? `
+        <div class="nav-section">
+          <div class="nav-label">Child Portals</div>
+          ${(s.children || []).map(c => `
+            <a class="nav-item" href="#/kid/${c.accessCode}">
+              <span class="child-card-avatar avatar-${c.avatarIndex}" style="width:24px;height:24px;font-size:11px">${initials(c.name)}</span>
+              <span>${escapeHtml(c.name)}'s view</span>
+            </a>
+          `).join("")}
+        </div>` : ""}
+
+      ${previewable.length ? `
+        <div class="nav-section">
+          <div class="nav-label">Preview a portal</div>
+          ${previewable.map(r => `
+            <a class="nav-item" href="#" data-view-as="${escapeHtml(r.id)}">
+              <span class="ico">${icon("child")}</span>
+              <span>View as ${escapeHtml(r.name)}</span>
+              <span class="badge" style="background:var(--card-elev);color:var(--text-muted)">${r.accessLevel === "owner" ? "Owner" : "Contributor"}</span>
+            </a>
+          `).join("")}
+        </div>` : ""}
 
       <div class="sidebar-footer">
         ${hasAccount() ? `

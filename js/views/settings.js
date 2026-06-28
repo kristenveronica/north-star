@@ -8,6 +8,8 @@ import { esc, toast, confirmDialog } from "../components/ui.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 import { hasAccount, currentUserEmail, attachAccountToExistingFamily, changePassword, logout } from "../auth.js";
+import { childProfileLimit, childSeatsUsed } from "../lib/entitlements.js";
+import { openBillingPortal, aiSeatCount, syncAiSeats } from "../lib/billing.js";
 
 export function renderSettings(container) {
   const s = getState();
@@ -29,11 +31,9 @@ export function renderSettings(container) {
             <div class="field"><label>Parent name</label><input class="input" id="parentName" value="${esc(f.parentName || "")}"/></div>
             <div class="field"><label>Family name</label><input class="input" id="familyName" value="${esc(f.familyName || "")}"/></div>
           </div>
-          <div class="field">
-            <label class="checkbox"><input type="checkbox" id="faithEnabled" ${f.faithEnabled ? "checked" : ""}/> Enable Faith Gigs across the family</label>
-            <input class="input mt-1 ${f.faithEnabled ? "" : "hidden"}" id="faithTradition" placeholder="Faith tradition" value="${esc(f.faithTradition || "")}"/>
-          </div>
-          <div class="row" style="justify-content:flex-end">
+          <p class="hint" style="margin:6px 0 0">Faith Integration, Home Location, Travel and people now live in <a href="#/family-settings">Family Settings</a>.</p>
+          <div class="row" style="justify-content:flex-end;align-items:center;gap:12px">
+            <span class="small text-muted" id="pref-autosave" aria-live="polite"></span>
             <button class="btn btn-primary" id="save">Save</button>
           </div>
         </div>
@@ -59,6 +59,25 @@ export function renderSettings(container) {
             </div>
             <button class="btn btn-primary" id="ac-create">Set up local login</button>
           `}
+        </div>
+
+        <div class="card">
+          <h3>Subscription</h3>
+          <p class="text-muted small">Your plan includes <strong>${childProfileLimit(f)} child ${childProfileLimit(f) === 1 ? "profile" : "profiles"}</strong> — ${childSeatsUsed(s)} in use. Add more child profiles from the Children page; manage or cancel your subscription here.</p>
+          <div class="divider"></div>
+          <div class="row-between" style="align-items:flex-start;gap:10px">
+            <div>
+              <div class="fw-700 small">Adult contributor seats: ${aiSeatCount(s)}</div>
+              <p class="text-muted small" style="margin:4px 0 0;max-width:46ch">Each co-owner, and any contributor you grant <em>Generate AI Projects</em> or <em>Request AI Reports</em>, is a billable seat (the Primary Owner is included in your base plan). Update after changing who can use AI.</p>
+            </div>
+            <button class="btn btn-sm" id="sync-seats">Update billing seats</button>
+          </div>
+          <div class="small text-muted" id="sync-seats-status" style="margin-top:6px" aria-live="polite"></div>
+          <div class="divider"></div>
+          <div class="row" style="gap:10px">
+            <button class="btn btn-primary" id="manage-billing">Manage subscription</button>
+            <button class="btn" id="go-children">Add a child profile</button>
+          </div>
         </div>
 
         <div class="card">
@@ -127,19 +146,61 @@ export function renderSettings(container) {
     </div>
   `;
 
-  const faithCb = container.querySelector("#faithEnabled");
-  const faithIn = container.querySelector("#faithTradition");
-  faithCb.addEventListener("change", () => faithIn.classList.toggle("hidden", !faithCb.checked));
+  const savePrefs = () => setFamily({
+    parentName: container.querySelector("#parentName").value.trim(),
+    familyName: container.querySelector("#familyName").value.trim(),
+  });
+
+  // Auto-save the family preferences (safety net) — never lose what you typed.
+  // Scoped to these fields only; login/password fields are deliberately excluded.
+  const prefStatus = container.querySelector("#pref-autosave");
+  let prefTimer;
+  const autosavePrefs = () => {
+    clearTimeout(prefTimer);
+    if (prefStatus) prefStatus.textContent = "Saving…";
+    prefTimer = setTimeout(() => {
+      savePrefs();
+      if (prefStatus) prefStatus.textContent = "✓ Saved automatically";
+    }, 700);
+  };
+  ["#parentName", "#familyName"].forEach(sel =>
+    container.querySelector(sel)?.addEventListener("input", autosavePrefs));
 
   container.querySelector("#save").addEventListener("click", () => {
-    setFamily({
-      parentName: container.querySelector("#parentName").value.trim(),
-      familyName: container.querySelector("#familyName").value.trim(),
-      faithEnabled: faithCb.checked,
-      faithTradition: faithIn.value.trim(),
-    });
+    clearTimeout(prefTimer);
+    savePrefs();
     toast("Settings saved", { type: "success" });
     rerender();
+  });
+
+  // Subscription management
+  container.querySelector("#manage-billing")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try { await openBillingPortal(); }
+    catch (err) { toast(err.message || "No subscription to manage yet.", { type: "warning" }); btn.disabled = false; }
+  });
+  container.querySelector("#go-children")?.addEventListener("click", () => navigate("/children"));
+
+  // Reconcile adult AI seats with current membership (server recomputes the count).
+  container.querySelector("#sync-seats")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    const status = container.querySelector("#sync-seats-status");
+    btn.disabled = true; if (status) status.textContent = "Updating…";
+    try {
+      const res = await syncAiSeats();
+      if (status) {
+        status.textContent = res?.ok
+          ? `✓ Billing updated — ${res.aiSeats} contributor seat${res.aiSeats === 1 ? "" : "s"}.`
+          : res?.reason === "no_active_subscription"
+            ? "No active subscription yet — seats will bill once you subscribe."
+            : res?.reason === "no_aiseat_price"
+              ? "Add the contributor-seat price in Stripe to enable seat billing."
+              : "Seats are up to date.";
+      }
+    } catch (err) {
+      if (status) status.textContent = err.message || "Couldn't update seats just now.";
+    } finally { btn.disabled = false; }
   });
 
   // Local login wiring

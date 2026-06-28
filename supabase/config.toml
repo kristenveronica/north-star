@@ -1,0 +1,13 @@
+# Supabase project config (function-level overrides).
+# The AI + billing functions require a signed-in parent (verify_jwt defaults ON).
+# The Stripe webhook is called by Stripe (no Supabase JWT) → verify_jwt MUST be off;
+# it authenticates instead via the Stripe signature (STRIPE_WEBHOOK_SECRET).
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+# The public pricing page calls this BEFORE the buyer has an account, so it can't
+# carry a Supabase JWT. It only creates Stripe Checkout sessions / returns prices
+# (no data access), so it's safe to run unauthenticated.
+[functions.public-checkout]
+verify_jwt = false

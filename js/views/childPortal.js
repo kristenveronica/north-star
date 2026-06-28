@@ -13,6 +13,7 @@ import { REFLECTION_PROMPTS } from "../seed.js";
 import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
 import { openSubmissionModal } from "../components/submission.js";
+import { openProjectPdfModal } from "../components/pdfModal.js";
 
 /* ============================================================
    handleMilestoneTap — shared milestone interaction.
@@ -22,6 +23,32 @@ import { openSubmissionModal } from "../components/submission.js";
      Either path fires the celebration.
    - Tap a COMPLETED star    → instant uncomplete (no modal)
    ============================================================ */
+/* Mission detail — child taps a mission to see exactly what to do. */
+function openMissionDetail(milestoneId) {
+  const s = getState();
+  const m = s.milestones.find(x => x.id === milestoneId);
+  if (!m) return;
+  const project = getProject(m.projectId);
+  const steps = m.instructions || [];
+  const body = document.createElement("div");
+  body.innerHTML = `
+    ${project?.questRole ? `<div class="small text-sage fw-700" style="letter-spacing:0.1em;text-transform:uppercase">${esc(project.questRole)}</div>` : ""}
+    <h2 style="font-family:var(--font-serif);margin:4px 0 8px">${esc(m.title)}</h2>
+    ${m.description ? `<p class="text-muted" style="margin-bottom:10px">${esc(m.description)}</p>` : ""}
+    ${steps.length ? `
+      <div class="small text-muted fw-700" style="text-transform:uppercase;letter-spacing:0.1em">Your steps</div>
+      <ol class="stack mt-1" style="padding-left:20px;line-height:1.5">
+        ${steps.map(st => `<li style="margin-bottom:8px">${esc(st)}</li>`).join("")}
+      </ol>` : `<p class="text-muted small">No extra steps — go for it, then tap the star to mark it done!</p>`}
+    <div class="card mt-2" style="background:var(--card-elev)">
+      <div class="small text-muted">${m.momentumPoints} momentum points${m.reflectionRequired ? " · writing a reflection unlocks your star" : ""}${m.dueDate ? " · due " + fmtDate(m.dueDate, { short: false }) : ""}</div>
+    </div>`;
+  const foot = document.createElement("div");
+  foot.style.cssText = "display:flex;gap:10px;width:100%;justify-content:flex-end";
+  foot.innerHTML = `<button class="btn btn-primary" data-close>Got it ✦</button>`;
+  openModal({ title: "Your mission", body, footer: foot });
+}
+
 function handleMilestoneTap(milestoneId, targetEl, afterChange) {
   const s = getState();
   const m = s.milestones.find(x => x.id === milestoneId);
@@ -166,12 +193,17 @@ export function renderChildPortal(container, params) {
   const s = getState();
   const stats = getChildStats(child.id);
   const activeMs = getActiveMilestonesForChild(child.id);
-  const todayMs = activeMs.filter(m => {
+  const dueSoon = activeMs.filter(m => {
     if (!m.dueDate) return true;
     const due = new Date(m.dueDate);
     const today = new Date(); today.setHours(23, 59, 59, 999);
-    return due <= addDays(today, 3); // "today's missions" = due within 3 days
-  }).slice(0, 5);
+    return due <= addDays(today, 3); // due within 3 days
+  });
+  // Always give the child something to act on. If nothing is due in the next few
+  // days (e.g. a freshly planned term), show their next missions across active
+  // projects so Mark-Complete is always reachable from the home — not buried in HQ.
+  const homeMissions = (dueSoon.length ? dueSoon : activeMs).slice(0, 5);
+  const missionsHeading = dueSoon.length ? "Today's missions" : "Your next missions";
   const activeProjects = stats.activeProjects;
 
   container.innerHTML = `
@@ -199,10 +231,10 @@ export function renderChildPortal(container, params) {
         <div class="metric"><div class="v">${stats.completedMilestones}/${stats.totalMilestones}</div><div class="l">Milestones done</div></div>
       </div>
 
-      <h2 class="mb-2">Today's missions</h2>
-      ${todayMs.length === 0
-        ? `<div class="empty">Nothing urgent today. Pick a project below and keep building.</div>`
-        : `<div class="stack mb-3">${todayMs.map(m => missionRow(m, s)).join("")}</div>`}
+      <h2 class="mb-2">${missionsHeading}</h2>
+      ${homeMissions.length === 0
+        ? `<div class="empty">${activeProjects.length ? "All missions done — open a project below to review or write a reflection." : "No missions yet. Ask a parent to set up your first project."}</div>`
+        : `<div class="stack mb-3">${homeMissions.map(m => missionRow(m, s)).join("")}</div>`}
 
       <h2 class="mb-2">Your projects</h2>
       ${activeProjects.length === 0
@@ -247,6 +279,9 @@ export function renderChildPortal(container, params) {
   /* ----- wiring ----- */
   container.querySelectorAll("[data-complete-ms]").forEach(b => {
     b.addEventListener("click", () => handleMilestoneTap(b.dataset.completeMs, b, rerender));
+  });
+  container.querySelectorAll("[data-ms-detail]").forEach(el => {
+    el.addEventListener("click", () => openMissionDetail(el.dataset.msDetail));
   });
   wireSoundToggle(container, rerender);
   container.querySelectorAll("[data-add-refl]").forEach(b => {
@@ -297,9 +332,9 @@ function missionRow(m, s) {
       <button class="star-btn ${m.completed ? "earned" : ""}" data-complete-ms="${m.id}" style="width:48px;height:48px">
         ${icon(m.completed ? "star" : "starOutline")}
       </button>
-      <div style="flex:1">
+      <div style="flex:1;cursor:pointer" data-ms-detail="${m.id}">
         <div class="fw-700" style="font-size:16px">${esc(m.title)}</div>
-        <div class="small text-muted">${proj ? esc(proj.title) : ""}</div>
+        <div class="small text-muted">${proj ? esc(proj.title) : ""}${(m.instructions || []).length ? ` · <span class="text-sage fw-600">tap to see your steps →</span>` : ""}</div>
       </div>
       <div class="stack-tight" style="align-items:flex-end">
         <span class="points-pill">+${m.momentumPoints} pts</span>
@@ -348,6 +383,8 @@ export function renderChildProjectHQ(container, params) {
       <div class="row" style="gap:8px">
         <span class="points-pill"><span class="ns-icon">${nsIcon("star", { size: 12 })}</span> ${project.starsEarned}/${project.starsAvailable}</span>
         <span class="points-pill" style="background:var(--primary-soft);color:var(--primary-ink)">${project.momentumPointsEarned}/${project.momentumPointsAvailable} pts</span>
+        ${(child.printPermission || "approval") !== "disabled"
+          ? `<button class="btn btn-ghost btn-sm" id="kid-print" title="Print this project">🖨️ Print</button>` : ""}
         ${soundToggleHTML()}
       </div>
     </div>
@@ -395,9 +432,10 @@ export function renderChildProjectHQ(container, params) {
               <button class="star-btn ${m.completed ? "earned" : ""}" data-complete-ms="${m.id}" style="width:48px;height:48px">
                 ${icon(m.completed ? "star" : "starOutline")}
               </button>
-              <div style="flex:1">
+              <div style="flex:1;cursor:pointer" data-ms-detail="${m.id}">
                 <div class="fw-700" style="${m.completed ? "text-decoration:line-through;color:var(--text-muted)" : ""}">${esc(m.title)}</div>
-                <div class="small text-muted">${m.dueDate ? "Due " + fmtDate(m.dueDate, { short: false }) : ""} · ${m.momentumPoints} pts${m.reflectionRequired ? " · reflection" : ""}${evCount ? ` · ${evCount} ${evCount === 1 ? "submission" : "submissions"}` : ""}</div>
+                ${m.description ? `<div class="small">${esc(m.description)}</div>` : ""}
+                <div class="small text-muted">${m.dueDate ? "Due " + fmtDate(m.dueDate, { short: false }) : ""} · ${m.momentumPoints} pts${m.reflectionRequired ? " · reflection" : ""}${evCount ? ` · ${evCount} ${evCount === 1 ? "submission" : "submissions"}` : ""}${(m.instructions || []).length ? ` · <span class="text-sage fw-600">tap to see your steps →</span>` : ""}</div>
               </div>
               <div class="stack-tight" style="align-items:flex-end">
                 <span class="points-pill" style="font-size:11px">+${m.momentumPoints}</span>
@@ -487,6 +525,9 @@ export function renderChildProjectHQ(container, params) {
   container.querySelectorAll("[data-complete-ms]").forEach(b => {
     b.addEventListener("click", () => handleMilestoneTap(b.dataset.completeMs, b, rerender));
   });
+  container.querySelectorAll("[data-ms-detail]").forEach(el => {
+    el.addEventListener("click", () => openMissionDetail(el.dataset.msDetail));
+  });
   container.querySelectorAll("[data-add-refl]").forEach(b => {
     b.addEventListener("click", () => openKidReflection(child, b.dataset.addRefl));
   });
@@ -497,6 +538,11 @@ export function renderChildProjectHQ(container, params) {
       toast("Evidence removed");
       setTimeout(rerender, 200);
     });
+  });
+  container.querySelector("#kid-print")?.addEventListener("click", () => {
+    const perm = child.printPermission || "approval";
+    if (perm === "allow") openProjectPdfModal(project, child);
+    else toast("Ask a parent to print this project from the parent dashboard.", { duration: 3200 });
   });
   wireSoundToggle(container, rerender);
 }

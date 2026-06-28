@@ -1,50 +1,25 @@
 /* ============================================================
-   auth.js — Local-only parent auth.
+   auth.js — Real parent auth via Supabase Auth.
 
-   PBKDF2 with 150k iterations + per-account random salt.
-   Stored in localStorage. Since the data lives on the device,
-   this is a UX layer, not a security boundary against someone
-   with physical access — but it gives the platform a real
-   account-and-session feel.
+   Replaces the old localStorage/PBKDF2 layer. Public API is kept
+   the same shape so views (marketing.js, settings.js, sidebar.js)
+   don't change:
+     validateEmail, validatePassword,
+     hasAccount(), isLoggedIn(), currentUserEmail(),   (sync)
+     signup(), login(), logout(), changePassword(),
+     attachAccountToExistingFamily(), initAuth(), onAuthChange()
 
-   When a real backend is wired:
-     - signup() → POST /auth/signup
-     - login()  → POST /auth/login (returns JWT)
-     - the session check stays the same shape.
+   A module-level `_session` cache makes the sync getters work; it is
+   primed by initAuth() at boot and kept fresh by onAuthStateChange.
    ============================================================ */
 
-import { getState, update } from "./store.js";
+import { supabase } from "./lib/supabase.js";
+import { ensureFamilyAndHydrate } from "./lib/repo.js";
 
-const ITERATIONS = 150_000;
-const KEY_LEN = 256;
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+let _session = null;
+let _authChangeCb = null;
 
-/* ---------- Hashing ---------- */
-function bufToHex(buf) {
-  return Array.from(new Uint8Array(buf))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-function randomSaltHex(bytes = 16) {
-  const a = new Uint8Array(bytes);
-  crypto.getRandomValues(a);
-  return Array.from(a).map(b => b.toString(16).padStart(2, "0")).join("");
-}
-async function hashPassword(password, saltHex) {
-  const enc = new TextEncoder();
-  const salt = new Uint8Array(saltHex.match(/.{2}/g).map(h => parseInt(h, 16)));
-  const key = await crypto.subtle.importKey(
-    "raw", enc.encode(password),
-    { name: "PBKDF2" }, false, ["deriveBits"]
-  );
-  const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt, iterations: ITERATIONS, hash: "SHA-256" },
-    key, KEY_LEN
-  );
-  return bufToHex(bits);
-}
-
-/* ---------- Email + password validation ---------- */
+/* ---------- validation (unchanged) ---------- */
 export function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email || "");
 }
@@ -54,99 +29,113 @@ export function validatePassword(pw) {
   return { ok: true };
 }
 
-/* ---------- Account state ---------- */
-export function hasAccount() {
-  const a = getState().auth;
-  return !!(a && a.email && a.passwordHash);
-}
-
+/* ---------- session state (sync getters) ---------- */
 export function isLoggedIn() {
-  const s = getState().auth?.session;
-  if (!s || !s.active || !s.expiresAt) return false;
-  return new Date(s.expiresAt).getTime() > Date.now();
+  return !!_session?.user;
 }
-
+// With cloud auth there is no per-device "account exists" concept; for the
+// views that gate on it, "has an account" == "is signed in".
+export function hasAccount() {
+  return isLoggedIn();
+}
 export function currentUserEmail() {
-  return getState().auth?.email || null;
+  return _session?.user?.email || null;
+}
+export function currentUserId() {
+  return _session?.user?.id || null;
 }
 
-/* ---------- Signup ---------- */
+/* ---------- boot ---------- */
+export async function initAuth() {
+  const { data } = await supabase.auth.getSession();
+  _session = data.session;
+  supabase.auth.onAuthStateChange((_event, session) => {
+    _session = session;
+    if (_authChangeCb) _authChangeCb(session);
+  });
+  return _session;
+}
+// app.js registers a callback to re-hydrate + re-render on login/logout.
+export function onAuthChange(cb) { _authChangeCb = cb; }
+
+/* ---------- signup ---------- */
 export async function signup({ email, password, parentName }) {
   if (!validateEmail(email)) throw new Error("Please enter a valid email address.");
-  const pwCheck = validatePassword(password);
-  if (!pwCheck.ok) throw new Error(pwCheck.reason);
-  if (hasAccount()) throw new Error("An account already exists on this device. Log in instead.");
+  const pw = validatePassword(password);
+  if (!pw.ok) throw new Error(pw.reason);
 
-  const salt = randomSaltHex();
-  const passwordHash = await hashPassword(password, salt);
-  const session = freshSession();
-
-  update(s => {
-    s.auth = {
-      email: email.trim().toLowerCase(),
-      passwordHash, salt,
-      parentName: parentName?.trim() || "",
-      createdAt: new Date().toISOString(),
-      session,
-    };
+  const { data, error } = await supabase.auth.signUp({
+    email: email.trim().toLowerCase(),
+    password,
+    options: { data: { parentName: parentName?.trim() || "" } },
   });
+  if (error) throw new Error(error.message);
 
-  return { email, session };
+  // If email confirmation is OFF, we get a session immediately → hydrate now
+  // so the app can proceed straight into onboarding.
+  if (data.session) {
+    _session = data.session;
+    await ensureFamilyAndHydrate();
+    if (parentName) await applyParentName(parentName.trim());
+    return { email, needsConfirmation: false };
+  }
+  // Confirmation ON → no session yet; the user must verify their email.
+  return { email, needsConfirmation: true };
 }
 
-/* ---------- Login ---------- */
+/* ---------- login ---------- */
 export async function login({ email, password }) {
-  const a = getState().auth;
-  if (!a || !a.email) throw new Error("No account on this device yet. Create one first.");
-
-  const want = (email || "").trim().toLowerCase();
-  if (want !== a.email) throw new Error("Email or password didn't match.");
-
-  const hash = await hashPassword(password, a.salt);
-  if (hash !== a.passwordHash) throw new Error("Email or password didn't match.");
-
-  const session = freshSession();
-  update(s => {
-    s.auth.session = session;
-    s.auth.lastLoginAt = new Date().toISOString();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: (email || "").trim().toLowerCase(),
+    password,
   });
-  return { email: a.email, session };
+  if (error) throw new Error(mapAuthError(error.message));
+  _session = data.session;
+  await ensureFamilyAndHydrate();
+  return { email: data.user?.email };
 }
 
-/* ---------- Logout ---------- */
-export function logout() {
-  update(s => {
-    if (s.auth) s.auth.session = { active: false, since: null, expiresAt: null };
-  });
+/* ---------- logout ---------- */
+export async function logout() {
+  await supabase.auth.signOut();
+  _session = null;
 }
 
-/* ---------- Change password ---------- */
+/* ---------- change password ---------- */
 export async function changePassword({ current, next }) {
-  const a = getState().auth;
-  if (!a || !a.email) throw new Error("No account on this device.");
-  const cur = await hashPassword(current, a.salt);
-  if (cur !== a.passwordHash) throw new Error("Current password didn't match.");
-  const pwCheck = validatePassword(next);
-  if (!pwCheck.ok) throw new Error(pwCheck.reason);
-  const newSalt = randomSaltHex();
-  const newHash = await hashPassword(next, newSalt);
-  update(s => {
-    s.auth.passwordHash = newHash;
-    s.auth.salt = newSalt;
-    s.auth.passwordUpdatedAt = new Date().toISOString();
-  });
+  const pw = validatePassword(next);
+  if (!pw.ok) throw new Error(pw.reason);
+  // Re-authenticate to confirm the current password.
+  const email = currentUserEmail();
+  if (email) {
+    const { error: reauth } = await supabase.auth.signInWithPassword({ email, password: current });
+    if (reauth) throw new Error("Current password didn't match.");
+  }
+  const { error } = await supabase.auth.updateUser({ password: next });
+  if (error) throw new Error(error.message);
 }
 
-/* ---------- "Set up local login" for legacy onboarded users ---------- */
+/* ---------- legacy shim: just a signup ---------- */
 export async function attachAccountToExistingFamily({ email, password }) {
-  return signup({ email, password, parentName: getState().family?.parentName || "" });
+  return signup({ email, password, parentName: "" });
 }
 
-function freshSession() {
-  const now = Date.now();
-  return {
-    active: true,
-    since: new Date(now).toISOString(),
-    expiresAt: new Date(now + SESSION_TTL_MS).toISOString(),
-  };
+/* ---------- helpers ---------- */
+async function applyParentName(name) {
+  // Set display_name on the membership row (best-effort).
+  const uid = currentUserId();
+  if (!uid) return;
+  const { data: m } = await supabase.from("family_members")
+    .select("family_id").eq("user_id", uid).limit(1);
+  if (m?.[0]) {
+    await supabase.from("family_members")
+      .update({ display_name: name })
+      .eq("user_id", uid).eq("family_id", m[0].family_id);
+  }
+}
+
+function mapAuthError(msg) {
+  if (/invalid login credentials/i.test(msg)) return "Email or password didn't match.";
+  if (/email not confirmed/i.test(msg)) return "Please confirm your email first — check your inbox.";
+  return msg;
 }

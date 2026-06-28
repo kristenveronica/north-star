@@ -24,11 +24,11 @@ export function renderCart(container) {
         <h1>Mock Cart</h1>
         <div class="sub">Approved materials live here. Checkout integration coming later — Stripe, Shopify, Amazon affiliate, etc.</div>
       </div>
-      <button class="btn" data-back>← Back to materials</button>
+      <button class="btn" data-back>← Back to Learning Resources</button>
     </div>
 
     ${items.length === 0
-      ? `<div class="empty"><div class="emoji">🛒</div><h3>Your cart is empty</h3><p>Approve some material suggestions and they'll appear here.</p><button class="btn btn-primary mt-2" data-back>Browse materials</button></div>`
+      ? `<div class="empty"><div class="emoji">🛒</div><h3>Your cart is empty</h3><p>Approve some resource suggestions and they'll appear here.</p><button class="btn btn-primary mt-2" data-back>Browse Learning Resources</button></div>`
       : `
         <div class="grid" style="grid-template-columns: 2fr 1fr; gap:18px">
           <div class="stack">

@@ -113,29 +113,26 @@ function wireHeader(root) {
 }
 
 /* ============================================================
-   HOME PAGE  —  6-section emotional journey, locked final copy
-   Hero → Big Idea → Destination → More Than Curriculum →
-   Imagine Looking Back → Every Family Needs A North Star
+   HOME PAGE  —  8-section narrative journey, strict design system
+   1 Hero → 2 Start With The Destination → 3 Imagine Your Child At 18
+   → 4 Every Family Has A North Star → 5 How North Star Works
+   → 6 Learning Ecosystem → 7 Family Operating System → 8 Final CTA
+
+   Only three section types: cream content (.np-section), navy
+   storytelling (.np-section--navy), and the CTA (.np-cta). The
+   compass appears only in the hero and as one subtle §4 watermark.
    ============================================================ */
 export function renderHome(container) {
-  // Section 3 — experiences chosen for the role they play in a child's
-  // growth. Each word from the locked copy, paired with a quiet line icon.
+  // §6 Learning Ecosystem — 12 experiences (symmetric 4×3 grid).
+  // No icons: the strict system leans on typography, not decoration.
   const EXPERIENCES = [
-    ["target",  "Projects"],
-    ["book",    "Books"],
-    ["coin",    "Businesses"],
-    ["family",  "Mentorships"],
-    ["flag",    "Adventures"],
-    ["hand",    "Service opportunities"],
-    ["feather", "Creative pursuits"],
-    ["home",    "Life skills"],
-    ["leaf",    "Community experiences"],
-    ["compass", "Travel"],
-    ["spark",   "Real-world challenges"],
+    "Projects", "Books", "Businesses", "Apprenticeships",
+    "Mentorships", "Adventures", "Travel", "Service",
+    "Creative Pursuits", "Life Skills", "Community", "Real-World Challenges",
   ];
 
-  // Section 5 — the rhythmic "They know how to…" litany. Each line kept
-  // verbatim; the final lines carry a little more weight.
+  // §3 — the rhythmic "They know how to…" litany. Each line verbatim;
+  // the final line carries the most weight.
   const KNOWS = [
     "They know how to learn.",
     "They know how to work.",
@@ -147,177 +144,131 @@ export function renderHome(container) {
     "They know how to build, grow, adapt, and stay steady in a changing world.",
   ];
 
+  // §5 — how it works: a four-step path from vision to everyday life.
+  const STEPS = [
+    ["01", "Define your North Star", "Clarify the values, capabilities, and vision for the adult each child is becoming."],
+    ["02", "Understand each child", "Capture their strengths, interests, and the way they learn best."],
+    ["03", "Design the journey", "Reverse-engineer a personalised plan of projects and real-world experiences."],
+    ["04", "Live &amp; reflect", "Track growth, capture the moments that matter, and adjust as your children grow."],
+  ];
+
   container.innerHTML = `
-    <!-- ───────────── 1. HERO ───────────── -->
-    <section class="hero ns-hero">
-      <div class="ns-hero-lead">
-        <span class="hero-eyebrow">${nsIcon("compass", { size: 14 })} Begin With A Destination</span>
-        <h1>Who Do You Hope Your Child Becomes?</h1>
-        <p class="ns-hero-age">At 18. At 25.</p>
-        <p class="ns-hero-sub">When they've left home and are building a life of their own.</p>
-        <div class="ctas">
+    <div class="np-home">
+
+      <!-- ───────────── 1. HERO ───────────── -->
+      <section class="np-hero">
+        <div class="np-hero-text">
+          <span class="np-label">A Family Vision Platform</span>
+          <h1 class="np-hero-h1">Who do you hope your child becomes?</h1>
+          <p class="np-hero-lead">At eighteen. At twenty-five. When they have left home and are building a life of their own.</p>
           <a class="btn btn-primary btn-lg" href="#/signup">Discover Your North Star</a>
         </div>
-      </div>
-      <div class="hero-art">
-        <div class="hero-compass">
-          <span class="hero-compass-halo" aria-hidden="true"></span>
-          ${heroCompassIllustration()}
-        </div>
-      </div>
-    </section>
-
-    <!-- ───────────── 1b. HERO CONTINUATION — the invitation ───────────── -->
-    <section class="section ns-invitation">
-      <div class="ns-questions">
-        <p>What values do you hope guide them?</p>
-        <p>What capabilities do you hope they possess?</p>
-        <p>How do you hope they handle challenges?</p>
-      </div>
-
-      <ul class="ns-prompts" aria-label="Areas of a life well lived">
-        ${["Money", "Relationships", "Health", "Purpose", "Contribution"]
-          .map(w => `<li><span>${w}</span><i>?</i></li>`).join("")}
-      </ul>
-
-      <div class="ns-turn">
-        <p>Most families have a vision for the kind of adult they hope their child becomes.</p>
-        <p>Very few have an educational pathway intentionally designed to help get them there.</p>
-        <p class="ns-turn-accent">North Star changes that.</p>
-      </div>
-
-      <p class="ns-lead-para">We help families define their North Star, then reverse engineer a personalised learning journey around each child to help nurture the capabilities, character, confidence, and real-world skills needed to bring that vision to life.</p>
-
-      <figure class="destination-callout">
-        <span class="destination-callout-star" aria-hidden="true">${nsIcon("compass", { size: 18 })}</span>
-        <blockquote>
-          <span class="muted">Because education should not begin with a curriculum.</span>
-          <span class="lead">It should begin with a destination.</span>
-        </blockquote>
-      </figure>
-    </section>
-
-    <!-- ───────────── 2. THE BIG IDEA ───────────── -->
-    <section class="section">
-      <span class="section-eyebrow">The Big Idea</span>
-      <h2>Start With The Destination. Then Build The Path.</h2>
-
-      <div class="ns-bigidea">
-        <div class="ns-bigidea-pair">
-          <div class="ns-bigidea-card them">
-            <p class="ns-bigidea-intro">Most educational planning starts with the question:</p>
-            <p class="ns-bigidea-q">"What should my child learn this year?"</p>
-          </div>
-          <div class="ns-bigidea-card us">
-            <p class="ns-bigidea-intro">North Star begins with:</p>
-            <p class="ns-bigidea-q">"Who are we helping this child become?"</p>
+        <div class="np-hero-art hero-art">
+          <div class="hero-compass">
+            <span class="hero-compass-halo" aria-hidden="true"></span>
+            ${heroCompassIllustration()}
           </div>
         </div>
+      </section>
 
-        <p class="ns-bigidea-lead">We begin with a conversation about the future.</p>
-
-        <ul class="ns-future-list">
-          <li>What matters most to your family?</li>
-          <li>What kind of life are you hoping to build together?</li>
-          <li>What capabilities do you believe will serve your children no matter how the world changes?</li>
-          <li>What strengths do you already see emerging in them?</li>
-          <li>What experiences do you hope they have before they leave home?</li>
-        </ul>
-
-        <p class="ns-bigidea-close">Those answers become the foundation.</p>
-        <p class="ns-bigidea-close strong">From there, we help you build the path.</p>
-      </div>
-    </section>
-
-    <!-- ───────────── 3. EDUCATION DESIGNED AROUND A DESTINATION ───────────── -->
-    <section class="section">
-      <span class="section-eyebrow">Education Designed Around A Destination</span>
-      <div class="ns-destination-head">
-        <p class="philosophy-line">Every family has a North Star.</p>
-        <p class="philosophy-line muted">A direction. A vision. A set of values that shape the way they live and the way they raise their children.</p>
-        <p class="ns-destination-sub">North Star helps families capture that vision and translate it into a living, breathing educational experience.</p>
-      </div>
-
-      <div class="experience-grid">
-        ${EXPERIENCES.map(([ic, label]) => `
-          <div class="experience-card">
-            <span class="ns-icon-wrap" style="width:42px;height:42px;border-radius:12px">${nsIcon(ic, { size: 20 })}</span>
-            <span class="experience-label">${label}</span>
+      <!-- ───────────── 2. START WITH THE DESTINATION ───────────── -->
+      <section class="np-section">
+        <div class="np-inner">
+          <span class="np-label">The Philosophy</span>
+          <h2 class="np-h2">Education should begin with a destination — not a curriculum.</h2>
+          <div class="np-contrast">
+            <p class="np-contrast-them">Most planning starts by asking, <em>“What should my child learn this year?”</em></p>
+            <p class="np-contrast-us">North Star starts by asking, <em>“Who are we helping this child become?”</em></p>
           </div>
-        `).join("")}
-      </div>
-
-      <p class="ns-destination-foot">Each one intentionally chosen because of the role it can play in helping your child grow into the person you hope they become.</p>
-    </section>
-
-    <!-- ───────────── 4. MORE THAN A CURRICULUM ───────────── -->
-    <section class="section">
-      <div class="section-philosophy ns-operating">
-        <span class="section-eyebrow">More Than A Curriculum</span>
-        <h2 style="max-width:720px">North Star is part educational platform, part family operating system.</h2>
-
-        <p class="ns-operating-line">It brings together your family's
-          ${["values", "vision", "goals", "rhythms", "projects", "learning plans", "reflections", "and growth"]
-            .map((w, i, a) => `<b>${w}</b>${i < a.length - 1 ? ", " : ""}`).join("")}
-          into one place.</p>
-
-        <p class="philosophy-line muted">Because when a family shares a vision and are anchored in their core values, children grow up with a strong sense of identity and purpose.</p>
-
-        <div class="ns-operating-outcomes">
-          <p>Learning becomes more meaningful.</p>
-          <p>And children gain a deeper understanding of who they are and where they are heading.</p>
+          <p class="np-lg">We help families define their North Star, then reverse-engineer a personalised learning journey around each child — nurturing the capabilities, character, confidence, and real-world skills to bring that vision to life.</p>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ───────────── 5. IMAGINE LOOKING BACK ───────────── -->
-    <section class="section section-dark ns-imagine">
-      <span class="section-eyebrow">Imagine Looking Back</span>
-      <h2>Imagine your child at eighteen.</h2>
-      <p class="lede">They have spent their childhood developing the skills, habits, experiences, and character that matter to your family.</p>
-
-      <ul class="knows-list">
-        ${KNOWS.map(line => `
-          <li><span class="knows-star" aria-hidden="true">${nsIcon("star", { size: 13 })}</span><span>${line}</span></li>
-        `).join("")}
-      </ul>
-
-      <div class="ns-imagine-close">
-        <p class="strong">They know who they are.</p>
-        <p>And they are excited about the life ahead of them.</p>
-        <p class="ns-imagine-final">That is the journey North Star was built to support.</p>
-      </div>
-    </section>
-
-    <!-- ───────────── 6. EVERY FAMILY NEEDS A NORTH STAR ───────────── -->
-    <section class="section">
-      <span class="section-eyebrow">Every Family Needs A North Star</span>
-      <h2>A clear sense of direction changes everything.</h2>
-
-      <div class="coordinates-panel">
-        <div class="coordinates-bg" aria-hidden="true">${heroCompassIllustration()}</div>
-        <div class="coordinates-body">
-          <p class="coordinates-lead">Every ship that sets sail first has its destination coordinates locked in.</p>
-          <div class="coordinates-detours">
-            <p>Storms may come.</p>
-            <p>Unforeseen circumstances may happen.</p>
+      <!-- ───────────── 3. IMAGINE YOUR CHILD AT 18 ───────────── -->
+      <section class="np-section np-section--navy">
+        <div class="np-inner">
+          <span class="np-label np-label--gold">Imagine Looking Back</span>
+          <h2 class="np-h2">Imagine your child at eighteen.</h2>
+          <p class="np-lg">They have spent their childhood developing the skills, habits, experiences, and character that matter most to your family.</p>
+          <ul class="np-knows">
+            ${KNOWS.map((line, i) => `<li${i === KNOWS.length - 1 ? ' class="np-knows-final"' : ""}>${line}</li>`).join("")}
+          </ul>
+          <div class="np-imagine-close">
+            <p class="np-close-strong">They know who they are.</p>
+            <p>And they are excited about the life ahead of them.</p>
           </div>
-          <p class="coordinates-line">But no matter what detours arise, the coordinates always navigate them back onto the path to reach their destination.</p>
-          <p class="coordinates-line">North Star helps families move beyond simply educating their children and begin intentionally shaping the culture, experiences, and opportunities that will influence who they become.</p>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- ───────────── FINAL CTA ───────────── -->
-    <div class="cta-strip ns-final-cta">
-      <h2>The destination matters.</h2>
-      <p>Let's build the path together.</p>
-      <div class="row" style="justify-content:center;gap:12px;flex-wrap:wrap">
+      <!-- ───────────── 4. EVERY FAMILY HAS A NORTH STAR ───────────── -->
+      <section class="np-section np-section--navy np-coordinates">
+        <div class="np-watermark" aria-hidden="true">${heroCompassIllustration()}</div>
+        <div class="np-inner">
+          <span class="np-label np-label--gold">Direction Changes Everything</span>
+          <h2 class="np-h2">Every family has a North Star.</h2>
+          <p class="np-lg">A direction. A vision. A set of values that shape how you live, and how you raise your children.</p>
+          <p class="np-body">Every ship that sets sail first locks in its destination. Storms come. Detours happen. But the coordinates always guide it back onto the path to where it is heading.</p>
+          <p class="np-body">North Star helps families move beyond simply educating their children, and begin intentionally shaping the culture, experiences, and opportunities that influence who they become.</p>
+        </div>
+      </section>
+
+      <!-- ───────────── 5. HOW NORTH STAR WORKS ───────────── -->
+      <section class="np-section">
+        <div class="np-inner">
+          <span class="np-label">How It Works</span>
+          <h2 class="np-h2">A clear path, from vision to everyday life.</h2>
+          <div class="np-steps">
+            ${STEPS.map(([num, title, desc]) => `
+              <div class="np-step">
+                <div class="np-step-num">${num}</div>
+                <h3>${title}</h3>
+                <p>${desc}</p>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────── 6. LEARNING ECOSYSTEM ───────────── -->
+      <section class="np-section">
+        <div class="np-inner">
+          <span class="np-label">The Learning Ecosystem</span>
+          <h2 class="np-h2">Learning happens through real-world experience.</h2>
+          <div class="np-ecosystem">
+            ${EXPERIENCES.map((label, i) => `
+              <div class="np-eco-item">
+                <span class="np-eco-index">${String(i + 1).padStart(2, "0")}</span>
+                <span class="np-eco-label">${label}</span>
+              </div>
+            `).join("")}
+          </div>
+          <p class="np-eco-foot">Each one is intentionally chosen for the role it can play in helping your child grow into the person you hope they become.</p>
+        </div>
+      </section>
+
+      <!-- ───────────── 7. FAMILY OPERATING SYSTEM ───────────── -->
+      <section class="np-section np-section--navy">
+        <div class="np-inner">
+          <span class="np-label np-label--gold">More Than A Curriculum</span>
+          <h2 class="np-h2">Part learning platform. Part family operating system.</h2>
+          <p class="np-lg">North Star brings together your family's values, vision, goals, rhythms, projects, learning plans, and reflections — into one place.</p>
+          <p class="np-body">Because when a family shares a vision and is anchored in its core values, children grow up with a strong sense of identity and purpose.</p>
+          <div class="np-os-close">
+            <p>Learning becomes more meaningful.</p>
+            <p>And children gain a deeper understanding of who they are, and where they are heading.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────────── 8. FINAL CTA ───────────── -->
+      <section class="np-cta">
+        <h2 class="np-cta-h2">The destination matters.</h2>
+        <p class="np-cta-sub">Let's build the path together.</p>
         <a class="btn btn-primary btn-lg" href="#/signup">Discover Your North Star</a>
-      </div>
+      </section>
+
     </div>
   `;
-
 }
 
 /* ============================================================
@@ -446,7 +397,7 @@ function heroCompassIllustration() {
         </g>
 
         <!-- Cardinal labels in cream; N is the dominant focal moment -->
-        <g class="cmp-card-labels" font-family="Fraunces, Georgia, serif" fill="#F4E9C5" font-weight="500">
+        <g class="cmp-card-labels" font-family="Cormorant Garamond, Georgia, serif" fill="#F4E9C5" font-weight="500">
           <text x="${CX}" y="20" text-anchor="middle" dominant-baseline="central"
                 font-size="26" font-weight="600" letter-spacing="4"
                 filter="url(#hc-n-glow)" class="cmp-n">N</text>
@@ -459,7 +410,7 @@ function heroCompassIllustration() {
         </g>
 
         <!-- Intercardinals: smaller, sans-serif, set inside cardinals -->
-        <g class="cmp-inter-labels" font-family="Inter, system-ui, sans-serif" fill="#F4E9C5" font-weight="500">
+        <g class="cmp-inter-labels" font-family="Mulish, system-ui, sans-serif" fill="#F4E9C5" font-weight="500">
           ${interLabels}
         </g>
 
@@ -1037,7 +988,7 @@ export function renderLogin(container) {
       <div>
         <span class="hero-eyebrow">Login</span>
         <h1 style="margin:0 auto">Choose your view.</h1>
-        <p class="lede" style="margin:14px auto 0">All accounts are local to this device. Nothing leaves your machine.</p>
+        <p class="lede" style="margin:14px auto 0">Sign in to your family's North Star — synced securely across your devices.</p>
       </div>
     </section>
 
@@ -1145,8 +1096,8 @@ export function renderSignup(container) {
     <section class="hero" style="grid-template-columns:1fr;padding-top:60px;padding-bottom:30px;text-align:center">
       <div>
         <span class="hero-eyebrow">Create your account</span>
-        <h1 style="margin:0 auto">Set up your local sign-in.</h1>
-        <p class="lede" style="margin:14px auto 0">One account per device. Email + password, stored locally with PBKDF2 hashing. Nothing leaves your machine.</p>
+        <h1 style="margin:0 auto">Create your account.</h1>
+        <p class="lede" style="margin:14px auto 0">Your secure North Star account — synced across your devices, with every family's data kept private and isolated.</p>
       </div>
     </section>
 
@@ -1163,7 +1114,7 @@ export function renderSignup(container) {
         <div class="field">
           <label>Password</label>
           <input class="input" id="su-password" type="password" autocomplete="new-password" placeholder="At least 8 characters, letters + a number"/>
-          <span class="hint">Used only on this device. There's no recovery — write it somewhere safe.</span>
+          <span class="hint">At least 8 characters, including a number.</span>
         </div>
         <div class="field">
           <label>Confirm password</label>
@@ -1185,7 +1136,18 @@ export function renderSignup(container) {
     if (password !== confirm) { toast("Passwords don't match", { type: "warning" }); return; }
     try {
       createBtn.disabled = true; createBtn.textContent = "Creating account…";
-      await signup({ email, password, parentName });
+      const res = await signup({ email, password, parentName });
+      if (res?.needsConfirmation) {
+        const card = container.querySelector(".card");
+        if (card) card.innerHTML = `
+          <div style="text-align:center">
+            <div class="em">✉️</div>
+            <h3 style="font-family:var(--font-serif);font-size:24px">Check your email</h3>
+            <p class="text-muted" style="margin-top:8px">We've sent a confirmation link to <span class="kbd">${esc(email)}</span>.
+            Click it, then come back and <a href="#/login">log in</a> to set up your family.</p>
+          </div>`;
+        return;
+      }
       toast("Account created — let's set up your family ✦", { type: "success", duration: 3000 });
       navigate("/onboarding");
     } catch (e) {

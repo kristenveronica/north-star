@@ -29,6 +29,20 @@ const DEFAULT_STATE = {
   growthReports: [],
   insightReports: [],
 
+  // Long-term architecture (Rhythm Engine + Reflection System). Persisted
+  // locally now; cloud sync activates with migration 0013.
+  reflectionReports: [], // monthly | quarterly | annual reflections (distinct from milestone `reflections`)
+  mediaAssets: [],       // photos/videos/voice/docs linked to projects/milestones (Annual Video source)
+  calendarEvents: [],    // family-added events (dance, sport, music, church…) + external-calendar imports
+  preferenceSignals: [], // the family learning loop: explicit (rejection reasons) + implicit (accept/regen/edit/complete…) signals
+  inventory: [],         // the living Family Inventory: what the family already owns/has access to ({id,category,name,owned,note,meta})
+
+  // Membership & permissions (migration 0019). Auth-linked adults in this family
+  // (owner + accepted invitees) and their per-child access grants. The dynamic
+  // portal resolves the logged-in user's role/permissions from here.
+  familyMembers: [],     // [{ id, user_id, role, is_primary, display_name, status, permissions[] }]
+  memberChildAccess: [], // [{ id, member_id, child_id, access_level, permissions[] }]
+
   // Layer 15 — Learning Guild + Family Councils + Family Legacy
   guildConfig: {
     premiumEnabled: false,
@@ -68,6 +82,39 @@ const DEFAULT_STATE = {
 
 let _state = load();
 const _subs = new Set();
+sortChildren(); // canonical oldest-first ordering from the very first render
+
+/* ---------- cloud sync hook ----------
+   The store stays UI-synchronous; the cloud (Supabase) is written behind it.
+   app.js registers the sync handler; hydrateState() loads a family's data in.
+*/
+let _cloudSync = null;     // (state) => Promise<void>
+let _cloudEnabled = false;
+let _syncTimer = null;
+
+export function setCloudSync(fn) { _cloudSync = fn; }
+export function setCloudEnabled(b) { _cloudEnabled = !!b; }
+
+function scheduleCloudSync() {
+  if (!_cloudEnabled || !_cloudSync) return;
+  clearTimeout(_syncTimer);
+  _syncTimer = setTimeout(() => {
+    try { _cloudSync(_state); } catch (e) { console.error("[store] cloud sync", e); }
+  }, 500);
+}
+
+/** Flush any pending write-behind immediately — used when the tab is hidden or the
+    app is about to reload, so recent changes aren't lost to the 500ms debounce. */
+export function flushCloudSync() {
+  if (!_cloudEnabled || !_cloudSync) return;
+  clearTimeout(_syncTimer);
+  try { _cloudSync(_state); } catch (e) { console.error("[store] cloud flush", e); }
+}
+if (typeof document !== "undefined") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") flushCloudSync();
+  });
+}
 
 function load() {
   try {
@@ -87,14 +134,60 @@ export function getState() {
   return _state;
 }
 
-/**
- * Atomic update. `fn` receives a draft (the live state) and may mutate;
- * after mutation we persist and notify subscribers.
- */
-export function update(fn) {
-  fn(_state);
+/** A clean default state — used by the cloud hydrator to build from rows. */
+export function freshState() {
+  return structuredClone(DEFAULT_STATE);
+}
+
+/** Replace state wholesale from the cloud and turn write-behind sync on. */
+export function hydrateState(state) {
+  _state = state;
+  sortChildren();
+  _cloudEnabled = true;
   persist();
   _subs.forEach(cb => cb(_state));
+}
+
+/** Logout: drop the cached data and stop syncing. */
+export function resetToLoggedOut() {
+  _cloudEnabled = false;
+  _state = structuredClone(DEFAULT_STATE);
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  // Wipe any local "safety net" drafts so nothing personal lingers on a shared device.
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith("northstar::draft::")) localStorage.removeItem(k);
+    }
+  } catch { /* ignore */ }
+  _subs.forEach(cb => cb(_state));
+}
+
+/**
+ * Atomic update. `fn` receives a draft (the live state) and may mutate;
+ * after mutation we persist locally, notify subscribers, and (when logged in)
+ * schedule a debounced write-behind to the cloud.
+ */
+// Keep children in a single canonical order everywhere: oldest first, youngest
+// last (unknown ages sort to the end). Mutates the array in place so every view
+// that reads state.children is consistent without per-view sorting.
+function sortChildren() {
+  if (!Array.isArray(_state.children)) return;
+  _state.children.sort((a, b) => {
+    const aa = ageOf(a), ab = ageOf(b);
+    if (aa == null && ab == null) return 0;
+    if (aa == null) return 1;
+    if (ab == null) return -1;
+    return ab - aa; // descending age = oldest first
+  });
+}
+
+export function update(fn) {
+  fn(_state);
+  sortChildren();
+  persist();
+  _subs.forEach(cb => cb(_state));
+  scheduleCloudSync();
 }
 
 export function subscribe(cb) {
@@ -108,13 +201,184 @@ export function resetAll() {
   _subs.forEach(cb => cb(_state));
 }
 
-export const uid = (prefix = "id") =>
-  `${prefix}_${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36).slice(-4)}`;
+// Live age from a child's birthday (auto-tracks as time passes). Falls back to
+// a stored `age` if no birthday is set.
+export function ageOf(child) {
+  const b = child?.birthday;
+  if (!b) return child?.age ?? null;
+  const d = new Date(b);
+  if (isNaN(d.getTime())) return child?.age ?? null;
+  const now = new Date();
+  let a = now.getFullYear() - d.getFullYear();
+  const m = now.getMonth() - d.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+  return a >= 0 ? a : null;
+}
+
+// Real UUIDs so app-generated ids are valid Postgres primary keys.
+// (The prefix arg is ignored now; kept for call-site compatibility.)
+export const uid = (_prefix = "id") =>
+  (crypto.randomUUID
+    ? crypto.randomUUID()
+    : "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+      }));
+
+/* ---------------- Family Rhythm (Rhythm Engine config) ---------------- */
+export function setFamilyRhythm(patch) {
+  update(s => {
+    s.family = s.family || {};
+    s.family.rhythm = { ...(s.family.rhythm || {}), ...patch };
+  });
+}
+
+/* ---------------- Reflection reports (monthly/quarterly/annual) ---------------- */
+export function addReflectionReport(report) {
+  const r = {
+    id: uid("refl"),
+    type: "monthly",          // monthly | quarterly | annual
+    childId: null,
+    schoolYear: null,
+    quarter: null,
+    generatedDate: new Date().toISOString(),
+    status: "scheduled",      // scheduled | generating | ready
+    summary: "",
+    strengths: [],
+    growthOpportunities: [],
+    aiObservations: [],
+    suggestedNextSteps: [],
+    metadata: {},
+    ...report,
+  };
+  update(s => { s.reflectionReports.push(r); });
+  return r;
+}
+export function getReflectionReports(childId = null) {
+  const all = _state.reflectionReports || [];
+  return childId ? all.filter(r => r.childId === childId) : all;
+}
+export function updateReflectionReport(id, patch) {
+  update(s => { const r = s.reflectionReports.find(x => x.id === id); if (r) Object.assign(r, patch); });
+}
+
+/* ---------------- Media assets (photos/videos/voice/docs) ---------------- */
+export function addMediaAsset(asset) {
+  const m = {
+    id: uid("media"),
+    childId: null,
+    projectId: null,
+    milestoneId: null,
+    kind: "photo",            // photo | video | voice | document
+    storagePath: null,        // future: Supabase Storage path
+    dataUrl: null,            // MVP: inline data (small files) until Storage is wired
+    caption: "",
+    capturedAt: new Date().toISOString(),
+    schoolYear: null,
+    metadata: {},
+    ...asset,
+  };
+  update(s => { s.mediaAssets.push(m); });
+  return m;
+}
+export function getMediaAssets(filter = {}) {
+  return (_state.mediaAssets || []).filter(m =>
+    (!filter.childId || m.childId === filter.childId) &&
+    (!filter.projectId || m.projectId === filter.projectId) &&
+    (!filter.milestoneId || m.milestoneId === filter.milestoneId) &&
+    (!filter.schoolYear || m.schoolYear === filter.schoolYear));
+}
+export function removeMediaAsset(id) {
+  update(s => { s.mediaAssets = s.mediaAssets.filter(m => m.id !== id); });
+}
+
+/* ---------------- Calendar events (family-added + external imports) ---------------- */
+export function addCalendarEvent(event) {
+  const e = {
+    id: uid("cal"),
+    childId: null,            // null = whole-family event
+    type: "event",            // event | dance | sport | music | church | community | travel | external
+    title: "",
+    start: null,              // ISO
+    end: null,                // ISO
+    allDay: false,
+    recurrence: null,         // future: RRULE-style string
+    source: "manual",         // manual | google | apple | outlook
+    externalId: null,
+    metadata: {},
+    ...event,
+  };
+  update(s => { s.calendarEvents.push(e); });
+  return e;
+}
+export function getCalendarEvents() { return _state.calendarEvents || []; }
+export function updateCalendarEvent(id, patch) {
+  update(s => { const e = s.calendarEvents.find(x => x.id === id); if (e) Object.assign(e, patch); });
+}
+export function removeCalendarEvent(id) {
+  update(s => { s.calendarEvents = s.calendarEvents.filter(e => e.id !== id); });
+}
+
+/* ---------------- Preference signals (the family learning loop) ----------------
+   One unified event log capturing both EXPLICIT feedback (rejection reasons +
+   notes) and IMPLICIT behaviour (accepted / regenerated / edited / completed /
+   abandoned …). Future generation aggregates these into a richer understanding
+   of each family's preferences. Capture now; the AI deepens its use over time. */
+export function recordPreferenceSignal(signal) {
+  const sig = {
+    id: uid("sig"),
+    type: "rejected",        // rejected | accepted | regenerated | edited | completed | abandoned | milestone-completed | photo-uploaded | reward-selected
+    childId: null,
+    projectId: null,
+    reasons: [],             // explicit: selected rejection reasons
+    note: "",                // explicit: optional free text
+    projectSnapshot: {},      // attributes of the project the signal is about (for pattern learning)
+    metadata: {},
+    createdAt: new Date().toISOString(),
+    ...signal,
+  };
+  update(s => { s.preferenceSignals.push(sig); });
+  return sig;
+}
+export function getPreferenceSignals(childId = null) {
+  const all = _state.preferenceSignals || [];
+  return childId ? all.filter(s => s.childId === childId) : all;
+}
 
 /* ---------------- Family ---------------- */
 export function setFamily(patch) {
   update(s => {
     s.family = { ...(s.family || {}), ...patch };
+  });
+}
+
+/* ---------------- Family Technology Agreement (per child) ----------------
+   Stored inside the child's existing learning_profile jsonb (syncs with no
+   migration). Always merge into learningProfile so other profile fields and
+   the agreement coexist. */
+export function getTechAgreement(childId) {
+  const c = _state.children.find(x => x.id === childId);
+  return c?.learningProfile?.techAgreement || {};
+}
+export function setTechAgreement(childId, agreement) {
+  update(s => {
+    const c = s.children.find(x => x.id === childId);
+    if (!c) return;
+    c.learningProfile = { ...(c.learningProfile || {}), techAgreement: { ...agreement, updatedAt: new Date().toISOString() } };
+  });
+}
+// Stamp a review: when, and which age bracket the child was in, so the
+// living-document nudges can notice when the child grows into a new stage.
+export function markTechReviewed(childId, ageBand = null) {
+  update(s => {
+    const c = s.children.find(x => x.id === childId);
+    if (!c) return;
+    const cur = c.learningProfile?.techAgreement || {};
+    c.learningProfile = { ...(c.learningProfile || {}), techAgreement: {
+      ...cur, lastReviewedAt: new Date().toISOString(),
+      reviewedAgeBands: ageBand ? [ageBand] : (cur.reviewedAgeBands || []),
+      updatedAt: new Date().toISOString(),
+    } };
   });
 }
 
@@ -139,6 +403,13 @@ export function addChild(child) {
     learningStyle: _state.family?.learningStyleDefault ?? 5,
     diyMaterials: _state.family?.diyMaterialsPreference ?? 5,
     domains: [],
+    guideId: null,             // the Guide this child journeys with
+    // Capability-based Learning Profile: { levels, levelsNote, differences, differencesNote, about }
+    learningProfile: {},
+    mobilityProfile: null,     // freedom level slug
+    // Printing access for THIS child's own portal (parent always can print):
+    //   "allow" | "approval" | "disabled". Defaults to parent-approval.
+    printPermission: "approval",
     createdAt: new Date().toISOString(),
     ...child,
   };
@@ -184,7 +455,10 @@ export function addProject(project) {
     childId: null,
     title: "",
     description: "",
-    domains: [],
+    domains: [],                 // Capability Domain ids this project strengthens
+    // Capability mapping metadata — the intelligence layer (set by AI generation):
+    // { primary:[ids], secondary:[ids], skills:[strings], competencyGrowth:{ids→0-100} }
+    capabilityMap: { primary: [], secondary: [], skills: [], competencyGrowth: {} },
     passionConnection: "",
     learningOutcomes: [],
     materials: [],
@@ -227,6 +501,7 @@ export function addMilestone(m) {
     projectId: null,
     title: "",
     description: "",
+    instructions: [],   // concrete action-step strings the child can follow
     dueDate: null,
     momentumPoints: 10,
     completed: false,
@@ -303,6 +578,7 @@ export function getMilestonesForProject(projectId) {
  * Also bumps the parent project's earned tallies.
  */
 export function completeMilestone(milestoneId) {
+  let justCompletedProject = null;   // capture for the learning loop (recorded after the update)
   update(s => {
     const m = s.milestones.find(x => x.id === milestoneId);
     if (!m) return;
@@ -328,10 +604,26 @@ export function completeMilestone(milestoneId) {
         if (allDone && p.status === "active") {
           // wait for reflection before marking fully complete; we mark "ready"
           p.status = "ready-for-reflection";
+          justCompletedProject = p;
         }
       }
     }
   });
+  // Implicit learning signal: this child just finished a project.
+  if (justCompletedProject) {
+    recordPreferenceSignal({
+      type: "completed",
+      childId: justCompletedProject.childId,
+      projectId: justCompletedProject.id,
+      projectSnapshot: {
+        title: justCompletedProject.title,
+        domains: justCompletedProject.domains || [],
+        pathway: justCompletedProject.pathway || null,
+        sizeBand: justCompletedProject.sizeBand || null,
+        durationDays: justCompletedProject.durationDays ?? null,
+      },
+    });
+  }
 }
 
 /* ---------------- Reflections ---------------- */
@@ -369,10 +661,90 @@ export function addMaterial(mat) {
     inCart: false,
     affiliateUrlPlaceholder: "#",
     forChildId: null,
+    // Learning Resources engine fields:
+    section: "personalised",         // essentials | project | personalised | printable | marketplace
+    status: "suggested",             // suggested | approved | owned | self-source | dismissed
+    meta: {},                        // { catalogId, format, frequency, capabilityDomains[], projectIds[], affiliateAvailable, purchased }
     ...mat,
   };
   update(s => { s.materials.push(m); });
   return m;
+}
+
+/* ---------- Learning Resources lifecycle ----------
+   The engine (lib/resources.js) derives the five sections from catalogs +
+   live project/child data. When a parent acts on any derived/catalog item,
+   we "materialise" it into a persistent resource record and set its status.
+   This is the relationship layer that keeps Learning Resources in sync with
+   the rest of the platform. */
+function _resourceKey({ section, catalogId, name }) {
+  if (catalogId) return `cat::${catalogId}`;
+  return `${section || "personalised"}::${String(name || "").trim().toLowerCase()}`;
+}
+function _recordKeyOf(m) {
+  return _resourceKey({ section: m.section, catalogId: m.meta?.catalogId, name: m.name });
+}
+function _materialFromSpec(spec) {
+  return {
+    id: uid("mat"),
+    name: spec.name || "",
+    category: spec.category || "",
+    description: spec.description || "",
+    reasonSuggested: spec.reasonSuggested || "",
+    ageRange: spec.ageRange || "",
+    buyOrDIY: spec.kind === "diy" ? "diy" : "buy",
+    estimatedPrice: spec.estimatedPrice || 0,
+    approved: false,
+    rejected: false,
+    inCart: false,
+    affiliateUrlPlaceholder: spec.affiliateUrl || "#",
+    forChildId: spec.forChildId || null,
+    section: spec.section || "personalised",
+    status: "suggested",
+    meta: {
+      catalogId: spec.catalogId || null,
+      format: spec.format || "physical",
+      frequency: spec.frequency || "occasional",
+      capabilityDomains: spec.capabilityDomains || [],
+      projectIds: spec.projectIds || [],
+      affiliateAvailable: spec.affiliateAvailable ?? (spec.kind !== "diy"),
+    },
+  };
+}
+function _applyResourceStatus(s, m, status) {
+  m.status = status;
+  m.approved = status === "approved";
+  m.rejected = status === "dismissed";
+  if (status === "owned") {
+    m.meta = { ...(m.meta || {}), purchased: true };
+    // Marking a resource as owned grows the living Family Inventory.
+    const invCategory = m.section === "character" ? "character" : "learning-equipment";
+    if (!(s.inventory || []).some(i => _invKey(i.category, i.name) === _invKey(invCategory, m.name))) {
+      s.inventory.push({ id: uid("inv"), category: invCategory, name: m.name, owned: true, note: "", meta: { fromResource: true }, createdAt: new Date().toISOString() });
+    }
+  }
+  // Cart: only ready-made physical items, when approved.
+  const wantsCart = status === "approved" && m.buyOrDIY !== "diy" && (m.meta?.format !== "printable");
+  if (wantsCart && !m.inCart) {
+    s.cart.push({ id: uid("cart"), materialId: m.id, quantity: 1 });
+    m.inCart = true;
+  } else if (!wantsCart && m.inCart) {
+    s.cart = s.cart.filter(c => c.materialId !== m.id);
+    m.inCart = false;
+  }
+}
+/** Act on a resource (from the engine). `spec` describes the item; if no stored
+    record exists yet it is created, then its status is set. Returns the record id. */
+export function recordResourceAction(spec, status) {
+  let id = null;
+  update(s => {
+    let m = spec.recordId ? s.materials.find(x => x.id === spec.recordId) : null;
+    if (!m) m = s.materials.find(x => _recordKeyOf(x) === (spec.key || _resourceKey(spec)));
+    if (!m) { m = _materialFromSpec(spec); s.materials.push(m); }
+    _applyResourceStatus(s, m, status);
+    id = m.id;
+  });
+  return id;
 }
 export function updateMaterial(id, patch) {
   update(s => {
@@ -411,6 +783,47 @@ export function removeFromCart(materialId) {
     s.cart = s.cart.filter(c => c.materialId !== materialId);
     const m = s.materials.find(x => x.id === materialId);
     if (m) m.inCart = false;
+  });
+}
+
+/* ---------------- Family Inventory ----------------
+   North Star's living understanding of what the family already owns. Built
+   progressively and fed into project generation so projects use what the family
+   has before recommending purchases. */
+const _invKey = (category, name) => `${category}::${String(name || "").trim().toLowerCase()}`;
+
+export function getInventory() { return _state.inventory || []; }
+
+export function hasInventoryItem(category, name) {
+  return (_state.inventory || []).some(i => _invKey(i.category, i.name) === _invKey(category, name));
+}
+
+export function addInventoryItem({ category, name, note = "", meta = {} }) {
+  const clean = String(name || "").trim();
+  if (!clean) return null;
+  if (hasInventoryItem(category, clean)) return null;
+  const item = { id: uid("inv"), category: category || "other", name: clean, owned: true, note, meta, createdAt: new Date().toISOString() };
+  update(s => { s.inventory.push(item); });
+  return item;
+}
+
+export function removeInventoryItem(id) {
+  update(s => { s.inventory = s.inventory.filter(i => i.id !== id); });
+}
+
+/** Toggle an item by category+name. Returns true if now owned, false if removed. */
+export function toggleInventoryItem(category, name) {
+  const existing = (_state.inventory || []).find(i => _invKey(i.category, i.name) === _invKey(category, name));
+  if (existing) { removeInventoryItem(existing.id); return false; }
+  addInventoryItem({ category, name });
+  return true;
+}
+
+/** Merge structured inventory context (music lessons, sports clubs, reading) onto the family. */
+export function setInventoryContext(patch) {
+  update(s => {
+    if (!s.family) return;
+    s.family.inventoryContext = { ...(s.family.inventoryContext || {}), ...patch };
   });
 }
 

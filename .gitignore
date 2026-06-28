@@ -28,3 +28,12 @@ package-lock.json
 # Build output (currently no build step — placeholder for future)
 dist/
 build/
+
+# Local Netlify CLI state (not for the repo / public site)
+.netlify/
+
+# Private research & strategy docs — must NOT be served publicly (publish=".")
+co-work/
+
+# Stray editor workspace files from other projects
+*.code-workspace

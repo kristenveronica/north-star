@@ -3,7 +3,7 @@
    ============================================================ */
 
 import { getState, updateChild } from "../store.js";
-import { DOMAIN_CATALOG } from "../seed.js";
+import { availableDomains, domainShort } from "../seed.js";
 import { suggestWellRoundedNudges } from "../ai/suggestions.js";
 import { esc, fmtDate, renderCountdown, icon, toast, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { navigate } from "../router.js";
@@ -66,9 +66,9 @@ function childPlanCard(c, s) {
         </div>
 
         <div>
-          <div class="small text-muted fw-700 mb-1">Domain balance</div>
+          <div class="small text-muted fw-700 mb-1">Capability balance</div>
           <div class="stack" style="gap:8px">
-            ${DOMAIN_CATALOG.filter(d => !d.optional || c.faithEnabled || s.family.faithEnabled).map(d => {
+            ${availableDomains(s.family).map(d => {
               const n = domainCount[d.id] || 0;
               return `
                 <div class="row" style="gap:10px">
@@ -93,4 +93,4 @@ function childPlanCard(c, s) {
 }
 
 function initials(name) { return (name || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase(); }
-function domainName(id) { return DOMAIN_CATALOG.find(d => d.id === id)?.short || id; }
+function domainName(id) { return domainShort(id); }

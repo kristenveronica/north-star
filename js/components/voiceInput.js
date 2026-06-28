@@ -64,7 +64,8 @@ export function attachVoice(el) {
 
   let recognition = null;
   let recording = false;
-  let originalValue = "";
+  let baseValue = "";     // field content when recording began (typed text is preserved)
+  let dictatedRaw = "";   // raw recognised speech for THIS session
   let interim = "";
 
   const start = () => {
@@ -74,7 +75,8 @@ export function attachVoice(el) {
       recognition.interimResults = true;
       recognition.lang = navigator.language || "en-US";
 
-      originalValue = el.value || "";
+      baseValue = el.value || "";
+      dictatedRaw = "";
       interim = "";
       recording = true;
       btn.classList.add("recording");
@@ -89,13 +91,12 @@ export function attachVoice(el) {
           if (r.isFinal) finalText += r[0].transcript;
           else interimText += r[0].transcript;
         }
-        if (finalText) {
-          originalValue = appendNicely(originalValue, finalText);
-        }
-        interim = interimText;
-        el.value = appendNicely(originalValue, interim);
+        if (finalText) dictatedRaw = (dictatedRaw + " " + finalText).replace(/\s+/g, " ").trim();
+        const formatted = formatDictation(dictatedRaw);
+        // Show formatted speech so far, with the still-forming interim words trailing.
+        const live = interimText ? (formatted ? formatted + " " : "") + interimText.trim() : formatted;
+        el.value = joinParts(baseValue, live);
         el.dispatchEvent(new Event("input", { bubbles: true }));
-        // grow textarea if needed
         if (el.tagName === "TEXTAREA") autoGrow(el);
       };
       recognition.onerror = (e) => {
@@ -111,8 +112,8 @@ export function attachVoice(el) {
         btn.innerHTML = icon("mic");
         btn.title = `${label} (click to record)`;
         el.dataset.voiceAt = new Date().toISOString();
-        // Finalize with the last interim cleared
-        el.value = originalValue.trim();
+        // Finalize: drop any trailing interim, keep the cleanly formatted dictation.
+        el.value = joinParts(baseValue, formatDictation(dictatedRaw)).trim();
         el.dispatchEvent(new Event("input", { bubbles: true }));
         el.dispatchEvent(new Event("change", { bubbles: true }));
       };
@@ -138,17 +139,58 @@ export function attachVoice(el) {
   });
 }
 
-function appendNicely(prev, addition) {
-  if (!addition) return prev;
-  const sep = prev.length === 0 ? "" :
-    /[\.!?,]\s*$/.test(prev) ? " " :
-    /\s$/.test(prev) ? "" : " ";
-  return prev + sep + addition.trim();
+/* ---- Dictation intelligence (client-side, no server) --------------------
+   The Web Speech API returns raw, unpunctuated, lowercase text. We add the
+   intelligence dictation tools expect: spoken punctuation + line commands,
+   sentence capitalisation, "I", and tidy spacing. Said-aloud commands like
+   "period", "comma", "question mark", "new line", "new paragraph" become the
+   actual punctuation / breaks. */
+function formatDictation(raw) {
+  if (!raw) return "";
+  let s = " " + raw.toLowerCase() + " ";
+  // Line breaks first (so they win over sentence spacing).
+  s = s.replace(/\s+new paragraph\s+/g, "\n\n")
+       .replace(/\s+(new line|next line|line break)\s+/g, "\n");
+  // Spoken punctuation → symbols (kept padded; spacing is normalised below).
+  s = s.replace(/\s+(full stop|period)\s+/g, ". ")
+       .replace(/\s+comma\s+/g, ", ")
+       .replace(/\s+question mark\s+/g, "? ")
+       .replace(/\s+exclamation (mark|point)\s+/g, "! ")
+       .replace(/\s+semi[\s-]?colon\s+/g, "; ")
+       .replace(/\s+colon\s+/g, ": ")
+       .replace(/\s+(open paren|open parenthesis|open bracket)\s+/g, " (")
+       .replace(/\s+(close paren|close parenthesis|close bracket)\s+/g, ") ")
+       .replace(/\s+(dash|hyphen)\s+/g, " - ");
+  // Tidy spacing: none before punctuation, single spaces, clean around newlines.
+  s = s.replace(/[ \t]+([.,!?;:)])/g, "$1")
+       .replace(/([(])[ \t]+/g, "$1")
+       .replace(/[ \t]{2,}/g, " ")
+       .replace(/[ \t]*\n[ \t]*/g, "\n")
+       .replace(/\n{3,}/g, "\n\n")
+       .trim();
+  // Capitalise sentence starts (start of text, after . ! ?, after a newline) + "I".
+  s = s.replace(/(^|[.!?]\s+|\n+)([a-z])/g, (_m, pre, ch) => pre + ch.toUpperCase());
+  s = s.replace(/\bi\b/g, "I").replace(/\bi'/g, "I'");
+  return s;
 }
 
-function autoGrow(el) {
+/* Join already-typed text with the formatted dictation, with sensible spacing. */
+function joinParts(base, dictated) {
+  if (!base) return dictated;
+  if (!dictated) return base;
+  const sep = /\s$/.test(base) || /^\n/.test(dictated) ? "" : " ";
+  return base + sep + dictated;
+}
+
+function autoGrow(el, max = 400) {
   el.style.height = "auto";
-  el.style.height = Math.min(400, el.scrollHeight + 4) + "px";
+  if (el.scrollHeight > max) {
+    el.style.height = max + "px";
+    el.style.overflowY = "auto";
+  } else {
+    el.style.height = (el.scrollHeight + 4) + "px";
+    el.style.overflowY = "hidden";
+  }
 }
 
 /* Convenience: a "big voice button" for kid reflection mode. */

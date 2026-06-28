@@ -1,155 +1,333 @@
 /* ============================================================
-   materials.js — Suggested materials per child, approve/reject, cart.
+   materials.js — Learning Resources.
+
+   Not a product list — North Star's Learning Resources engine. Five
+   expandable sections, derived dynamically from catalogs + live project
+   and child data by lib/resources.js. Acting on any item materialises a
+   persistent resource record (store.recordResourceAction) so ownership
+   decisions stick and the page updates immediately.
    ============================================================ */
 
-import { getState, addMaterial, approveMaterial, rejectMaterial, getChild } from "../store.js";
-import { suggestMaterialsForChild, describeDIY, describeLearningStyle } from "../ai/suggestions.js";
-import { esc, fmtMoney, toast, icon } from "../components/ui.js";
+import {
+  getState, addMaterial, recordResourceAction, getChild,
+} from "../store.js";
+import { suggestMaterialsForChild } from "../ai/suggestions.js";
+import { buildLearningResources, newProjectResourceCount } from "../lib/resources.js";
+import { RESOURCE_SECTIONS } from "../lib/resourceCatalog.js";
+import { domainShort } from "../seed.js";
+import { esc, fmtMoney, toast, icon, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 
-let _selectedChildId = null;
-let _filter = "all"; // all | buy | DIY
+// Accordion state — session only (resets on full reload, persists across
+// in-app navigation). All sections start collapsed; opening one closes others.
+let _openSection = null;   // single open section id, or null
+let _expandAll = false;
+const isOpen = (id) => _expandAll || _openSection === id;
 
-export function renderMaterials(container) {
+// Per-section count noun, so the badge reads "12 resources" not just "12".
+const COUNT_NOUN = {
+  essentials: "essentials", project: "resources", personalised: "recommendations",
+  character: "resources", printable: "printables", marketplace: "suppliers",
+};
+
+// Per-render lookup of derived item specs by key (so action handlers can
+// materialise the exact item the parent clicked).
+let _specs = {};
+
+function rerenderKeepScroll() {
+  const y = window.scrollY;
+  rerender();
+  window.scrollTo(0, y);
+  requestAnimationFrame(() => window.scrollTo(0, y));
+}
+
+// A premium expandable section. Body stays in the DOM (collapsed) so opening
+// animates smoothly via CSS; opening/closing is pure class-toggling (no
+// re-render), which keeps scroll perfectly stable.
+function accShell(sec, count, bodyHtml) {
+  const open = isOpen(sec.id);
+  const noun = COUNT_NOUN[sec.id] || "resources";
+  return `
+    <section class="lt-acc${open ? " is-open" : ""}" data-acc="${sec.id}">
+      <button type="button" class="lt-acc__head" data-acc-head="${sec.id}" aria-expanded="${open}">
+        <span class="lt-acc__icon">${sec.icon}</span>
+        <span class="lt-acc__titles">
+          <span class="lt-acc__title">${esc(sec.title)}</span>
+          <span class="lt-acc__blurb">${esc(sec.blurb)}</span>
+        </span>
+        <span class="lt-acc__count">${count} ${noun}</span>
+        <span class="lt-acc__chev" aria-hidden="true">&rsaquo;</span>
+      </button>
+      <div class="lt-acc__panel"><div class="lt-acc__inner"><div class="lt-acc__body">${bodyHtml}</div></div></div>
+    </section>`;
+}
+
+// Toggle a section open (accordion: others close). Pure DOM class work for a
+// smooth, scroll-stable animation.
+function toggleSection(container, id) {
+  if (_expandAll) { _expandAll = false; _openSection = id; }
+  else { _openSection = (_openSection === id) ? null : id; }
+  applyOpenClasses(container);
+}
+function applyOpenClasses(container) {
+  container.querySelectorAll(".lt-acc").forEach(sec => {
+    const open = isOpen(sec.dataset.acc);
+    sec.classList.toggle("is-open", open);
+    sec.querySelector(".lt-acc__head")?.setAttribute("aria-expanded", String(open));
+  });
+  const allBtn = container.querySelector("[data-expand-all]");
+  if (allBtn) allBtn.textContent = _expandAll ? "Collapse all" : "Expand all";
+}
+
+export function renderResources(container) {
   const s = getState();
-  if (!_selectedChildId && s.children[0]) _selectedChildId = s.children[0].id;
-  const child = s.children.find(c => c.id === _selectedChildId);
 
-  // Lazily seed AI suggestions for this child if there are none yet (besides seed data).
-  if (child) {
-    const existing = s.materials.filter(m => m.forChildId === child.id);
-    if (existing.length < 3) {
-      suggestMaterialsForChild(child, s.family)
-        .filter(sug => !existing.some(e => e.name === sug.name))
-        .forEach(sug => addMaterial({
-          name: sug.name, category: sug.category, description: sug.description,
-          reasonSuggested: sug.reasonSuggested, ageRange: sug.ageRange,
-          buyOrDIY: sug.buyOrDIY, estimatedPrice: sug.estimatedPrice,
-          forChildId: child.id,
-        }));
-    }
-  }
+  // Lazily ensure each child has a few personalised recommendations to start from.
+  ensurePersonalisedSeed(s);
 
-  const all = getState().materials.filter(m => !child || m.forChildId === child.id);
-  const filtered = _filter === "all" ? all : all.filter(m => m.buyOrDIY === _filter);
+  const sections = buildLearningResources(getState());
+  _specs = {};
   const cartCount = getState().cart.length;
+  const needCount = newProjectResourceCount(getState());
 
   container.innerHTML = `
     <div class="topbar">
       <div>
-        <h1>Suggested Materials</h1>
-        <div class="sub">Based on each child's age, passions, learning style and DIY preference.</div>
+        <h1>Learning Resources</h1>
+        <div class="sub">Everything your family needs to deliver the learning journey North Star has created — evolving with every project, profile and season.</div>
       </div>
       <button class="btn btn-primary" data-cart>${icon("cart")} Cart ${cartCount ? `(${cartCount})` : ""}</button>
     </div>
 
-    ${s.children.length > 1 ? `
-      <div class="row mb-2" style="gap:8px">
-        ${s.children.map(c => `<button class="chip ${c.id === _selectedChildId ? "selected" : ""}" data-child="${c.id}">${esc(c.name)}</button>`).join("")}
-      </div>
-    ` : ""}
-
-    ${child ? matchSummary(child) : ""}
-
-    <div class="row mb-2" style="gap:8px">
-      <button class="chip ${_filter === "all" ? "selected" : ""}" data-filter="all">All</button>
-      <button class="chip ${_filter === "buy" ? "selected" : ""}" data-filter="buy">Buy ready-made</button>
-      <button class="chip ${_filter === "DIY" ? "selected" : ""}" data-filter="DIY">DIY at home</button>
-      <div style="flex:1"></div>
-      <button class="btn btn-sm" id="refresh-suggestions">↻ Refresh suggestions</button>
-    </div>
-
-    <div class="grid grid-auto">
-      ${filtered.length === 0
-        ? `<div class="empty"><div class="emoji">📚</div>No materials yet. Click "Refresh suggestions" to generate some.</div>`
-        : filtered.map(materialCard).join("")}
-    </div>
-  `;
-
-  container.querySelector("[data-cart]").addEventListener("click", () => navigate("/cart"));
-  container.querySelectorAll("[data-child]").forEach(b => {
-    b.addEventListener("click", () => { _selectedChildId = b.dataset.child; rerender(); });
-  });
-  container.querySelectorAll("[data-filter]").forEach(b => {
-    b.addEventListener("click", () => { _filter = b.dataset.filter; rerender(); });
-  });
-  container.querySelectorAll("[data-approve]").forEach(b => {
-    b.addEventListener("click", () => {
-      approveMaterial(b.dataset.approve);
-      toast("Added to cart", { type: "success" });
-      rerender();
-    });
-  });
-  container.querySelectorAll("[data-reject]").forEach(b => {
-    b.addEventListener("click", () => {
-      rejectMaterial(b.dataset.reject);
-      toast("Hidden");
-      rerender();
-    });
-  });
-  container.querySelector("#refresh-suggestions").addEventListener("click", () => {
-    if (!child) return;
-    suggestMaterialsForChild(child, getState().family).forEach(sug => {
-      if (!getState().materials.find(m => m.name === sug.name && m.forChildId === child.id)) {
-        addMaterial({
-          name: sug.name, category: sug.category, description: sug.description,
-          reasonSuggested: sug.reasonSuggested, ageRange: sug.ageRange,
-          buyOrDIY: sug.buyOrDIY, estimatedPrice: sug.estimatedPrice,
-          forChildId: child.id,
-        });
-      }
-    });
-    toast("New suggestions added");
-    rerender();
-  });
-}
-
-function matchSummary(child) {
-  const style = describeLearningStyle(child.learningStyle);
-  const diy = describeDIY(child.diyMaterials);
-  return `
-    <div class="card mb-2" style="background:var(--card-elev)">
-      <div class="row" style="gap:14px;flex-wrap:wrap">
-        <div class="child-card-avatar avatar-${child.avatarIndex}">${initials(child.name)}</div>
-        <div style="flex:1">
-          <div class="fw-700">${esc(child.name)} · ${esc(style.label)} · ${esc(diy.label)}</div>
-          <div class="small text-muted">Suggestions tuned for age ${child.age}, ${(child.passions || []).slice(0, 4).join(", ")}.</div>
+    ${needCount ? `
+      <div class="suggestion-banner mb-2">
+        <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center">
+          <span style="flex:1;min-width:240px"><strong>This week's projects require ${needCount} additional resource${needCount === 1 ? "" : "s"}.</strong> Review them under <em>Current Project Resources</em> below.</span>
+          <button class="btn btn-sm btn-sage" data-jump="project">Review now</button>
         </div>
-      </div>
+      </div>` : ""}
+
+    <div class="lt-toolbar">
+      <button class="btn btn-sm btn-ghost" data-expand-all>${_expandAll ? "Collapse all" : "Expand all"}</button>
+    </div>
+
+    <div class="stack">
+      ${RESOURCE_SECTIONS.map(sec => sectionHtml(sec, sections[sec.id])).join("")}
     </div>
   `;
+
+  wire(container);
 }
 
-function materialCard(m) {
-  const tag = m.buyOrDIY === "buy" ? "tag-primary" : "tag-sage";
+/* ---------- section rendering ---------- */
+
+function sectionHtml(sec, items) {
+  if (sec.id === "marketplace") return marketplaceSection(sec, items);
+
+  const visible = visibleItems(sec.id, items || []);
+  const body = visible.length
+    ? `<div class="grid grid-auto">${visible.map(it => { _specs[it.key] = it; return resourceCard(it); }).join("")}</div>`
+    : `<div class="small text-muted">Nothing here right now — this section fills in automatically as your family's journey unfolds.</div>`;
+  return accShell(sec, visible.length, body);
+}
+
+// Which items to show per section (resolved items drop out of the "needs" lists).
+function visibleItems(sectionId, items) {
+  if (sectionId === "project") return items.filter(i => i.status === "suggested" || i.status === "approved");
+  return items.filter(i => i.status !== "dismissed");
+}
+
+function resourceCard(it) {
+  const diyFirst = it.recommendation === "diy" && it.format !== "printable";
+  const formatTag = it.format === "printable"
+    ? `<span class="tag tag-sky">Printable</span>`
+    : (it.kind === "diy" || diyFirst) ? `<span class="tag tag-sage">DIY-first</span>` : `<span class="tag tag-primary">Ready-made</span>`;
+  const approvalTag = it.requiresApproval ? `<span class="tag tag-gold" style="font-size:10px">Parent-approved</span>` : "";
+  const price = it.format === "printable" ? "Free" : (it.estimatedPrice ? fmtMoney(it.estimatedPrice) : "—");
+  const child = it.forChildId ? getChild(it.forChildId) : null;
+  const domains = (it.capabilityDomains || []).slice(0, 4);
+
   return `
-    <div class="card ${m.approved ? "" : ""}" style="${m.rejected ? "opacity:0.5" : ""}">
+    <div class="card" style="background:var(--card-elev)">
       <div class="row-between mb-1">
-        <span class="tag ${tag}">${m.buyOrDIY === "buy" ? "Buy ready-made" : "DIY at home"}</span>
-        <span class="fw-700">${fmtMoney(m.estimatedPrice)}</span>
+        <div class="row" style="gap:6px;flex-wrap:wrap">${formatTag}${approvalTag}${it.frequency ? `<span class="tag">${esc(freqLabel(it.frequency))}</span>` : ""}</div>
+        <span class="fw-700">${price}</span>
       </div>
-      <h3 style="font-family:var(--font-serif);font-size:17px">${esc(m.name)}</h3>
-      <div class="small text-muted mb-1">${esc(m.category)} · ages ${esc(m.ageRange || "all")}</div>
-      <p class="small">${esc(m.description)}</p>
-      ${m.reasonSuggested ? `<div class="small text-sage fw-600 mt-1">Why: ${esc(m.reasonSuggested)}</div>` : ""}
+      <h3 style="font-family:var(--font-serif);font-size:16px;margin:0">${esc(it.name)}</h3>
+      <div class="small text-muted mb-1">${[it.category, it.ageRange ? `ages ${it.ageRange}` : "", child ? child.name : ""].filter(Boolean).map(esc).join(" · ")}</div>
+      ${it.description ? `<p class="small">${esc(it.description)}</p>` : ""}
+      ${it.reasonSuggested ? `<div class="small text-sage fw-600 mt-1">Why: ${esc(it.reasonSuggested)}</div>` : ""}
+      ${diyFirst ? `<div class="small text-muted mt-1">🛠️ Making this builds capability — buying ready-made is the easy alternative.</div>` : ""}
+      ${(it.unlocks || []).length ? `<div class="small text-muted mt-1">Unlocks: ${it.unlocks.map(d => esc(domainShort(d))).join(", ")}</div>` : ""}
+      ${domains.length ? `<div class="row" style="gap:5px;flex-wrap:wrap;margin-top:8px">${domains.map(d => `<span class="tag ${DOMAIN_COLOR_CLASS[d] || ""}" style="font-size:10px">${esc(domainShort(d))}</span>`).join("")}</div>` : ""}
+      ${(it.projectTitles || []).length ? `<div class="small text-muted" style="margin-top:6px">For: ${it.projectTitles.map(esc).join(", ")}</div>` : ""}
       <div class="divider"></div>
-      ${m.approved ? `
-        <div class="row" style="gap:6px">
-          <span class="tag tag-sage">${icon("check")} Approved · in cart</span>
-        </div>
-      ` : m.rejected ? `
-        <div class="text-muted small">Hidden. <button class="btn btn-ghost btn-sm" data-approve="${m.id}">Restore</button></div>
-      ` : `
-        <div class="row" style="gap:8px">
-          <button class="btn btn-primary btn-sm" data-approve="${m.id}">${m.buyOrDIY === "buy" ? "Approve + add to cart" : "Approve"}</button>
-          <button class="btn btn-sm" data-reject="${m.id}">No thanks</button>
-        </div>
-      `}
+      ${actionRow(it)}
     </div>
   `;
 }
 
-function initials(name) {
-  return (name || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase();
+function actionRow(it) {
+  if (it.status === "approved") {
+    return `<div class="row" style="gap:8px;align-items:center"><span class="tag tag-sage">${icon("check")} Approved${it.inCart ? " · in cart" : ""}</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
+  }
+  if (it.status === "owned") {
+    return `<div class="row" style="gap:8px;align-items:center"><span class="tag tag-sage">✓ You have this</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
+  }
+  if (it.status === "self-source") {
+    return `<div class="row" style="gap:8px;align-items:center"><span class="tag">You're sourcing this</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
+  }
+  if (it.status === "borrow") {
+    return `<div class="row" style="gap:8px;align-items:center"><span class="tag">🤝 Borrowing this</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
+  }
+  if (it.status === "save") {
+    return `<div class="row" style="gap:8px;align-items:center"><span class="tag tag-gold">💰 Saved for later</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
+  }
+  // suggested
+  if (it.format === "printable") {
+    return `
+      <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" data-action="generate" data-key="${esc(it.key)}">⬇ Generate &amp; download</button>
+        <button class="btn btn-sm" data-action="dismiss" data-key="${esc(it.key)}">Not needed</button>
+      </div>`;
+  }
+  const primary = it.kind === "diy"
+    ? `<button class="btn btn-primary btn-sm" data-action="approve" data-key="${esc(it.key)}">Approve</button>`
+    : `<button class="btn btn-primary btn-sm" data-action="approve" data-key="${esc(it.key)}">Add to cart</button>`;
+  return `
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      ${primary}
+      <button class="btn btn-sm" data-action="owned" data-key="${esc(it.key)}">I already have</button>
+      <button class="btn btn-sm" data-action="borrow" data-key="${esc(it.key)}">🤝 Borrow</button>
+      <button class="btn btn-sm" data-action="self-source" data-key="${esc(it.key)}">I'll source it</button>
+      <button class="btn btn-sm" data-action="save" data-key="${esc(it.key)}">💰 Save for later</button>
+      <button class="btn btn-ghost btn-sm" data-action="dismiss" data-key="${esc(it.key)}">Dismiss</button>
+    </div>`;
+}
+
+function marketplaceSection(sec, partners) {
+  const list = partners || [];
+  const countryLabel = list.find(p => p.countryLabel)?.countryLabel || null;
+  const body = `
+    <div class="small text-muted" style="margin-bottom:12px">${countryLabel ? `Prioritising suppliers local to <strong>${esc(countryLabel)}</strong>.` : "Set your home country in Family Settings to prioritise local suppliers."}</div>
+    <div class="grid grid-auto">${list.map(partnerCard).join("")}</div>
+    <p class="small text-muted" style="margin-top:12px">North Star compares suppliers on price, shipping, availability and reputation to surface the best value.</p>
+    <p class="small text-muted" style="margin-top:4px"><em>Coming soon: independent creators uploading and selling their own resources.</em></p>`;
+  return accShell(sec, list.length, body);
+}
+
+function partnerCard(p) {
+  return `
+    <div class="card" style="background:var(--card-elev)">
+      <div class="row-between mb-1">
+        <span class="tag">${esc(p.category)}</span>
+        <div class="row" style="gap:5px">
+          ${p.local ? `<span class="tag tag-sage" style="font-size:10px">📍 Local</span>` : ""}
+          ${p.relevant ? `<span class="tag" style="font-size:10px">Your domains</span>` : ""}
+        </div>
+      </div>
+      <h3 style="font-family:var(--font-serif);font-size:16px;margin:0">${esc(p.name)}</h3>
+      <p class="small">${esc(p.description)}</p>
+      ${(p.attributes || []).length ? `<div class="small text-muted" style="margin-top:4px">${p.attributes.map(esc).join(" · ")}</div>` : ""}
+      ${(p.domains || []).length ? `<div class="row" style="gap:5px;flex-wrap:wrap;margin-top:6px">${p.domains.map(d => `<span class="tag ${DOMAIN_COLOR_CLASS[d] || ""}" style="font-size:10px">${esc(domainShort(d))}</span>`).join("")}</div>` : ""}
+      <div class="divider"></div>
+      <a class="btn btn-sm" href="#" data-partner="${esc(p.id)}">Browse ${esc(p.name)} →</a>
+    </div>`;
+}
+
+/* ---------- wiring ---------- */
+
+function wire(container) {
+  container.querySelector("[data-cart]").addEventListener("click", () => navigate("/cart"));
+
+  // Accordion: open one section at a time (smooth, no re-render).
+  container.querySelectorAll("[data-acc-head]").forEach(btn => {
+    btn.addEventListener("click", () => toggleSection(container, btn.dataset.accHead));
+  });
+  container.querySelector("[data-expand-all]")?.addEventListener("click", () => {
+    _expandAll = !_expandAll;
+    if (!_expandAll) _openSection = null;
+    applyOpenClasses(container);
+  });
+
+  container.querySelectorAll("[data-jump]").forEach(b => b.addEventListener("click", () => {
+    const id = b.dataset.jump;
+    _expandAll = false; _openSection = id;
+    applyOpenClasses(container);
+    const sec = container.querySelector(`.lt-acc[data-acc="${id}"]`);
+    sec?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
+
+  container.querySelectorAll("[data-partner]").forEach(a => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    toast("Affiliate links activate when the partner ecosystem goes live.", { duration: 3000 });
+  }));
+
+  container.querySelectorAll("[data-action]").forEach(b => {
+    b.addEventListener("click", () => {
+      const it = _specs[b.dataset.key];
+      if (!it) return;
+      const action = b.dataset.action;
+      if (action === "generate") { generatePrintable(it); recordResourceAction(it, "owned"); toast("Printable downloaded", { type: "success" }); return rerenderKeepScroll(); }
+      const statusMap = { approve: "approved", owned: "owned", borrow: "borrow", save: "save", "self-source": "self-source", dismiss: "dismissed", undo: "suggested" };
+      recordResourceAction(it, statusMap[action] || "suggested");
+      toast(actionToast(action), { type: action === "dismiss" ? "default" : "success" });
+      rerenderKeepScroll();
+    });
+  });
+}
+
+/* ---------- helpers ---------- */
+
+function ensurePersonalisedSeed(s) {
+  (s.children || []).forEach(child => {
+    const existing = s.materials.filter(m => m.forChildId === child.id && (m.section || "personalised") === "personalised");
+    if (existing.length >= 3) return;
+    suggestMaterialsForChild(child, s.family)
+      .filter(sug => !existing.some(e => e.name === sug.name))
+      .forEach(sug => addMaterial({
+        name: sug.name, category: sug.category, description: sug.description,
+        reasonSuggested: sug.reasonSuggested, ageRange: sug.ageRange,
+        buyOrDIY: sug.buyOrDIY, estimatedPrice: sug.estimatedPrice,
+        forChildId: child.id, section: "personalised",
+      }));
+  });
+}
+
+function generatePrintable(it) {
+  const lines = [
+    `North Star — ${it.name}`,
+    "=".repeat(40),
+    "",
+    it.description || "",
+    "",
+    "This is a starter template. North Star will generate a richer, tailored",
+    "version of this printable for your child here as the feature evolves.",
+    "",
+    `Capability domains: ${(it.capabilityDomains || []).map(domainShort).join(", ") || "—"}`,
+  ];
+  const blob = new Blob([lines.join("\n")], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${String(it.name).replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.txt`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function actionToast(action) {
+  return {
+    approve: "Approved",
+    owned: "Marked as already owned",
+    borrow: "You'll borrow this",
+    save: "Saved for later",
+    "self-source": "You'll source this yourself",
+    dismiss: "Dismissed",
+    undo: "Reset",
+  }[action] || "Updated";
+}
+
+function freqLabel(f) {
+  return { once: "one-off", occasional: "occasional", frequent: "used often", daily: "daily" }[f] || f;
 }

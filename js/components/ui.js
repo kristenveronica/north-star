@@ -114,6 +114,8 @@ const ICONS = {
   guild: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="9" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><path d="M15 19c0-2 2-3.5 4-3.5s4 1.5 4 3.5"/></svg>`,
   council: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="16" height="9" rx="2"/><path d="M6 9V6h12v3M8 18v3M16 18v3"/></svg>`,
   legacy: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h12a4 4 0 0 1 4 4v12H8a4 4 0 0 1-4-4z"/><path d="M4 8h16M8 4v16"/></svg>`,
+  familySettings: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M12 14a2 2 0 1 0 0-.01"/><path d="M12 16v2"/></svg>`,
+  inventory: `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4v10l-9 4-9-4z"/><path d="M3 7l9 4 9-4M12 11v10"/><path d="M7.5 5.5l9 4"/></svg>`,
 };
 export function icon(name) {
   return ICONS[name] || "";
@@ -229,13 +231,31 @@ export function sparkle(targetEl) {
   }
 }
 
-/* ---------- Domain helpers ---------- */
+/* ---------- Capability Domain colour helpers ----------
+   Keyed by current Capability Domain ids, with legacy gig ids aliased so
+   projects/children saved under the old model still render a coloured tag. */
 export const DOMAIN_COLOR_CLASS = {
+  // Current Capability Domains
+  literacy: "tag-plum",
+  maths: "tag-sky",
+  science: "tag-sage",
+  creativity: "tag-coral",
+  music: "tag-plum",
+  digital: "tag-sky",
+  practical: "tag-gold",
+  enterprise: "tag-gold",
+  health: "tag-coral",
+  sport: "tag-sage",
+  relationships: "tag-plum",
+  leadership: "tag-sky",
+  nature: "tag-sage",
+  faith: "tag-plum",
+  travel: "tag-sky",
+  // Legacy gig ids → same colour as their mapped domain
   brain: "tag-plum",
   build: "tag-coral",
   money: "tag-gold",
-  house: "tag-sage",
+  house: "tag-gold",
   community: "tag-sky",
   body: "tag-coral",
-  faith: "tag-plum",
 };

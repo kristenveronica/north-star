@@ -4,7 +4,7 @@
    ============================================================ */
 
 import { getState } from "../store.js";
-import { DOMAIN_CATALOG } from "../seed.js";
+import { availableDomains } from "../seed.js";
 import { esc, fmtDate } from "../components/ui.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
@@ -42,7 +42,7 @@ export function renderCalendar(container) {
       ${s.children.map(c => `<button class="chip ${_childFilter === c.id ? "selected" : ""}" data-cf="${c.id}">${esc(c.name)}</button>`).join("")}
       <div style="width:1px;background:var(--border);margin:0 4px;align-self:stretch"></div>
       <button class="chip ${_domainFilter === "all" ? "selected" : ""}" data-df="all">All domains</button>
-      ${DOMAIN_CATALOG.filter(d => !d.optional || s.family.faithEnabled).map(d =>
+      ${availableDomains(s.family).map(d =>
         `<button class="chip ${_domainFilter === d.id ? "selected" : ""}" data-df="${d.id}">${esc(d.short)}</button>`).join("")}
     </div>
 

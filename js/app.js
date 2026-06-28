@@ -5,21 +5,25 @@
    - Re-renders when state changes.
    ============================================================ */
 
-import { getState } from "./store.js";
-import { seedIfEmpty } from "./seed.js";
+import { getState, setCloudSync, resetToLoggedOut } from "./store.js";
+import { syncCore, ensureFamilyAndHydrate, setPendingCheckout } from "./lib/repo.js";
 import { mountRouter, registerRoute, currentPath, navigate } from "./router.js";
 import { renderSidebar } from "./components/sidebar.js";
-import { startCountdownTicker } from "./components/ui.js";
+import { startCountdownTicker, esc } from "./components/ui.js";
+import { currentMember, canAccessPath, getViewAs, setViewAs, clearViewAs } from "./lib/permissions.js";
 import { enableAutoVoice } from "./components/voiceInput.js";
 import { logoMarkSVG } from "./components/logo.js";
 
 import { renderOnboarding } from "./views/onboarding.js";
+import { renderInviteAccept } from "./views/inviteAccept.js";
 import { renderDashboard } from "./views/dashboard.js";
 import { renderFamilyVision } from "./views/familyVision.js";
 import { renderChildren, renderChildDetail } from "./views/children.js";
 import { renderLearningStyle } from "./views/learningStyle.js";
+import { renderTechAgreement } from "./views/technology.js";
 import { renderDomains } from "./views/domains.js";
-import { renderMaterials } from "./views/materials.js";
+import { renderResources } from "./views/materials.js";
+import { renderInventory } from "./views/inventory.js";
 import { renderCart } from "./views/cart.js";
 import { renderProjects, renderProjectDetail } from "./views/projects.js";
 import { renderTermPlanner } from "./views/termPlanner.js";
@@ -34,30 +38,118 @@ import { renderInsights, renderInsightsReports, renderInsightReportDetail } from
 import { renderGuild, renderGuildSettings } from "./views/guild.js";
 import { renderCouncils, renderCouncilDetail } from "./views/councils.js";
 import { renderLegacy } from "./views/legacy.js";
+import { renderPlatformDiscovery } from "./views/platformDiscovery.js";
+import { renderFamilySettings } from "./views/familySettings.js";
+import { renderReflections } from "./views/reflections.js";
 import {
   renderPublicShell, renderHome, renderAbout, renderHowItWorks,
   renderFeaturesPublic, renderPricing, renderContact, renderLogin, renderSignup,
 } from "./views/marketing.js";
-import { hasAccount, isLoggedIn } from "./auth.js";
-
-/* ---------- First-run seed ---------- */
-seedIfEmpty();
+import { initAuth, isLoggedIn, onAuthChange } from "./auth.js";
 
 /* ---------- Layout shells ---------- */
+// The sidebar is rebuilt on every navigation/rerender, which would reset its
+// scroll to the top. We remember where the user scrolled it and restore that
+// position after each rebuild, so deep menu items stay in view.
+let _sidebarScroll = 0;
+
+// Per-route main-content scroll memory (session only). Returning to a page
+// restores the exact vertical position the user left it at — like a modern
+// shopping site — while a first visit lands at the top.
+const _scrollByPath = {};
+let _scrollTrackingInit = false;
+function initScrollTracking() {
+  if (_scrollTrackingInit) return;
+  _scrollTrackingInit = true;
+  window.addEventListener("scroll", () => { _scrollByPath[location.hash] = window.scrollY; }, { passive: true });
+}
+
 function withParentShell(container, viewFn, params) {
-  if (!getState().meta.onboarded) {
-    return renderOnboarding(container);
-  }
-  // Auth gate — if an account exists but the session has expired, send to /login.
-  if (hasAccount() && !isLoggedIn()) {
+  // The parent app requires a real account.
+  if (!isLoggedIn()) {
     location.hash = "#/login";
     return;
   }
+  // Signed in but the family hasn't completed onboarding yet.
+  if (!getState().meta.onboarded) {
+    return renderOnboarding(container);
+  }
+
+  // Permission guard: the CURRENT user (Owner, or a member being previewed via
+  // View-as) must be allowed here. Disallowed pages don't exist for them — send
+  // them to their dashboard (always permitted) rather than render a locked page.
+  const member = currentMember(getState());
+  const reqPath = (location.hash || "#/").slice(1).split("?")[0] || "/";
+  if (!canAccessPath(member, reqPath) && reqPath !== "/") {
+    location.hash = "#/";
+    return;
+  }
+
   const shell = document.createElement("div");
   shell.className = "app-shell";
-  shell.innerHTML = `${renderSidebar()}<main class="main" id="main-content"></main>`;
+  // Mobile/tablet: a top bar with a hamburger reveals the sidebar as a slide-in
+  // drawer (the sidebar is off-canvas on small screens). Hidden on desktop via CSS.
+  shell.innerHTML = `
+    <header class="mobile-topbar">
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="mobile-topbar-brand">${logoMarkSVG(22)}<span>North Star</span></span>
+    </header>
+    <div class="nav-scrim" hidden></div>
+    ${renderSidebar()}
+    <main class="main" id="main-content"></main>`;
   container.appendChild(shell);
-  viewFn(shell.querySelector("#main-content"), params);
+
+  // Drawer open/close (mobile only; harmless on desktop where these are hidden).
+  const navToggle = shell.querySelector(".nav-toggle");
+  const navScrim = shell.querySelector(".nav-scrim");
+  const openNav = () => { shell.classList.add("nav-open"); navToggle?.setAttribute("aria-expanded", "true"); if (navScrim) navScrim.hidden = false; };
+  const closeNav = () => { shell.classList.remove("nav-open"); navToggle?.setAttribute("aria-expanded", "false"); if (navScrim) navScrim.hidden = true; };
+  navToggle?.addEventListener("click", () => shell.classList.contains("nav-open") ? closeNav() : openNav());
+  navScrim?.addEventListener("click", closeNav);
+  // Any sidebar link/action closes the drawer (navigation also rebuilds the shell).
+  shell.querySelectorAll(".sidebar a, .sidebar [data-view-as], .sidebar button").forEach(el => el.addEventListener("click", closeNav));
+
+  // Owner-only "View as" — preview any member's portal. Set/clear is session-only.
+  shell.querySelectorAll("[data-view-as]").forEach(a => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    setViewAs(a.dataset.viewAs);
+    location.hash = "#/";
+    rerender();
+  }));
+  // Restore the sidebar's scroll position and keep tracking it as the user scrolls.
+  const sidebarEl = shell.querySelector(".sidebar");
+  if (sidebarEl) {
+    sidebarEl.scrollTop = _sidebarScroll;
+    sidebarEl.addEventListener("scroll", () => { _sidebarScroll = sidebarEl.scrollTop; }, { passive: true });
+  }
+  const mainEl = shell.querySelector("#main-content");
+  viewFn(mainEl, params);
+
+  // Previewing a member's portal? Show a calm banner with an exit (Owner only).
+  if (getViewAs()) {
+    mainEl.insertAdjacentHTML("afterbegin", `
+      <div class="suggestion-banner" style="margin:0 0 16px;border-color:var(--gold)">
+        <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="flex:1;min-width:220px">👁️ <strong>Previewing ${esc(member.name || "this member")}'s portal</strong> — you're seeing exactly what they see. You're still acting as the Owner; this is just a preview of their navigation and access.</span>
+          <button class="btn btn-sm" data-exit-view>Exit preview</button>
+        </div>
+      </div>`);
+    mainEl.querySelector("[data-exit-view]")?.addEventListener("click", () => {
+      clearViewAs();
+      location.hash = "#/";
+      rerender();
+    });
+  }
+
+  // Restore this route's main-content scroll position (0 on first visit).
+  initScrollTracking();
+  const savedY = _scrollByPath[location.hash] || 0;
+  requestAnimationFrame(() => {
+    window.scrollTo(0, savedY);
+    requestAnimationFrame(() => window.scrollTo(0, savedY));
+  });
   // Wire sidebar logout (only present when an account exists)
   shell.querySelector("[data-logout]")?.addEventListener("click", async (e) => {
     e.preventDefault();
@@ -81,14 +173,12 @@ function withPublicShell(viewFn) {
 }
 
 // Smart root:
-//  - not yet onboarded → marketing home
-//  - onboarded + account exists + logged out → login
-//  - onboarded + (no account OR logged in) → dashboard
+//  - logged out → marketing home
+//  - logged in + not onboarded → onboarding (via withParentShell)
+//  - logged in + onboarded → dashboard
 function smartRoot(container, params) {
-  if (!getState().meta.onboarded) {
+  if (!isLoggedIn()) {
     renderPublicShell(container, renderHome);
-  } else if (hasAccount() && !isLoggedIn()) {
-    location.hash = "#/login";
   } else {
     withParentShell(container, renderDashboard, params);
   }
@@ -114,12 +204,18 @@ registerRoute("/contact",      withPublicShell(renderContact));
 registerRoute("/login",        withPublicShell(renderLogin));
 registerRoute("/signup",       withPublicShell(renderSignup));
 registerRoute("/onboarding",   (c) => renderOnboarding(c));
+registerRoute("/invite/:token", (c, p) => renderInviteAccept(c, p));
+// Ghost page: a standalone, unlinked white-label discovery form (no public nav/footer).
+registerRoute("/discover",     (c) => renderPlatformDiscovery(c));
 registerRoute("/vision",    (c, p) => withParentShell(c, renderFamilyVision, p));
+registerRoute("/family-settings", (c, p) => withParentShell(c, renderFamilySettings, p));
 registerRoute("/children",  (c, p) => withParentShell(c, renderChildren, p));
 registerRoute("/children/:id", (c, p) => withParentShell(c, renderChildDetail, p));
 registerRoute("/style",     (c, p) => withParentShell(c, renderLearningStyle, p));
+registerRoute("/technology/:childId", (c, p) => withParentShell(c, renderTechAgreement, p));
 registerRoute("/domains",   (c, p) => withParentShell(c, renderDomains, p));
-registerRoute("/materials", (c, p) => withParentShell(c, renderMaterials, p));
+registerRoute("/materials", (c, p) => withParentShell(c, renderResources, p));
+registerRoute("/inventory", (c, p) => withParentShell(c, renderInventory, p));
 registerRoute("/cart",      (c, p) => withParentShell(c, renderCart, p));
 registerRoute("/projects",  (c, p) => withParentShell(c, renderProjects, p));
 registerRoute("/projects/:id", (c, p) => withParentShell(c, renderProjectDetail, p));
@@ -128,6 +224,7 @@ registerRoute("/calendar",  (c, p) => withParentShell(c, renderCalendar, p));
 registerRoute("/rewards",   (c, p) => withParentShell(c, renderRewards, p));
 registerRoute("/progress",  (c, p) => withParentShell(c, renderProgress, p));
 registerRoute("/portfolio", (c, p) => withParentShell(c, renderPortfolio, p));
+registerRoute("/reflections", (c, p) => withParentShell(c, renderReflections, p));
 registerRoute("/reports",   (c, p) => withParentShell(c, renderReports, p));
 registerRoute("/reports/:id", (c, p) => withParentShell(c, renderReportDetail, p));
 registerRoute("/insights",            (c, p) => withParentShell(c, renderInsights, p));
@@ -147,9 +244,45 @@ registerRoute("/kid/:code/project/:projectId", (c, p) => withChildShell(c, rende
 
 /* ---------- Boot ---------- */
 const app = document.getElementById("app");
-mountRouter(app);
-startCountdownTicker();
-enableAutoVoice();
+
+// Wire write-behind cloud sync into the store.
+setCloudSync(syncCore);
+
+// If we returned from the public pricing-page checkout, stash the Stripe session
+// id (survives the sign-up flow) so the next hydrate links the paid subscription
+// to this account; then tidy the URL so it isn't re-processed.
+(function captureCheckoutSession() {
+  try {
+    const sid = new URLSearchParams(location.search).get("checkout_session");
+    if (!sid) return;
+    setPendingCheckout(sid);
+    const url = new URL(location.href);
+    url.searchParams.delete("checkout_session");
+    history.replaceState(null, "", url.pathname + url.search + url.hash);
+  } catch { /* ignore */ }
+})();
+
+(async () => {
+  await initAuth();
+  if (isLoggedIn()) {
+    try { await ensureFamilyAndHydrate(); }
+    catch (e) { console.error("[boot] hydrate failed", e); }
+  }
+  mountRouter(app);
+  startCountdownTicker();
+  enableAutoVoice();
+
+  // React to login/logout happening from anywhere in the app.
+  onAuthChange(async (session) => {
+    if (session) {
+      try { await ensureFamilyAndHydrate(); }
+      catch (e) { console.error("[auth] hydrate failed", e); }
+    } else {
+      resetToLoggedOut();
+    }
+    rerender();
+  });
+})();
 
 // SVG favicon — Heirloom Compass mark.
 (function installFavicon() {

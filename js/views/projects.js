@@ -5,11 +5,16 @@
 import {
   getState, getProject, addProject, updateProject, removeProject,
   addMilestone, updateMilestone, completeMilestone, getMilestonesForProject,
-  addReflection, getReflectionsForProject, uid,
+  addReflection, getReflectionsForProject, uid, recordPreferenceSignal, addNotification,
 } from "../store.js";
-import { suggestProjectsForChild } from "../ai/suggestions.js";
-import { DOMAIN_CATALOG, REFLECTION_PROMPTS } from "../seed.js";
+import { aiGenerateProject } from "../lib/ai.js";
+import { summarizePreferences } from "../lib/preferences.js";
+import { techAgreementForAI } from "../lib/techAgreement.js";
+import { ownedResourceKeys } from "../lib/resources.js";
+import { INVENTORY_CATEGORIES } from "../lib/inventoryCatalog.js";
+import { availableDomains, domainShort, REFLECTION_PROMPTS } from "../seed.js";
 import { esc, icon, toast, openModal, confirmDialog, renderCountdown, fmtDate, sparkle, DOMAIN_COLOR_CLASS } from "../components/ui.js";
+import { openProjectPdfModal } from "../components/pdfModal.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 
@@ -17,10 +22,28 @@ import { rerender } from "../app.js";
 
 let _childFilter = "all";
 
+// What the family already owns — fed to the generator so projects use what they
+// have before recommending purchases (RESOURCES ALREADY OWNED + FAMILY INVENTORY).
+function ownedAndInventory(state) {
+  const owned = new Set(ownedResourceKeys(state));
+  (state.inventory || []).forEach(i => owned.add(String(i.name || "").toLowerCase()));
+  const titleById = Object.fromEntries(INVENTORY_CATEGORIES.map(c => [c.id, c.title]));
+  const byCategory = {};
+  (state.inventory || []).forEach(i => {
+    const t = titleById[i.category] || "Other";
+    (byCategory[t] = byCategory[t] || []).push(i.name);
+  });
+  const inventory = (state.inventory || []).length || Object.keys(state.family?.inventoryContext || {}).length
+    ? { byCategory, context: state.family?.inventoryContext || {} }
+    : null;
+  return { ownedResources: Array.from(owned), inventory };
+}
+
 export function renderProjects(container) {
   const s = getState();
   const projects = _childFilter === "all" ? s.projects : s.projects.filter(p => p.childId === _childFilter);
   const active = projects.filter(p => p.status === "active" || p.status === "ready-for-reflection");
+  const drafts = projects.filter(p => p.status === "draft");
   const done = projects.filter(p => p.status === "completed");
 
   container.innerHTML = `
@@ -30,7 +53,7 @@ export function renderProjects(container) {
         <div class="sub">Real work, real deadlines, real reflection. The lifeblood of the OS.</div>
       </div>
       <div class="btn-row">
-        <button class="btn" id="generate">✨ Generate ideas</button>
+        <button class="btn" id="generate">✨ Generate Project</button>
         <button class="btn btn-primary" id="new-project">${icon("plus")} New project</button>
       </div>
     </div>
@@ -46,6 +69,11 @@ export function renderProjects(container) {
         ? `<div class="empty"><div class="emoji">🎒</div>No active projects. Generate ideas or create one.</div>`
         : active.map(p => projectCard(p, s)).join("")}
     </div>
+
+    ${drafts.length ? `
+      <h3 class="mt-3 mb-2">Drafts</h3>
+      <div class="grid grid-auto">${drafts.map(p => projectCard(p, s)).join("")}</div>
+    ` : ""}
 
     ${done.length ? `
       <h3 class="mt-3 mb-2">Completed</h3>
@@ -84,94 +112,313 @@ function projectCard(p, state) {
       <div class="progress-bar"><span style="width:${pct}%"></span></div>
       ${p.status === "ready-for-reflection" ? `<div class="tag tag-gold mt-2">✨ Ready for final reflection</div>` : ""}
       ${p.status === "completed" ? `<div class="tag tag-sage mt-2">✓ Completed</div>` : ""}
+      ${p.status === "draft" ? `<div class="tag mt-2">✎ Draft — tap to review</div>` : ""}
     </div>
   `;
 }
 
-/* ====== Generator modal ====== */
+/* ====== Generator modal — "tell us what's happening, we'll design the learning" ====== */
+
+// Example sparks the parent can tap to fill the box. The AI does the educational
+// design; the parent only supplies the real-life moment.
+const PROMPT_EXAMPLES = [
+  "Noah has become fascinated by mountain biking. Create a project that gets him outdoors, builds confidence and includes some maths and writing.",
+  "Jetty wants to help in the kitchen. Create a practical life project around cooking, measuring and independence.",
+  "We're travelling to Japan for three weeks and want the kids to learn through the trip.",
+];
 
 function openGeneratorModal() {
   const s = getState();
   if (!s.children.length) { toast("Add a child first", { type: "warning" }); return; }
 
-  const body = document.createElement("div");
-  body.innerHTML = `
-    <p class="text-muted small">Pick a child to generate project ideas tuned to their age, passions, learning style and current domains.</p>
-    <div class="chip-group mb-2" id="kids">
-      ${s.children.map(c => `<button class="chip" data-kid="${c.id}">${esc(c.name)}</button>`).join("")}
-    </div>
-    <div id="generator-output"></div>
-  `;
-  const foot = document.createElement("div");
-  foot.style.cssText = "display:flex;gap:10px;width:100%;justify-content:flex-end";
-  foot.innerHTML = `<button class="btn" data-close>Close</button>`;
-  openModal({ title: "✨ Project idea generator", body, footer: foot });
+  let childId = s.children[0].id;
+  let intent = "";            // the parent's free-text "spark"
+  let refinementsLeft = 3;    // 3 AI refinements before accepting
+  let current = null;         // the proposed project being reviewed
 
-  body.querySelectorAll("[data-kid]").forEach(b => {
-    b.addEventListener("click", () => {
-      body.querySelectorAll("[data-kid]").forEach(x => x.classList.remove("selected"));
-      b.classList.add("selected");
-      const child = s.children.find(c => c.id === b.dataset.kid);
-      const suggestions = suggestProjectsForChild(child);
-      body.querySelector("#generator-output").innerHTML = suggestions.length
-        ? suggestions.map((t, i) => generatedCard(t, i)).join("")
-        : `<div class="empty">No suggestions yet — try selecting more domains for ${esc(child.name)}.</div>`;
-      body.querySelectorAll("[data-accept]").forEach(btn => {
-        btn.addEventListener("click", () => {
-          const idx = +btn.dataset.accept;
-          createProjectFromTemplate(suggestions[idx], child);
-          toast(`"${suggestions[idx].title}" added`, { type: "success" });
-        });
-      });
+  const body = document.createElement("div");
+  const foot = document.createElement("div");
+  foot.style.cssText = "display:flex;gap:10px;width:100%;justify-content:flex-end;flex-wrap:wrap";
+  const modal = openModal({ title: "✨ Generate a project", body, footer: foot });
+
+  const child = () => getState().children.find(c => c.id === childId) || s.children[0];
+  const childName = () => child()?.name || "your child";
+
+  // This child's recent project domains → quiet capability balance signal.
+  function recentDomains() {
+    const counts = {};
+    (getState().projects || []).filter(p => p.childId === childId)
+      .forEach(p => (p.domains || []).forEach(d => { counts[d] = (counts[d] || 0) + 1; }));
+    return counts;
+  }
+  function existingTitles() {
+    return [...new Set((getState().projects || [])
+      .filter(p => p.childId === childId).map(p => p.title).filter(Boolean))];
+  }
+  function genConstraints(extra = {}) {
+    return {
+      intent,
+      recentDomains: recentDomains(),
+      avoidTitles: existingTitles(),
+      preferences: summarizePreferences(getState(), childId),
+      technology: techAgreementForAI(child()),
+      ...ownedAndInventory(getState()),
+      ...extra,
+    };
+  }
+
+  function generatingHtml(verb = "Designing") {
+    return `
+      <div class="empty ns-generating">
+        <div class="ns-gen-stars" aria-hidden="true">
+          <span class="ns-gen-star">✨</span><span class="ns-gen-star">✨</span><span class="ns-gen-star">✨</span>
+        </div>
+        <div>${esc(verb)} ${esc(childName())}'s project<span class="ns-gen-dots"><span>.</span><span>.</span><span>.</span></span></div>
+        <div class="small text-muted mt-1">North Star is drawing on everything it knows about your family — this takes a few seconds.</div>
+      </div>`;
+  }
+
+  /* ---- Screen 1: the spark ---- */
+  function renderPrompt() {
+    current = null;
+    const multi = s.children.length > 1;
+    body.innerHTML = `
+      <p class="text-muted">Tell us what's happening in real life. North Star turns it into meaningful learning — drawing on your Family North Star, ${esc(childName())}'s profile, your settings and what you already own. You bring the spark; we build the pathway.</p>
+      ${multi ? `
+        <div class="small text-muted fw-700 mt-2" style="text-transform:uppercase;letter-spacing:.1em">Who is this for?</div>
+        <div class="chip-group mb-1" id="kids">
+          ${s.children.map(c => `<button class="chip${c.id === childId ? " selected" : ""}" data-kid="${c.id}">${esc(c.name)}</button>`).join("")}
+        </div>` : ""}
+      <label class="fw-700 mt-2" style="display:block">What would you like ${esc(childName())} to explore, build, practise or experience next?</label>
+      <textarea class="textarea mt-1" id="intent" rows="4" data-voice data-voice-label="Describe what you'd like next"
+        placeholder="${esc(PROMPT_EXAMPLES[0])}">${esc(intent)}</textarea>
+      <div class="small text-muted mt-2">Need a spark? Tap an example:</div>
+      <div class="stack-tight mt-1" id="examples">
+        ${PROMPT_EXAMPLES.map((ex, i) => `<button type="button" class="ns-example-btn" data-ex="${i}" style="text-align:left;width:100%;border:1px dashed var(--border);background:var(--card-elev);border-radius:var(--r-md);padding:8px 10px;cursor:pointer;color:var(--text-muted);font-size:13px;line-height:1.4">"${esc(ex)}"</button>`).join("")}
+      </div>
+    `;
+    foot.innerHTML = `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="go">✨ Generate Project</button>`;
+
+    body.querySelectorAll("[data-kid]").forEach(b => b.addEventListener("click", () => {
+      intent = (body.querySelector("#intent")?.value || "").trim();
+      childId = b.dataset.kid;
+      renderPrompt();
+    }));
+    body.querySelectorAll("[data-ex]").forEach(b => b.addEventListener("click", () => {
+      body.querySelector("#intent").value = PROMPT_EXAMPLES[+b.dataset.ex];
+      body.querySelector("#intent").focus();
+    }));
+    foot.querySelector("#go").addEventListener("click", doGenerate);
+  }
+
+  async function doGenerate() {
+    intent = (body.querySelector("#intent")?.value || "").trim();
+    if (!intent) { toast("Tell North Star what you'd like next", { type: "warning" }); return; }
+    refinementsLeft = 3;
+    body.innerHTML = generatingHtml();
+    foot.innerHTML = "";
+    try {
+      const project = await aiGenerateProject(getState().family || {}, child(), genConstraints());
+      renderProposal(project);
+    } catch (e) {
+      renderError(e);
+    }
+  }
+
+  async function doRefine() {
+    const refine = (body.querySelector("#refine-text")?.value || "").trim();
+    if (!refine) { toast("Tell North Star what to change", { type: "warning" }); return; }
+    recordPreferenceSignal({ type: "edited", childId, note: refine, projectSnapshot: projectSnapshot(current) });
+    body.innerHTML = generatingHtml("Refining");
+    foot.innerHTML = "";
+    try {
+      const amended = await aiGenerateProject(getState().family || {}, child(),
+        genConstraints({ refine, previous: current }));
+      refinementsLeft = Math.max(0, refinementsLeft - 1);
+      renderProposal(amended);
+    } catch (e) {
+      toast(e.message || "Couldn't refine that", { type: "error" });
+      renderProposal(current); // fall back to the version we had
+    }
+  }
+
+  function renderError(e) {
+    body.innerHTML = `<div class="card" style="background:var(--card-elev)"><p class="small">Couldn't generate just now: ${esc(e.message || "AI request failed")}.</p></div>`;
+    foot.innerHTML = `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="retry">Try again</button>`;
+    foot.querySelector("#retry").addEventListener("click", renderPrompt);
+  }
+
+  /* ---- Screen 2: the proposal ---- */
+  function renderProposal(project) {
+    current = project;
+    body.innerHTML = proposalHtml(project, childName(), refinementsLeft);
+    foot.innerHTML = `
+      <button class="btn" data-close>Cancel</button>
+      <button class="btn" id="save-draft">Save as Draft</button>
+      <button class="btn btn-primary" id="accept">Accept Project →</button>`;
+    requestAnimationFrame(() => { const sc = body.closest(".modal-body") || body.parentElement; if (sc) sc.scrollTop = 0; });
+
+    const refineBtn = body.querySelector("#refine-go");
+    if (refineBtn) refineBtn.addEventListener("click", doRefine);
+
+    foot.querySelector("#accept").addEventListener("click", () => {
+      recordPreferenceSignal({ type: "accepted", childId, projectSnapshot: projectSnapshot(current) });
+      const p = createProjectFromTemplate(current, child(), "active");
+      modal.close();
+      toast(`"${current.title}" added — now fully editable`, { type: "success" });
+      navigate("/projects/" + p.id);
     });
-  });
+    foot.querySelector("#save-draft").addEventListener("click", () => {
+      const p = createProjectFromTemplate(current, child(), "draft");
+      modal.close();
+      toast("Saved as a draft", { type: "success" });
+      navigate("/projects/" + p.id);
+    });
+  }
+
+  renderPrompt();
 }
 
-function generatedCard(t, i) {
+// The full, trustworthy proposal card the parent reviews before accepting.
+function proposalHtml(t, name, refinementsLeft) {
+  const list = (arr) => (arr || []).filter(Boolean).map(x => `<li>${esc(x)}</li>`).join("");
+  const section = (label, inner) => inner ? `
+    <div class="mt-2">
+      <div class="small text-muted fw-700" style="text-transform:uppercase;letter-spacing:.08em">${label}</div>
+      ${inner}
+    </div>` : "";
+  const mats = (t.materials || []).filter(m => (m.name || "").trim());
+  const refineCount = refinementsLeft === 1 ? "1 refinement available" : `${refinementsLeft} refinements available`;
+
   return `
     <div class="card mb-2" style="background:var(--card-elev)">
       <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:6px">
-        ${t.domains.map(d => `<span class="tag ${DOMAIN_COLOR_CLASS[d] || ""}">${esc(domainName(d))}</span>`).join("")}
+        ${(t.domains || []).map(d => `<span class="tag ${DOMAIN_COLOR_CLASS[d] || ""}">${esc(domainName(d))}</span>`).join("")}
+        ${t.pathway ? `<span class="tag">${esc(t.pathway)}</span>` : ""}
       </div>
-      <h4>${esc(t.title)}</h4>
-      <p class="small">${esc(t.description)}</p>
-      <div class="small text-sage fw-600 mt-1">Why: ${esc(t.reasonSuggested)}</div>
-      <div class="small text-muted">Duration: ${t.durationDays} days · ${t.milestones.length} milestones · ${t.momentumPointsAvailable} pts available</div>
-      <div class="row mt-2" style="gap:8px">
-        <button class="btn btn-primary btn-sm" data-accept="${i}">Accept this project →</button>
-      </div>
+      <h3 style="font-family:var(--font-serif)">${esc(t.title)}</h3>
+      <div class="small text-muted">${esc(name)} · ${t.durationDays} days · ${(t.milestones || []).length} milestones</div>
+
+      ${t.childDescription ? `<div class="card mt-2" style="background:var(--gold-soft);padding:12px"><div class="small fw-700 mb-1">For ${esc(name)} ✨</div><p class="small" style="margin:0">${esc(t.childDescription)}</p></div>` : ""}
+      ${t.description ? `<p class="small mt-2">${esc(t.description)}</p>` : ""}
+
+      ${t.reasonSuggested ? `
+        <div class="card mt-2" style="background:var(--card);border:1px solid var(--border);padding:12px">
+          <div class="small fw-700 mb-1">💡 Why North Star suggested this</div>
+          <p class="small" style="margin:0">${esc(t.reasonSuggested)}</p>
+        </div>` : ""}
+
+      ${section("Why this fits " + esc(name), t.purpose ? `<p class="small" style="margin:4px 0 0">${esc(t.purpose)}</p>` : "")}
+      ${section("Capabilities developed", (t.capabilitiesDeveloped || []).length ? `<p class="small text-sage fw-600" style="margin:4px 0 0">${(t.capabilitiesDeveloped).map(esc).join(", ")}</p>` : "")}
+      ${section("Academic skills woven in", (t.academicSkills || []).length ? `<ul class="small" style="margin:4px 0 0;padding-left:18px">${list(t.academicSkills)}</ul>` : "")}
+      ${section("Practical-life skills woven in", (t.practicalSkills || []).length ? `<ul class="small" style="margin:4px 0 0;padding-left:18px">${list(t.practicalSkills)}</ul>` : "")}
+
+      ${section("Milestones &amp; deadlines", (t.milestones || []).length ? `
+        <ol class="small" style="margin:4px 0 0;padding-left:20px">
+          ${(t.milestones).map(m => `<li style="margin-bottom:4px"><span class="fw-600">${esc(m.title)}</span>${m.dueOffsetDays != null ? ` <span class="text-muted">· by day ${m.dueOffsetDays}</span>` : ""}${m.description ? `<br><span class="text-muted">${esc(m.description)}</span>` : ""}</li>`).join("")}
+        </ol>` : "")}
+
+      ${section("Materials needed", mats.length ? `<ul class="small" style="margin:4px 0 0;padding-left:18px">${mats.map(m => `<li>${esc(m.name)}${m.source ? ` <span class="text-muted">(${esc(m.source)})</span>` : ""}</li>`).join("")}</ul>` : `<p class="small text-muted" style="margin:4px 0 0">Uses what you already have.</p>`)}
+      ${section("Reflection prompts", (t.reflectionPrompts || []).length ? `<ul class="small" style="margin:4px 0 0;padding-left:18px">${list(t.reflectionPrompts)}</ul>` : "")}
+      ${section("Optional extensions", (t.extensionIdeas || []).length ? `<ul class="small" style="margin:4px 0 0;padding-left:18px">${list(t.extensionIdeas)}</ul>` : "")}
+      ${section("Parent notes", t.parentNotes ? `<p class="small" style="margin:4px 0 0">${esc(t.parentNotes)}</p>` : "")}
+      ${section("Reward &amp; toll", (t.reward || t.toll) ? `<p class="small" style="margin:4px 0 0">${t.reward ? `<span class="fw-600">Reward:</span> ${esc(t.reward)}` : ""}${t.reward && t.toll ? "<br>" : ""}${t.toll ? `<span class="fw-600">Toll:</span> ${esc(t.toll)}` : ""}</p>` : "")}
     </div>
+
+    ${refinementsLeft > 0 ? `
+      <div class="card mb-2" style="background:var(--card)">
+        <div class="fw-700">Refine this project</div>
+        <p class="small text-muted" style="margin:4px 0 8px">Not quite right? Tell North Star what to change and it'll redesign it.</p>
+        <textarea class="textarea" id="refine-text" rows="2" data-voice data-voice-label="Describe your changes"
+          placeholder="e.g. Make it shorter, add more outdoor time, reduce writing, include a business element, make it suitable for rainy weather."></textarea>
+        <div class="row-between mt-2" style="align-items:center">
+          <span class="small text-muted">${refineCount}</span>
+          <button class="btn btn-primary btn-sm" id="refine-go">✨ Refine Project</button>
+        </div>
+      </div>`
+    : `<div class="card mb-2" style="background:var(--card)"><p class="small text-muted" style="margin:0">You can still edit this project manually after accepting it.</p></div>`}
   `;
 }
 
-/* Create real Project + Milestones from a generated template. */
-function createProjectFromTemplate(t, child) {
+/* ---------- The family learning loop ----------
+   A compact snapshot of a generated project so signals can teach pattern
+   recognition (preferred sizes, domains, pathways, cost, screen-time…). */
+function projectSnapshot(t) {
+  return {
+    title: t.title,
+    sizeBand: t.sizeBand || null,
+    durationDays: t.durationDays ?? null,
+    domains: t.domains || [],
+    pathway: t.pathway || null,
+    category: t.projectCategory || t.category || null,
+    capabilities: t.capabilitiesDeveloped || [],
+    passionConnection: t.passionConnection || null,
+    momentumPoints: t.momentumPointsAvailable ?? null,
+    materialsCount: (t.materials || []).length,
+  };
+}
+
+/* Create real Project + Milestones from a generated template.
+   status: "active" (accepted) or "draft" (saved to review later). */
+function createProjectFromTemplate(t, child, status = "active") {
   const start = new Date(); start.setHours(17, 0, 0, 0);
   const due = new Date(start); due.setDate(due.getDate() + t.durationDays);
   const project = addProject({
     childId: child.id,
     title: t.title,
     description: t.description,
+    childDescription: t.childDescription || "",
+    questRole: t.questRole || "",
+    purpose: t.purpose || "",
+    pathway: t.pathway || "",
+    capabilitiesDeveloped: t.capabilitiesDeveloped || [],
+    academicSkills: t.academicSkills || [],
+    practicalSkills: t.practicalSkills || [],
+    reflectionPrompts: t.reflectionPrompts || [],
+    extensionIdeas: t.extensionIdeas || [],
+    parentNotes: t.parentNotes || "",
+    foundationalLiteracies: t.foundationalLiteracies || [],
+    realWorldApplication: t.realWorldApplication || "",
+    contributionOpportunities: t.contributionOpportunities || "",
     domains: t.domains,
+    // Capability mapping metadata from the AI — primary/secondary domains + skills.
+    capabilityMap: (t.capabilityMap && typeof t.capabilityMap === "object" && !Array.isArray(t.capabilityMap))
+      ? { primary: [], secondary: [], skills: [], competencyGrowth: {}, ...t.capabilityMap }
+      : { primary: [], secondary: [], skills: [], competencyGrowth: {} },
     passionConnection: t.passionConnection,
     learningOutcomes: t.learningOutcomes,
-    materials: [],
+    materials: t.materials || [],
     startDate: start.toISOString(),
     dueDate: due.toISOString(),
     momentumPointsAvailable: t.momentumPointsAvailable,
     starsAvailable: t.starsAvailable,
     reward: t.reward,
     toll: t.toll,
-    status: "active",
+    generatedByAi: !!t.purpose,
+    status,
   });
-  t.milestones.forEach((m, i) => {
+  (t.milestones || []).forEach((m, i) => {
     const md = new Date(start); md.setDate(md.getDate() + m.dueOffsetDays);
     addMilestone({
-      projectId: project.id, title: m.title, dueDate: md.toISOString(),
+      projectId: project.id, title: m.title,
+      description: m.description || "",
+      instructions: Array.isArray(m.instructions) ? m.instructions : [],
+      dueDate: md.toISOString(),
       momentumPoints: m.momentumPoints, reflectionRequired: !!m.reflectionRequired, order: i,
     });
   });
+  // Learning Resources integration: tell the parent the new project needs resources
+  // (only once it's a live project, not a draft).
+  const needed = (t.materials || []).filter(m => (m.name || "").trim()).length;
+  if (needed && status === "active") {
+    addNotification({
+      childId: child.id,
+      projectId: project.id,
+      message: `${child.name}'s new project "${t.title}" needs ${needed} resource${needed === 1 ? "" : "s"} — review them in Learning Resources.`,
+    });
+  }
   rerender();
+  return project;
 }
 
 /* ====== Manual project builder ====== */
@@ -205,9 +452,9 @@ function openProjectBuilder(existingId = null) {
     </div>
     <div class="field"><label>Description</label><textarea class="textarea" id="b-desc" data-voice data-voice-label="Describe the project">${esc(draft.description)}</textarea></div>
     <div class="field">
-      <label>Domains</label>
+      <label>Capability domains</label>
       <div class="chip-group" id="b-domains">
-        ${DOMAIN_CATALOG.filter(d => !d.optional || s.family.faithEnabled).map(d =>
+        ${availableDomains(s.family).map(d =>
           `<button class="chip ${(draft.domains || []).includes(d.id) ? "selected" : ""}" data-domain="${d.id}">${esc(d.short)}</button>`
         ).join("")}
       </div>
@@ -283,23 +530,52 @@ export function renderProjectDetail(container, params) {
         <div class="sub">${child ? esc(child.name) : ""} ${project.passionConnection ? "· " + esc(project.passionConnection) : ""}</div>
       </div>
       <div class="btn-row">
+        <button class="btn btn-primary" id="pdf-proj">⬇ Generate PDF</button>
         <button class="btn" id="edit-proj">Edit</button>
         <button class="btn btn-danger" id="del-proj">Delete</button>
       </div>
     </div>
+
+    ${project.status === "draft" ? `
+      <div class="card mb-2" style="background:linear-gradient(135deg, var(--gold-soft), var(--card-elev))">
+        <div class="row-between" style="align-items:center;flex-wrap:wrap;gap:10px">
+          <div>
+            <div class="fw-700">✎ This is a draft</div>
+            <p class="small text-muted" style="margin:2px 0 0">Review and tweak it, then activate it to make it live for ${child ? esc(child.name) : "your child"}.</p>
+          </div>
+          <button class="btn btn-primary" id="activate-proj">Activate project →</button>
+        </div>
+      </div>
+    ` : ""}
 
     <div class="grid" style="grid-template-columns: 2fr 1fr; gap:18px">
       <div class="stack">
         <div class="card">
           <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
             ${(project.domains || []).map(d => `<span class="tag ${DOMAIN_COLOR_CLASS[d] || ""}">${esc(domainName(d))}</span>`).join("")}
-            ${project.status === "completed" ? `<span class="tag tag-sage">✓ Completed</span>` : project.status === "ready-for-reflection" ? `<span class="tag tag-gold">Ready for final reflection</span>` : ""}
+            ${project.status === "completed" ? `<span class="tag tag-sage">✓ Completed</span>` : project.status === "ready-for-reflection" ? `<span class="tag tag-gold">Ready for final reflection</span>` : project.status === "draft" ? `<span class="tag">Draft</span>` : ""}
           </div>
+          ${project.childDescription ? `<div class="card mb-2" style="background:var(--gold-soft);padding:12px"><div class="small fw-700 mb-1">For ${child ? esc(child.name) : "your child"} ✨</div><p class="small" style="margin:0">${esc(project.childDescription)}</p></div>` : ""}
           <p>${esc(project.description)}</p>
           ${project.learningOutcomes?.length ? `
             <div class="divider"></div>
             <div class="fw-700 small text-muted mb-1">Learning outcomes</div>
             <ul style="padding-left:18px;margin:0">${project.learningOutcomes.map(o => `<li>${esc(o)}</li>`).join("")}</ul>
+          ` : ""}
+          ${(project.academicSkills?.length || project.practicalSkills?.length) ? `
+            <div class="divider"></div>
+            ${project.academicSkills?.length ? `<div class="fw-700 small text-muted mb-1">Academic skills woven in</div><ul style="padding-left:18px;margin:0 0 8px">${project.academicSkills.map(o => `<li>${esc(o)}</li>`).join("")}</ul>` : ""}
+            ${project.practicalSkills?.length ? `<div class="fw-700 small text-muted mb-1">Practical-life skills woven in</div><ul style="padding-left:18px;margin:0">${project.practicalSkills.map(o => `<li>${esc(o)}</li>`).join("")}</ul>` : ""}
+          ` : ""}
+          ${project.extensionIdeas?.length ? `
+            <div class="divider"></div>
+            <div class="fw-700 small text-muted mb-1">Optional extensions</div>
+            <ul style="padding-left:18px;margin:0">${project.extensionIdeas.map(o => `<li>${esc(o)}</li>`).join("")}</ul>
+          ` : ""}
+          ${project.parentNotes ? `
+            <div class="divider"></div>
+            <div class="fw-700 small text-muted mb-1">Parent notes</div>
+            <p class="small" style="margin:0">${esc(project.parentNotes)}</p>
           ` : ""}
         </div>
 
@@ -371,7 +647,14 @@ export function renderProjectDetail(container, params) {
     </div>
   `;
 
+  container.querySelector("#pdf-proj").addEventListener("click", () => openProjectPdfModal(project, child));
   container.querySelector("#edit-proj").addEventListener("click", () => openProjectBuilder(project.id));
+  const activateBtn = container.querySelector("#activate-proj");
+  if (activateBtn) activateBtn.addEventListener("click", () => {
+    updateProject(project.id, { status: "active", startDate: new Date().toISOString() });
+    toast("Project activated 🎉", { type: "success" });
+    rerender();
+  });
   container.querySelector("#del-proj").addEventListener("click", async () => {
     const ok = await confirmDialog({ title: "Delete project?", message: "This deletes milestones and reflections too.", confirmLabel: "Delete", danger: true });
     if (ok) { removeProject(project.id); navigate("/projects"); }
@@ -419,7 +702,9 @@ function milestoneRow(m) {
       </button>
       <div style="flex:1">
         <div class="fw-700 ${m.completed ? "" : ""}" style="${m.completed ? "text-decoration:line-through;color:var(--text-muted)" : ""}">${esc(m.title)}</div>
-        <div class="small text-muted">Due ${fmtDate(m.dueDate, { short: false })} · ${m.momentumPoints} pts ${m.reflectionRequired ? "· reflection required" : ""}</div>
+        ${m.description ? `<div class="small">${esc(m.description)}</div>` : ""}
+        <div class="small text-muted">Due ${fmtDate(m.dueDate, { short: false })} · ${m.momentumPoints} pts ${m.reflectionRequired ? "· reflection required" : ""}${(m.instructions || []).length ? ` · ${m.instructions.length} step${m.instructions.length > 1 ? "s" : ""}` : ""}</div>
+        ${(m.instructions || []).length ? `<ul class="small text-muted" style="margin:6px 0 0;padding-left:18px">${m.instructions.map(s => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
       </div>
       <span data-countdown="${m.dueDate}" class="compact">${renderCountdown(m.dueDate, { compact: true })}</span>
       <button class="btn btn-ghost btn-sm" data-edit-ms="${m.id}">Edit</button>
@@ -433,7 +718,13 @@ function openMilestoneModal(projectId, milestoneId = null) {
 
   const body = document.createElement("div");
   body.innerHTML = `
-    <div class="field"><label>Title</label><input class="input" id="m-title" value="${esc(draft.title)}"/></div>
+    <div class="field"><label>Mission title</label><input class="input" id="m-title" value="${esc(draft.title)}"/></div>
+    <div class="field"><label>One-line summary</label><input class="input" id="m-desc" value="${esc(draft.description || "")}" placeholder="What this mission is, in a sentence"/></div>
+    <div class="field">
+      <label>Instructions <span class="text-muted small">— what to do, one action step per line</span></label>
+      <textarea class="textarea" id="m-instr" rows="4" data-voice data-voice-label="Dictate the steps" placeholder="e.g. Research 3 local birds&#10;Draw each one in your journal&#10;Show your drawings to Mum">${esc((draft.instructions || []).join("\n"))}</textarea>
+      <span class="hint">Keep each step measurable and clear — name who they show it to.</span>
+    </div>
     <div class="grid grid-2">
       <div class="field"><label>Due date</label><input class="input" type="date" id="m-date" value="${(draft.dueDate || "").slice(0, 10)}"/></div>
       <div class="field"><label>Momentum Points</label><input class="input" type="number" id="m-pts" value="${draft.momentumPoints}"/></div>
@@ -448,6 +739,8 @@ function openMilestoneModal(projectId, milestoneId = null) {
   foot.querySelector("#m-save").addEventListener("click", () => {
     const data = {
       title: body.querySelector("#m-title").value.trim(),
+      description: body.querySelector("#m-desc").value.trim(),
+      instructions: body.querySelector("#m-instr").value.split("\n").map(s => s.trim()).filter(Boolean),
       dueDate: new Date(body.querySelector("#m-date").value).toISOString(),
       momentumPoints: parseInt(body.querySelector("#m-pts").value, 10) || 0,
       reflectionRequired: body.querySelector("#m-refl").checked,
@@ -472,13 +765,15 @@ function openMilestoneModal(projectId, milestoneId = null) {
 }
 
 function openReflectionModal(project, milestoneId = null, onSaved = null) {
+  // Lead with this project's AI-suggested reflection prompts (if any), then the standard set.
+  const prompts = [...new Set([...(project.reflectionPrompts || []), ...REFLECTION_PROMPTS])].filter(Boolean);
   const body = document.createElement("div");
   body.innerHTML = `
     <p class="text-muted small">Pick a prompt — or write your own.</p>
     <div class="chip-group mb-2" id="r-prompts">
-      ${REFLECTION_PROMPTS.map((p, i) => `<button class="chip ${i === 0 ? "selected" : ""}" data-prompt="${esc(p)}">${esc(p)}</button>`).join("")}
+      ${prompts.map((p, i) => `<button class="chip ${i === 0 ? "selected" : ""}" data-prompt="${esc(p)}">${esc(p)}</button>`).join("")}
     </div>
-    <div class="field"><label>Prompt</label><input class="input" id="r-prompt" value="${esc(REFLECTION_PROMPTS[0])}"/></div>
+    <div class="field"><label>Prompt</label><input class="input" id="r-prompt" value="${esc(prompts[0] || "")}"/></div>
     <div class="field"><label>Response</label><textarea class="textarea" id="r-resp" rows="5" data-voice data-voice-label="Speak your reflection" placeholder="Take your time..."></textarea></div>
   `;
   const foot = document.createElement("div");
@@ -510,7 +805,7 @@ function openReflectionModal(project, milestoneId = null, onSaved = null) {
   return m;
 }
 
-function domainName(id) { return DOMAIN_CATALOG.find(d => d.id === id)?.short || id; }
+function domainName(id) { return domainShort(id); }
 function addDaysISO(n) {
   const d = new Date(); d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);

@@ -6,58 +6,174 @@
 import { getState, update, uid } from "./store.js";
 import { SAMPLE_SHOWCASES } from "./communityCatalogue.js";
 
-/* ---------- Domain catalogue (shared across families) ---------- */
-export const DOMAIN_CATALOG = [
+/* ============================================================
+   Capability Domains — the central intelligence layer of North Star.
+
+   North Star does not organise learning into school subjects. It
+   intentionally cultivates human capability. Every project strengthens
+   one or more Capability Domains; every domain shapes the child into a
+   capable adult. This catalogue is the single source of truth that
+   powers project generation, reflection reports, capability
+   visualisations and long-term growth tracking.
+
+   Ten Foundation domains always exist. Optional domains (Faith, Travel)
+   appear only when the family enables them (gated by `requiresFlag`).
+   Each domain carries the skills it develops, used both as UI chips and
+   as the vocabulary the AI maps projects against.
+   ============================================================ */
+export const CAPABILITY_DOMAINS = [
   {
-    id: "brain", name: "Brain Gigs", short: "Brain",
-    description: "Academic and intellectual growth.",
-    color: "plum",
-    subSkills: ["reading", "writing", "maths", "science", "research", "critical thinking", "problem solving", "storytelling", "presentation skills"],
-    optional: false,
+    id: "literacy", name: "Literacy & Communication", short: "Literacy",
+    description: "Reading, writing, speaking and thinking clearly about the world.",
+    color: "plum", optional: false,
+    subSkills: ["reading", "writing", "storytelling", "public speaking", "listening", "research", "critical thinking", "media literacy"],
   },
   {
-    id: "build", name: "Build Gigs", short: "Build",
-    description: "Making, creativity and entrepreneurship.",
-    color: "coral",
-    subSkills: ["business creation", "product design", "AI projects", "art", "media", "invention", "coding", "building things"],
-    optional: false,
+    id: "maths", name: "Mathematics & Logical Thinking", short: "Maths",
+    description: "Numbers, reasoning, patterns and solving problems.",
+    color: "sky", optional: false,
+    subSkills: ["mathematics", "problem solving", "logical reasoning", "pattern recognition", "data interpretation", "systems thinking"],
   },
   {
-    id: "money", name: "Money Gigs", short: "Money",
-    description: "Financial literacy and value creation.",
-    color: "gold",
-    subSkills: ["budgeting", "saving", "selling", "pricing", "profit", "value hunting", "investing basics", "generosity"],
-    optional: false,
+    id: "science", name: "Science, Discovery & Understanding the World", short: "Science",
+    description: "How the world works, how things are made, and the joy of finding out.",
+    color: "sage", optional: false,
+    subSkills: ["science", "engineering", "how things work", "how things are made", "experimentation", "curiosity", "observation", "innovation"],
   },
   {
-    id: "house", name: "House Gigs", short: "House",
-    description: "Home and adulthood skills.",
-    color: "sage",
-    subSkills: ["cooking", "laundry", "cleaning", "meal planning", "basic repairs", "organising", "gardening", "household responsibility"],
-    optional: false,
+    id: "creativity", name: "Creativity & Design", short: "Creativity",
+    description: "Making, designing and creative expression.",
+    color: "coral", optional: false,
+    subSkills: ["art", "design", "creative expression", "photography", "film", "making", "craftsmanship"],
   },
   {
-    id: "community", name: "Community Gigs", short: "Community",
-    description: "Service and contribution.",
-    color: "sky",
-    subSkills: ["helping neighbours", "volunteering", "interviewing elders", "community problem solving", "friendship skills", "leadership", "acts of service"],
-    optional: false,
+    id: "music", name: "Music & Performing Arts", short: "Music & Arts",
+    description: "Music, performance and the confidence to take the stage — supporting whatever pathway the child already follows.",
+    color: "plum", optional: false,
+    subSkills: ["music", "instrument learning", "singing", "choir", "performance", "drama", "dance", "composition", "music theory", "performance confidence"],
   },
   {
-    id: "body", name: "Body Gigs", short: "Body",
-    description: "Physical health and capability.",
-    color: "coral",
-    subSkills: ["fitness", "hygiene", "sport", "nutrition", "sleep", "outdoor skills", "resilience", "discipline"],
-    optional: false,
+    id: "digital", name: "Digital Capability", short: "Digital",
+    description: "Developing digitally capable young adults — the goal is capability, not teaching software. Evolves as technology evolves.",
+    color: "sky", optional: false,
+    subSkills: ["typing", "digital literacy", "online research", "AI & prompt writing", "coding", "website & app creation", "video editing", "graphic design", "animation", "podcasting", "cyber safety", "digital ethics", "responsible AI use", "content creation", "digital entrepreneurship"],
   },
   {
-    id: "faith", name: "Faith Gigs", short: "Faith",
-    description: "Spiritual formation (optional).",
-    color: "plum",
-    subSkills: ["Bible study", "prayer", "scripture memory", "youth group", "service", "character formation", "gratitude", "spiritual reflection"],
-    optional: true,
+    id: "practical", name: "Practical Life", short: "Practical Life",
+    description: "The real skills of running a life and a home.",
+    color: "gold", optional: false,
+    subSkills: ["cooking", "cleaning", "organisation", "repairs", "gardening", "home management", "self-care", "independence", "daily living skills"],
+  },
+  {
+    id: "enterprise", name: "Entrepreneurship & Financial Capability", short: "Enterprise",
+    description: "Creating value, managing money and leading through enterprise.",
+    color: "gold", optional: false,
+    subSkills: ["money management", "business creation", "sales", "marketing", "negotiation", "value creation", "investing", "budgeting", "customer service", "leadership through enterprise"],
+  },
+  {
+    id: "health", name: "Health & Wellbeing", short: "Health",
+    description: "Caring for body, mind and emotions.",
+    color: "coral", optional: false,
+    subSkills: ["nutrition", "movement", "exercise", "sleep", "personal hygiene", "mental wellbeing", "emotional regulation", "body awareness", "healthy cooking", "natural remedies"],
+  },
+  {
+    id: "sport", name: "Sport, Movement & Physical Capability", short: "Sport",
+    description: "Physical capability through sport and movement — North Star complements existing coaching and training, never replaces it.",
+    color: "sage", optional: false,
+    subSkills: ["team sports", "individual sports", "strength", "mobility", "flexibility", "coordination", "balance", "swimming", "cycling", "skiing", "martial arts", "dance", "outdoor adventure", "fitness", "sportsmanship", "goal setting", "resilience", "leadership through sport"],
+  },
+  {
+    id: "relationships", name: "Relationships & Emotional Intelligence", short: "Relationships",
+    description: "Connecting, collaborating and navigating emotions.",
+    color: "plum", optional: false,
+    subSkills: ["communication", "conflict resolution", "empathy", "collaboration", "boundaries", "compromise", "friendship", "family relationships", "social confidence"],
+  },
+  {
+    id: "leadership", name: "Leadership & Contribution", short: "Leadership",
+    description: "Initiative, responsibility and serving others.",
+    color: "sky", optional: false,
+    subSkills: ["leadership", "initiative", "responsibility", "service", "mentoring", "community contribution", "project ownership", "decision making"],
+  },
+  {
+    id: "nature", name: "Nature & Environmental Stewardship", short: "Nature",
+    description: "Caring for the natural world and learning to live self-sufficiently.",
+    color: "sage", optional: false,
+    subSkills: ["natural systems", "gardening", "food production", "sustainability", "outdoor skills", "ecology", "environmental responsibility", "self-sufficiency"],
+  },
+  /* ---- Optional domains: appear only when the family enables them ---- */
+  {
+    id: "faith", name: "Faith", short: "Faith",
+    description: "Spiritual formation, adapted to your family's tradition.",
+    color: "plum", optional: true, requiresFlag: "faithEnabled",
+    subSkills: ["scripture", "prayer", "reflection", "service", "church life", "mission opportunities", "acts of kindness", "faith discussions"],
+  },
+  {
+    id: "travel", name: "Travel", short: "Travel",
+    description: "The capability to navigate and understand the world — not tourism.",
+    color: "sky", optional: true, requiresFlag: "travelEnabled",
+    subSkills: ["researching destinations", "planning itineraries", "budgeting", "booking accommodation", "comparing flights", "reading maps", "navigating airports", "using public transport", "local customs", "basic language phrases", "currencies", "cultural immersion", "world geography"],
   },
 ];
+
+/* Backward-compatible alias. The platform historically called these "Learning
+   Domains" / "Gigs" (DOMAIN_CATALOG); they are now Capability Domains. Existing
+   imports of DOMAIN_CATALOG keep working — same array, same shape. */
+export const DOMAIN_CATALOG = CAPABILITY_DOMAINS;
+
+/* Legacy gig ids → nearest Capability Domain, so projects/children saved under
+   the old 7-gig model still render and map sensibly with no data migration. */
+export const LEGACY_DOMAIN_MAP = {
+  brain: "literacy",
+  build: "creativity",
+  money: "enterprise",
+  house: "practical",
+  community: "leadership",
+  body: "health",
+  faith: "faith", // unchanged
+};
+
+const _DOMAIN_BY_ID = Object.fromEntries(CAPABILITY_DOMAINS.map(d => [d.id, d]));
+
+/** Map any stored domain id (new or legacy) to a current Capability Domain id. */
+export function normalizeDomainId(id) {
+  if (!id) return id;
+  if (_DOMAIN_BY_ID[id]) return id;
+  return LEGACY_DOMAIN_MAP[id] || id;
+}
+
+/** Look up a Capability Domain by id, tolerating legacy ids. */
+export function domainById(id) {
+  return _DOMAIN_BY_ID[normalizeDomainId(id)] || null;
+}
+
+/** Display name for a domain id (legacy-tolerant). */
+export function domainDisplayName(id) {
+  return domainById(id)?.name || id;
+}
+
+/** Short label for a domain id (legacy-tolerant). */
+export function domainShort(id) {
+  return domainById(id)?.short || id;
+}
+
+/** Is an (optional) Capability Domain enabled for this family? Foundation
+    domains are always on. Faith follows the faith toggle; Travel becomes
+    available when the family sets a travel toggle OR turns on Worldschool. */
+export function isDomainEnabled(domain, family) {
+  const fam = family || {};
+  if (!domain.optional) return true;
+  if (domain.id === "faith") return !!fam.faithEnabled;
+  if (domain.id === "travel") {
+    return !!fam.travelEnabled || !!(fam.travel && fam.travel.mode && fam.travel.mode !== "off");
+  }
+  return !!fam[domain.requiresFlag];
+}
+
+/** The Capability Domains available to a given family — all Foundation domains
+    plus any optional domain the family has enabled (faith, travel). */
+export function availableDomains(family) {
+  return CAPABILITY_DOMAINS.filter(d => isDomainEnabled(d, family));
+}
 
 /* ---------- Reflection prompt bank ---------- */
 export const REFLECTION_PROMPTS = [
@@ -84,14 +200,11 @@ export function seedIfEmpty() {
       familyName: "The Rae / Ivany Family",
       mission: "We are nurturing brave, curious, capable humans who learn through real life and contribute generously to the world.",
       motto: "Be brave. Be curious. Be useful.",
-      coreWord: "BRAVE",
-      acronym: [
-        { letter: "B", meaning: "Build" },
-        { letter: "R", meaning: "Reason" },
-        { letter: "A", meaning: "Articulate" },
-        { letter: "V", meaning: "Value Hunt" },
-        { letter: "E", meaning: "Embody" },
-      ],
+      // Core word is intentionally NOT seeded — it's the payoff the family
+      // generates at the end of the exercise, so they feel its power in the
+      // moment rather than meeting a placeholder.
+      coreWord: "",
+      acronym: [],
       desiredOutcomes: [
         "Confident communicators",
         "Independent thinkers",
@@ -136,7 +249,7 @@ export function seedIfEmpty() {
       accessCode: "NOAH12",
       learningStyle: 6,
       diyMaterials: 5,
-      domains: ["brain", "build", "money", "community", "body"],
+      domains: ["literacy", "creativity", "enterprise", "leadership", "health"],
       createdAt: new Date().toISOString(),
     };
     state.children.push(noah);
@@ -160,7 +273,7 @@ export function seedIfEmpty() {
       accessCode: "JETT04",
       learningStyle: 3,
       diyMaterials: 7,
-      domains: ["brain", "build", "house", "body", "community"],
+      domains: ["literacy", "creativity", "practical", "health", "leadership"],
       createdAt: new Date().toISOString(),
     };
     state.children.push(jett);
@@ -171,7 +284,7 @@ export function seedIfEmpty() {
       childId: noah.id,
       title: "Create a Ski Wax Mini Business",
       description: "Research, brand, price and pitch a small ski wax business. Build the whole thing end-to-end and present the idea to the family.",
-      domains: ["money", "build", "brain"],
+      domains: ["enterprise", "creativity", "literacy"],
       passionConnection: "skiing + business + AI",
       learningOutcomes: [
         "Compare 3 real products and articulate the difference",
@@ -225,7 +338,7 @@ export function seedIfEmpty() {
       childId: jett.id,
       title: "Create a Backyard Bird Sanctuary",
       description: "Discover the birds in our backyard, build a bird feeder, draw the visitors and care for them each day.",
-      domains: ["brain", "build", "house", "community", "body"],
+      domains: ["literacy", "creativity", "practical", "leadership", "health"],
       passionConnection: "animals + nature + building",
       learningOutcomes: [
         "Identify 3 local bird species",
@@ -288,7 +401,7 @@ export function seedIfEmpty() {
       {
         name: "Cashflow for Kids (board game)", category: "Money Game",
         description: "Robert Kiyosaki's family money game — assets vs liabilities.",
-        reasonSuggested: "Matches Noah's Money Gigs + business interest at learning style 6.",
+        reasonSuggested: "Matches Noah's Enterprise capability + business interest at learning style 6.",
         ageRange: "8–14", buyOrDIY: "buy", estimatedPrice: 55, forChildId: noah.id,
       },
       {
