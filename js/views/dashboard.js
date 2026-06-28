@@ -44,32 +44,30 @@ export function renderDashboard(container) {
       </div>
     ` : ""}
 
+    <div class="card mb-3" style="background:linear-gradient(135deg,#2C3D5E 0%,#1B2335 100%);border:none;color:#F4ECD8;padding:34px 32px">
+      <div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:12px">Our Family Vision</div>
+      ${family.mission
+        ? `<p style="font-family:var(--font-serif);font-size:23px;line-height:1.5;color:#FBF6EE;margin:0;max-width:780px">${esc(family.mission)}</p>`
+        : `<p style="color:#E8DEC9;margin:0">Define who your family is becoming in <a href="#/vision" style="color:#F5D9A8;text-decoration:underline">Family North Star</a>.</p>`}
+      ${family.motto ? `
+        <div style="height:1px;background:rgba(255,255,255,0.14);margin:24px 0"></div>
+        <div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:8px">Family Credo</div>
+        <p style="font-family:var(--font-serif);font-style:italic;font-size:19px;line-height:1.4;color:#F4ECD8;margin:0">${esc(family.motto)}</p>
+      ` : ""}
+    </div>
+
     <div class="grid grid-auto mb-3">
       ${s.children.map(c => childStatCard(c)).join("")}
     </div>
 
-    <div class="grid" style="grid-template-columns: 1.5fr 1fr; gap:18px">
-      <div class="card">
-        <div class="row-between mb-2">
-          <h3>What's coming up</h3>
-          <button class="btn btn-ghost btn-sm" data-go="/calendar">View calendar →</button>
-        </div>
-        ${upcoming.length === 0
-          ? `<div class="empty"><div class="emoji">🌅</div>Nothing on the horizon. Add a project to get started.</div>`
-          : `<div class="stack">${upcoming.map(eventRow).join("")}</div>`}
+    <div class="card">
+      <div class="row-between mb-2">
+        <h3>What's coming up</h3>
+        <button class="btn btn-ghost btn-sm" data-go="/calendar">View calendar →</button>
       </div>
-
-      <div class="card">
-        <h3 class="mb-2">Family Vision</h3>
-        ${family.mission ? `<p class="fw-600" style="font-family:var(--font-serif);font-size:16px">"${esc(family.mission)}"</p>` : ""}
-        ${family.motto ? `<p class="text-muted">${esc(family.motto)}</p>` : ""}
-        <div class="divider"></div>
-        <div class="small text-muted fw-600 mb-1">Desired outcomes</div>
-        <ul style="padding-left:18px;margin:0;color:var(--text-muted)">
-          ${(family.desiredOutcomes || []).map(o => `<li>${esc(o)}</li>`).join("") ||
-            `<li class="text-soft">Visit <a href="#/vision">Family Vision</a> to add yours.</li>`}
-        </ul>
-      </div>
+      ${upcoming.length === 0
+        ? `<div class="empty"><div class="emoji">🌅</div>Nothing on the horizon. Add a project to get started.</div>`
+        : `<div class="stack">${upcoming.map(eventRow).join("")}</div>`}
     </div>
   `;
 
