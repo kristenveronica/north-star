@@ -51,9 +51,27 @@ export async function initAuth() {
   _session = data.session;
   supabase.auth.onAuthStateChange((_event, session) => {
     _session = session;
+    // Arriving via a password-reset email → send them to set a new password.
+    if (_event === "PASSWORD_RECOVERY") { location.hash = "#/reset-password"; }
     if (_authChangeCb) _authChangeCb(session);
   });
   return _session;
+}
+
+/* ---------- password reset ---------- */
+export async function requestPasswordReset(email) {
+  const redirectTo = `${location.origin}${location.pathname}`;
+  const { error } = await supabase.auth.resetPasswordForEmail((email || "").trim().toLowerCase(), { redirectTo });
+  if (error) throw new Error(error.message);
+  return true;
+}
+// Set a new password for the current (recovery or signed-in) session.
+export async function updatePassword(next) {
+  const pw = validatePassword(next);
+  if (!pw.ok) throw new Error(pw.reason);
+  const { error } = await supabase.auth.updateUser({ password: next });
+  if (error) throw new Error(error.message);
+  return true;
 }
 // app.js registers a callback to re-hydrate + re-render on login/logout.
 export function onAuthChange(cb) { _authChangeCb = cb; }

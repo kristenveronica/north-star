@@ -43,7 +43,7 @@ import { renderFamilySettings } from "./views/familySettings.js";
 import { renderReflections } from "./views/reflections.js";
 import {
   renderPublicShell, renderHome, renderAbout, renderHowItWorks,
-  renderFeaturesPublic, renderPricing, renderContact, renderLogin, renderSignup,
+  renderFeaturesPublic, renderPricing, renderContact, renderLogin, renderSignup, renderResetPassword,
 } from "./views/marketing.js";
 import { initAuth, isLoggedIn, onAuthChange } from "./auth.js";
 
@@ -203,6 +203,7 @@ registerRoute("/pricing",      withPublicShell(renderPricing));
 registerRoute("/contact",      withPublicShell(renderContact));
 registerRoute("/login",        withPublicShell(renderLogin));
 registerRoute("/signup",       withPublicShell(renderSignup));
+registerRoute("/reset-password", withPublicShell(renderResetPassword));
 registerRoute("/onboarding",   (c) => renderOnboarding(c));
 registerRoute("/invite/:token", (c, p) => renderInviteAccept(c, p));
 // Ghost page: a standalone, unlinked white-label discovery form (no public nav/footer).

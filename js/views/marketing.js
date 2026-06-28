@@ -7,7 +7,7 @@
 import { esc, toast, nsIcon } from "../components/ui.js";
 import { getChildByCode } from "../store.js";
 import { navigate, currentPath } from "../router.js";
-import { hasAccount, isLoggedIn, signup, login, logout, currentUserEmail } from "../auth.js";
+import { hasAccount, isLoggedIn, signup, login, logout, currentUserEmail, requestPasswordReset, updatePassword } from "../auth.js";
 import { logoLockup, logoStacked } from "../components/logo.js";
 
 const NAV_LINKS = [
@@ -1006,14 +1006,13 @@ export function renderLogin(container) {
               <a class="btn btn-primary btn-lg" href="#/">Open my portal →</a>
               <button class="btn btn-lg" id="p-logout">Log out</button>
             </div>
-          ` : accountExists ? `
+          ` : `
             <div class="field"><label>Email</label><input class="input" id="p-email" type="email" autocomplete="email" placeholder="you@example.com"/></div>
             <div class="field"><label>Password</label><input class="input" id="p-password" type="password" autocomplete="current-password" placeholder="Your password"/></div>
-            <button class="btn btn-primary btn-lg" id="p-login" style="width:100%;justify-content:center">Log in</button>
-            <p class="small text-muted center" style="text-align:center;margin-top:14px">No account on this device yet? <a href="#/signup">Create one</a>.</p>
-          ` : `
-            <p class="text-muted center" style="text-align:center">No account on this device yet.</p>
-            <a class="btn btn-primary btn-lg" href="#/signup" style="width:100%;justify-content:center;text-decoration:none">Create your account →</a>
+            <button class="btn btn-primary btn-lg" id="p-login" style="width:100%;justify-content:center">Log in →</button>
+            <div id="p-err" class="small" style="color:var(--danger);text-align:center;margin-top:10px;display:none"></div>
+            <p class="small text-muted" style="text-align:center;margin-top:14px"><a href="#" id="p-forgot">Forgot password?</a></p>
+            <p class="small text-muted" style="text-align:center;margin-top:4px">New to North Star? <a href="#/signup">Create an account</a>.</p>
           `}
         </div>
 
@@ -1034,24 +1033,44 @@ export function renderLogin(container) {
 
   // Parent login submit
   const pLogin = container.querySelector("#p-login");
+  const pErr = container.querySelector("#p-err");
+  const showErr = (msg) => { if (pErr) { pErr.textContent = msg; pErr.style.display = "block"; } };
   pLogin?.addEventListener("click", async () => {
+    if (pErr) pErr.style.display = "none";
     const email = container.querySelector("#p-email").value.trim();
     const password = container.querySelector("#p-password").value;
-    if (!email || !password) { toast("Email and password required", { type: "warning" }); return; }
+    if (!email || !password) { showErr("Enter your email and password."); return; }
     try {
       pLogin.disabled = true; pLogin.textContent = "Logging in…";
       await login({ email, password });
       toast(`Welcome back ✦`, { type: "success" });
-      navigate("/");
+      navigate("/");   // smartRoot routes to onboarding if not yet set up, else the dashboard
     } catch (e) {
-      pLogin.disabled = false; pLogin.textContent = "Log in";
-      toast(e.message || "Login failed", { type: "warning", duration: 3500 });
+      pLogin.disabled = false; pLogin.textContent = "Log in →";
+      showErr(e.message || "Login failed. Please try again.");
     }
   });
   ["p-email", "p-password"].forEach(id => {
     container.querySelector("#" + id)?.addEventListener("keydown", e => {
       if (e.key === "Enter") pLogin?.click();
     });
+  });
+
+  // Forgot password — best-effort reset email (uses the email typed above).
+  container.querySelector("#p-forgot")?.addEventListener("click", async (e) => {
+    e.preventDefault();
+    if (pErr) pErr.style.display = "none";
+    const email = (container.querySelector("#p-email")?.value || "").trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showErr("Type your email in the box above first, then tap Forgot password.");
+      return;
+    }
+    try {
+      await requestPasswordReset(email);
+      toast("If that email has an account, a reset link is on its way. Check your inbox (and spam).", { type: "success", duration: 5000 });
+    } catch (err) {
+      showErr(err.message || "Couldn't send a reset email right now.");
+    }
   });
 
   // Parent logout (when already logged in)
@@ -1086,6 +1105,50 @@ export function renderLogin(container) {
    SIGNUP — account capture, then continue into onboarding.
    If an account already exists, redirect to /login.
    ============================================================ */
+/* Set a new password after arriving from a reset email (recovery session). */
+export function renderResetPassword(container) {
+  const hasSession = isLoggedIn();
+  container.innerHTML = `
+    <section class="hero" style="grid-template-columns:1fr;padding-top:60px;padding-bottom:30px;text-align:center">
+      <div>
+        <span class="hero-eyebrow">Reset password</span>
+        <h1 style="margin:0 auto">Set a new password.</h1>
+        <p class="lede" style="margin:14px auto 0">Choose a new password for your North Star account.</p>
+      </div>
+    </section>
+    <section class="section" style="border-top:none;padding-top:0">
+      <div class="card" style="max-width:460px;margin:0 auto;padding:32px">
+        ${hasSession ? `
+          <div class="field"><label>New password</label><input class="input" id="rp-pw" type="password" autocomplete="new-password" placeholder="At least 8 characters, letters + a number"/></div>
+          <div class="field"><label>Confirm new password</label><input class="input" id="rp-confirm" type="password" autocomplete="new-password"/></div>
+          <button class="btn btn-primary btn-lg" id="rp-save" style="width:100%;justify-content:center">Save new password →</button>
+          <div id="rp-err" class="small" style="color:var(--danger);text-align:center;margin-top:10px;display:none"></div>
+        ` : `
+          <p class="text-muted" style="text-align:center;margin:0">This reset link is invalid or has expired. Head back to <a href="#/login">log in</a> and tap <b>Forgot password?</b> to get a fresh one.</p>
+        `}
+      </div>
+    </section>`;
+  if (!hasSession) return;
+  const save = container.querySelector("#rp-save");
+  const err = container.querySelector("#rp-err");
+  const showErr = (m) => { err.textContent = m; err.style.display = "block"; };
+  save.addEventListener("click", async () => {
+    err.style.display = "none";
+    const pw = container.querySelector("#rp-pw").value;
+    const cf = container.querySelector("#rp-confirm").value;
+    if (pw !== cf) { showErr("Passwords don't match."); return; }
+    try {
+      save.disabled = true; save.textContent = "Saving…";
+      await updatePassword(pw);
+      toast("Password updated — you're signed in ✦", { type: "success" });
+      navigate("/");
+    } catch (e) {
+      save.disabled = false; save.textContent = "Save new password →";
+      showErr(e.message || "Couldn't update your password.");
+    }
+  });
+}
+
 export function renderSignup(container) {
   if (hasAccount()) {
     navigate("/login");

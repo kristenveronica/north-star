@@ -121,10 +121,8 @@ export function renderChildLogin(container) {
           <label>PIN <span class="text-muted small">(if your parent set one)</span></label>
           <input class="input" id="pin" inputmode="numeric" maxlength="4" placeholder="optional" style="font-size:18px;letter-spacing:0.4em;text-align:center;max-width:160px"/>
         </div>
-        <div class="row-between">
-          <a href="#/welcome" class="text-muted small">← Back to home</a>
-          <button class="btn btn-primary btn-lg" id="go">Open my portal →</button>
-        </div>
+        <button class="btn btn-primary btn-lg" id="go" style="width:100%;justify-content:center;white-space:nowrap">Open my portal →</button>
+        <div style="text-align:center;margin-top:12px"><a href="#/welcome" class="text-muted small">← Back to home</a></div>
         <div class="divider"></div>
         <div class="small text-muted">Don't have a code? Ask the parent in this household to add you in <span class="kbd">Children</span>.</div>
       </div>
