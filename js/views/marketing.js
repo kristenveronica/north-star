@@ -203,11 +203,9 @@ export function renderHome(container) {
           <a class="btn btn-primary btn-lg" href="#/pricing">Discover Your North Star</a>
         </div>
         <div class="np-hero-art hero-art">
-          <div class="hero-compass hero-compass--render">
+          <div class="hero-compass">
             <span class="hero-compass-halo" aria-hidden="true"></span>
-            <img class="hero-compass-img" src="assets/images/hero-compass-rose.png"
-                 alt="The North Star compass" width="464" height="464" decoding="async" />
-            <span class="hero-compass-core" aria-hidden="true"></span>
+            ${heroCompassIllustration()}
           </div>
         </div>
       </section>

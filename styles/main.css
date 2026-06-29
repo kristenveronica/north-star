@@ -1508,50 +1508,6 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   height: auto;
 }
 
-/* ── Rendered (photographic) compass variant ──────────────────
-   Same hero slot, but a richly-shaded gold-on-navy render instead
-   of the flat inline SVG. We keep the SAME choreography: the compass
-   calibrates (the rose finding true north) and settles, the warm halo
-   fades in once, and the centre gives one soft glow pulse. With a
-   raster the disc + rose are one piece, so the calibration wobble
-   gently turns the whole compass — the natural analogue of the SVG's
-   rose-only spin — then comes to rest at true north. */
-.hero-compass-img {
-  position: relative;
-  z-index: 2;
-  display: block;
-  width: 100%;
-  height: auto;
-  transform-origin: 50% 50%;
-  /* reuse the existing calibrate-and-settle keyframes + easing */
-  animation: heroRoseCalibrate 3.2s cubic-bezier(0.22, 1, 0.36, 1) both;
-  filter: drop-shadow(0 22px 46px rgba(15, 22, 38, 0.34));
-}
-
-/* One-off warm glow at the compass core (~3.6s, after it settles). */
-.hero-compass-core {
-  position: absolute;
-  z-index: 3;
-  inset: 0;
-  margin: auto;
-  width: 26%;
-  height: 26%;
-  border-radius: 50%;
-  pointer-events: none;
-  background: radial-gradient(circle,
-    rgba(244, 233, 197, 0.9) 0%,
-    rgba(244, 233, 197, 0.4) 38%,
-    rgba(244, 233, 197, 0) 72%);
-  opacity: 0;
-  mix-blend-mode: screen;
-  animation: heroCoreGlow 1.8s ease-out 3.6s forwards;
-}
-@keyframes heroCoreGlow {
-  0%   { opacity: 0;   transform: scale(0.6); }
-  40%  { opacity: 0.95; transform: scale(1.08); }
-  100% { opacity: 0;   transform: scale(1.5); }
-}
-
 /* The outer group is fully locked — no transforms, no animations.
    Rings, ticks, labels, and gold accents never move. */
 
@@ -1595,15 +1551,11 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .hero-compass-svg .cmp-rose,
   .hero-compass-svg .cmp-n,
   .hero-compass-svg .cmp-centre-star,
-  .hero-compass-img,
-  .hero-compass-core,
   .hero-compass-halo {
     animation: none !important;
   }
   .hero-compass-svg .cmp-rose { transform: rotate(0deg) !important; }
   .hero-compass-svg .cmp-n { fill-opacity: 1 !important; }
-  .hero-compass-img { transform: rotate(0deg) !important; }
-  .hero-compass-core { opacity: 0 !important; }
   .hero-compass-halo { opacity: 1 !important; }
 }
 
