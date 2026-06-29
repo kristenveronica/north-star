@@ -45,13 +45,16 @@ function publicHeader() {
     <header class="public-header">
       <div class="public-header-inner">
         ${logoLockup({ size: 40, variant: "light", href: "#/welcome", className: "public-brand-lockup" })}
-        <nav class="public-nav">
+        <button class="public-nav-toggle" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="public-nav">
+          <span class="public-nav-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+        </button>
+        <nav class="public-nav" id="public-nav">
           ${NAV_LINKS.map(n => `<a href="#${n.path}" class="${path === n.path ? "active" : ""}">${esc(n.label)}</a>`).join("")}
           ${loggedIn
             ? `<a href="#" id="nav-logout" class="">Logout</a>
-               <a href="#/" class="btn btn-sm btn-primary" style="margin-left:8px;text-decoration:none">Open my portal →</a>`
+               <a href="#/" class="btn btn-sm btn-primary public-nav-cta" style="text-decoration:none">Open my portal →</a>`
             : `<a href="#/login" class="${path === "/login" ? "active" : ""}">Login</a>
-               <a href="#${accountExists ? "/login" : "/signup"}" class="btn btn-sm btn-primary" style="margin-left:8px;text-decoration:none">${accountExists ? "Login →" : "Start free"}</a>`}
+               <a href="#${accountExists ? "/login" : "/signup"}" class="btn btn-sm btn-primary public-nav-cta" style="text-decoration:none">${accountExists ? "Login →" : "Start free"}</a>`}
         </nav>
       </div>
     </header>
@@ -112,6 +115,21 @@ function wireHeader(root) {
     toast("Logged out", { type: "success" });
     navigate("/welcome");
   });
+
+  // Mobile hamburger: toggle the nav panel. Navigating re-renders the shell,
+  // so a tapped link naturally closes the menu; we also close it explicitly.
+  const toggle = root.querySelector("#nav-toggle");
+  const nav = root.querySelector("#public-nav");
+  if (toggle && nav) {
+    const setOpen = (open) => {
+      nav.classList.toggle("open", open);
+      toggle.classList.toggle("open", open);
+      toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+    };
+    toggle.addEventListener("click", () => setOpen(!nav.classList.contains("open")));
+    nav.querySelectorAll("a").forEach(a => a.addEventListener("click", () => setOpen(false)));
+  }
 }
 
 /* ============================================================

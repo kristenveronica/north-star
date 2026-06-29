@@ -1207,6 +1207,28 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 }
 .public-nav a:hover { background: none; color: var(--primary); text-decoration: none; }
 .public-nav a.active { background: none; box-shadow: none; color: var(--primary); }
+.public-nav-cta { margin-left: 8px; }
+
+/* Hamburger toggle — hidden on desktop, shown on mobile (see media query). */
+.public-nav-toggle {
+  display: none; align-items: center; justify-content: center;
+  width: 42px; height: 42px; padding: 0;
+  background: none; border: none; cursor: pointer; color: var(--text);
+  border-radius: 10px;
+}
+.public-nav-toggle:hover { background: rgba(42, 57, 84, 0.05); }
+.public-nav-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.public-nav-bars { position: relative; width: 22px; height: 15px; display: block; }
+.public-nav-bars span {
+  position: absolute; left: 0; width: 100%; height: 2px; border-radius: 2px;
+  background: currentColor; transition: transform 0.25s ease, opacity 0.2s ease, top 0.25s ease;
+}
+.public-nav-bars span:nth-child(1) { top: 0; }
+.public-nav-bars span:nth-child(2) { top: 6.5px; }
+.public-nav-bars span:nth-child(3) { top: 13px; }
+.public-nav-toggle.open .public-nav-bars span:nth-child(1) { top: 6.5px; transform: rotate(45deg); }
+.public-nav-toggle.open .public-nav-bars span:nth-child(2) { opacity: 0; }
+.public-nav-toggle.open .public-nav-bars span:nth-child(3) { top: 6.5px; transform: rotate(-45deg); }
 
 .public-brand {
   display: flex; align-items: center; gap: 12px;
@@ -1570,7 +1592,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 @media (max-width: 900px) {
   .hero { grid-template-columns: 1fr; padding: 40px 0 60px; }
   .hero h1 { font-size: 38px; }
-  .hero-art { order: -1; max-width: 240px; margin: 0 auto; }
+  .hero-art { max-width: 240px; margin: 0 auto; } /* image below the hero copy on mobile */
 }
 
 /* ───── Public sections — tighter consistent rhythm ───── */
@@ -2083,7 +2105,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   }
   .hero::before { right: -30%; width: 130%; opacity: 0.5; }
   .hero::after { display: none; }
-  .hero-art { order: -1; max-width: 420px; margin: 0 auto; width: 100%; }
+  .hero-art { max-width: 420px; margin: 0 auto; width: 100%; } /* image below the hero copy on mobile */
   .hero-compass { max-width: 100%; }
   .hero h1 { font-size: clamp(28px, 6vw, 36px); margin-bottom: 14px; }
   .hero .lede { font-size: 16px; max-width: 100%; margin-bottom: 22px; }
@@ -2100,17 +2122,29 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 }
 /* Narrow screens: wrap the header so the nav never forces the page wider than
    the viewport (which otherwise breaks mobile layout + media queries site-wide). */
+/* Mobile: collapse the nav into an elegant hamburger menu. */
 @media (max-width: 760px) {
-  .public-header-inner { flex-wrap: wrap; justify-content: center; gap: 8px 4px; padding: 10px 16px; }
-  /* width:100% constrains the nav to the line so its links wrap instead of
-     overflowing (an overflowing nav would force the whole page wider than the
-     screen and clip the hero on mobile). */
-  .public-nav { flex-wrap: wrap; justify-content: center; row-gap: 4px; width: 100%; }
+  .public-header-inner { justify-content: space-between; padding: 12px 18px; }
+  .public-nav-toggle { display: inline-flex; }
+  .public-nav {
+    position: absolute; top: 100%; left: 0; right: 0;
+    display: none; flex-direction: column; align-items: stretch; gap: 2px;
+    padding: 10px 16px 18px;
+    background: rgba(251, 246, 238, 0.985);
+    -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 18px 40px -24px rgba(42, 57, 84, 0.45);
+  }
+  .public-nav.open { display: flex; animation: navDrop 0.22s ease; }
+  .public-nav a { padding: 13px 12px; font-size: 16px; border-radius: 10px; text-align: left; }
+  .public-nav a:hover { background: rgba(201, 123, 78, 0.06); }
+  .public-nav a.active { color: var(--primary); background: rgba(201, 123, 78, 0.08); }
+  .public-nav a.active::after { display: none; } /* underline tick → subtle highlight instead */
+  .public-nav .public-nav-cta { margin: 8px 0 0; width: 100%; justify-content: center; padding: 13px; }
 }
+@keyframes navDrop { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 @media (max-width: 560px) {
   .public-header-inner { padding: 10px 16px; }
-  .public-nav { gap: 2px; }
-  .public-nav a { padding: 5px 8px; font-size: 12.5px; }
   .public-brand .name { font-size: 18px; }
   .public-brand .sub { font-size: 10px; }
   .public-main { padding: 0 18px 36px; }
@@ -2761,7 +2795,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 /* ───── Homepage responsive ───── */
 @media (max-width: 900px) {
   .np-hero { grid-template-columns: 1fr; gap: 32px; padding: 48px 0; }
-  .np-hero-art { order: -1; max-width: 360px; margin: 0 auto; }
+  .np-hero-art { max-width: 360px; margin: 0 auto; } /* compass below the hero copy on mobile */
   .np-steps { grid-template-columns: repeat(2, 1fr); gap: 32px 24px; }
   .np-ecosystem { grid-template-columns: repeat(2, 1fr); }
 }
