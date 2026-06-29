@@ -50,8 +50,36 @@ const AISEAT: Record<string, string> = {
 };
 const AI_PERMS = ["contrib:generate", "contrib:reports"];
 
+// 12-month commitment: full-price families commit to a year. Enforced SOFTLY via
+// an in-app retention gauntlet (not a Stripe schedule). Beta families are exempt.
+const COMMITMENT_MONTHS = 12;
+
 // Service-role client for writing the family_billing mapping (bypasses RLS).
 const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
+
+/** From a Stripe subscription, derive the commitment shape we persist + show.
+    Beta = stamped at checkout (metadata.beta). committed_until = start + 12mo. */
+// deno-lint-ignore no-explicit-any
+function commitmentOf(sub: any) {
+  const isBeta = String(sub?.metadata?.beta || "") === "1";
+  let committedUntil: string | null = null;
+  if (!isBeta && sub?.start_date) {
+    const d = new Date(sub.start_date * 1000);
+    d.setMonth(d.getMonth() + COMMITMENT_MONTHS);
+    committedUntil = d.toISOString();
+  }
+  const pause = sub?.pause_collection;
+  const pausedUntil = pause?.resumes_at ? new Date(pause.resumes_at * 1000).toISOString() : (pause ? "indefinite" : null);
+  return { isBeta, committedUntil, pausedUntil, cancelAtPeriodEnd: !!sub?.cancel_at_period_end };
+}
+
+/** Load the family's billing row + the Stripe subscription id (or null). */
+async function billingRow(familyId: string) {
+  const { data } = await admin.from("family_billing")
+    .select("stripe_customer_id, stripe_subscription_id, base_interval, status, is_beta, committed_until")
+    .eq("family_id", familyId).maybeSingle();
+  return data || null;
+}
 
 /** Resolve the caller's user + their family_id from the JWT. */
 async function resolveFamily(req: Request) {
@@ -247,6 +275,7 @@ async function claimSubscription(familyId: string, userEmail: string, sessionId:
     if (seatIds.has(item.price.id)) extraSeats += item.quantity || 0;
     else if (item.price.recurring?.interval) interval = item.price.recurring.interval;
   }
+  const commit = commitmentOf(sub);
   await admin.from("family_billing").upsert({
     family_id: familyId,
     stripe_customer_id: customerId,
@@ -255,10 +284,136 @@ async function claimSubscription(familyId: string, userEmail: string, sessionId:
     extra_seats: extraSeats,
     status: sub.status,
     current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    is_beta: commit.isBeta,
+    committed_until: commit.committedUntil,
+    paused_until: commit.pausedUntil === "indefinite" ? null : commit.pausedUntil,
+    cancel_at_period_end: commit.cancelAtPeriodEnd,
     updated_at: new Date().toISOString(),
   }, { onConflict: "family_id" });
 
   return json({ ok: true, status: sub.status, trialEnd: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null });
+}
+
+/** Live subscription state for the in-app management UI: commitment status,
+    pause + scheduled-cancel state, period end. Drives whether the cancel flow
+    runs the full retention gauntlet (committed) or a simple confirm (beta). */
+async function getSubscription(familyId: string) {
+  const row = await billingRow(familyId);
+  if (!row?.stripe_subscription_id) {
+    return json({ hasSubscription: false, status: row?.status || "none", isBeta: !!row?.is_beta });
+  }
+  let sub: any;
+  try { sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id); }
+  catch { // fall back to the stored row if Stripe is unreachable
+    return json({
+      hasSubscription: true, status: row.status, baseInterval: row.base_interval,
+      isBeta: !!row.is_beta, committedUntil: row.committed_until, pausedUntil: null, cancelAtPeriodEnd: false,
+    });
+  }
+  const commit = commitmentOf(sub);
+  const committed = !commit.isBeta && commit.committedUntil
+    ? Date.parse(commit.committedUntil) > Date.parse(new Date().toISOString())
+    : false;
+  return json({
+    hasSubscription: true,
+    status: sub.status,
+    baseInterval: row.base_interval || "month",
+    isBeta: commit.isBeta,
+    committedUntil: commit.committedUntil,
+    stillCommitted: committed,           // true → run the retention gauntlet before cancel
+    pausedUntil: commit.pausedUntil === "indefinite" ? null : commit.pausedUntil,
+    isPaused: !!sub.pause_collection,
+    cancelAtPeriodEnd: commit.cancelAtPeriodEnd,
+    currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+  });
+}
+
+/** Mirror the live Stripe state into family_billing immediately (the webhook is
+    still the source of truth, but this keeps the UI honest without a round-trip). */
+async function reflect(familyId: string, sub: any) {
+  const commit = commitmentOf(sub);
+  await admin.from("family_billing").update({
+    status: sub.status,
+    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    is_beta: commit.isBeta,
+    committed_until: commit.committedUntil,
+    paused_until: commit.pausedUntil === "indefinite" ? null : commit.pausedUntil,
+    cancel_at_period_end: commit.cancelAtPeriodEnd,
+    updated_at: new Date().toISOString(),
+  }).eq("family_id", familyId);
+}
+
+/** Pause billing for N months (1–6). A generous save-offer: no charges during
+    the pause, the subscription stays active so the family keeps their access,
+    and billing auto-resumes on the chosen date. */
+async function pauseSubscription(familyId: string, months: number) {
+  const row = await billingRow(familyId);
+  if (!row?.stripe_subscription_id) return json({ error: "No subscription to pause." }, 400);
+  const m = Math.min(6, Math.max(1, Math.floor(Number(months) || 1)));
+  const resume = new Date();
+  resume.setMonth(resume.getMonth() + m);
+  const sub = await stripe.subscriptions.update(row.stripe_subscription_id, {
+    pause_collection: { behavior: "void", resumes_at: Math.floor(resume.getTime() / 1000) },
+    // If they were mid-way to cancelling, pausing is a save — drop the scheduled cancel.
+    cancel_at_period_end: false,
+  });
+  await reflect(familyId, sub);
+  return json({ ok: true, pausedUntil: resume.toISOString(), months: m });
+}
+
+/** Lift a pause — billing resumes on the next cycle. */
+async function resumeSubscription(familyId: string) {
+  const row = await billingRow(familyId);
+  if (!row?.stripe_subscription_id) return json({ error: "No subscription to resume." }, 400);
+  const sub = await stripe.subscriptions.update(row.stripe_subscription_id, { pause_collection: "" });
+  await reflect(familyId, sub);
+  return json({ ok: true });
+}
+
+/** Cancel — but gently. We schedule cancellation at the end of the current paid
+    period (cancel_at_period_end), so the family keeps the access they've paid for
+    and their data is preserved. Reachable only after the retention gauntlet for
+    committed families; beta families reach it directly. Idempotent. */
+async function cancelSubscription(familyId: string) {
+  const row = await billingRow(familyId);
+  if (!row?.stripe_subscription_id) return json({ error: "No subscription to cancel." }, 400);
+  const sub = await stripe.subscriptions.update(row.stripe_subscription_id, { cancel_at_period_end: true });
+  await reflect(familyId, sub);
+  return json({ ok: true, endsAt: new Date(sub.current_period_end * 1000).toISOString() });
+}
+
+/** Undo a scheduled cancellation — "actually, stay". */
+async function keepSubscription(familyId: string) {
+  const row = await billingRow(familyId);
+  if (!row?.stripe_subscription_id) return json({ error: "No subscription." }, 400);
+  const sub = await stripe.subscriptions.update(row.stripe_subscription_id, { cancel_at_period_end: false });
+  await reflect(familyId, sub);
+  return json({ ok: true });
+}
+
+// A Billing-Portal configuration with self-serve CANCELLATION DISABLED, so the
+// only route out is our in-app retention gauntlet. Created once, then reused
+// (found by its metadata tag). Card updates / invoices stay available.
+let _portalConfigId = "";
+async function noCancelPortalConfig(): Promise<string> {
+  if (_portalConfigId) return _portalConfigId;
+  try {
+    const existing = await stripe.billingPortal.configurations.list({ limit: 100 });
+    const found = existing.data.find((c: any) => c.metadata?.northstar === "no-cancel" && c.active);
+    if (found) { _portalConfigId = found.id; return found.id; }
+  } catch { /* fall through to create */ }
+  const cfg = await stripe.billingPortal.configurations.create({
+    metadata: { northstar: "no-cancel" },
+    business_profile: { headline: "North Star — manage your membership" },
+    features: {
+      customer_update: { enabled: true, allowed_updates: ["email", "address", "tax_id"] },
+      invoice_history: { enabled: true },
+      payment_method_update: { enabled: true },
+      subscription_cancel: { enabled: false }, // cancellation only via our retention flow
+    },
+  });
+  _portalConfigId = cfg.id;
+  return cfg.id;
 }
 
 async function createPortal(familyId: string) {
@@ -266,9 +421,14 @@ async function createPortal(familyId: string) {
     .select("stripe_customer_id").eq("family_id", familyId).maybeSingle();
   if (!row?.stripe_customer_id) return json({ error: "No billing account yet." }, 400);
   const appUrl = env("APP_URL") || "http://localhost:8765";
+  // Lock the portal so families can update their card / see invoices but cannot
+  // one-click cancel — cancellation must pass through the in-app commitment flow.
+  let configuration: string | undefined;
+  try { configuration = await noCancelPortalConfig(); } catch { configuration = undefined; }
   const session = await stripe.billingPortal.sessions.create({
     customer: row.stripe_customer_id,
     return_url: `${appUrl}/#/settings`,
+    ...(configuration ? { configuration } : {}),
   });
   return json({ url: session.url });
 }
@@ -289,6 +449,11 @@ Deno.serve(async (req) => {
     if (action === "add-seat")        return await addSeat(familyId);
     if (action === "sync-ai-seats")   return await syncAiSeats(familyId, user!.id);
     if (action === "create-portal")   return await createPortal(familyId);
+    if (action === "get-subscription") return await getSubscription(familyId);
+    if (action === "pause")           return await pauseSubscription(familyId, Number(payload?.months) || 1);
+    if (action === "resume")          return await resumeSubscription(familyId);
+    if (action === "cancel")          return await cancelSubscription(familyId);
+    if (action === "keep")            return await keepSubscription(familyId);
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (e) {
     console.error("[billing] error:", e);

@@ -46,6 +46,17 @@ async function syncSubscription(sub: any) {
     else interval = item.price.recurring?.interval || interval; // base item gives the interval
   }
 
+  // 12-month commitment + beta exemption (see migration 0021 / billing fn).
+  const isBeta = String(sub.metadata?.beta || "") === "1";
+  let committedUntil: string | null = null;
+  if (!isBeta && sub.start_date) {
+    const d = new Date(sub.start_date * 1000);
+    d.setMonth(d.getMonth() + 12);
+    committedUntil = d.toISOString();
+  }
+  const pausedUntil = sub.pause_collection?.resumes_at
+    ? new Date(sub.pause_collection.resumes_at * 1000).toISOString() : null;
+
   await admin.from("family_billing").upsert({
     family_id: familyId,
     stripe_customer_id: sub.customer as string,
@@ -54,6 +65,10 @@ async function syncSubscription(sub: any) {
     extra_seats: extraSeats,
     status: sub.status, // active | trialing | past_due | canceled | unpaid | ...
     current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    is_beta: isBeta,
+    committed_until: committedUntil,
+    paused_until: pausedUntil,
+    cancel_at_period_end: !!sub.cancel_at_period_end,
     updated_at: new Date().toISOString(),
   }, { onConflict: "family_id" });
 }

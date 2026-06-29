@@ -104,9 +104,14 @@ async function createSession(payload: any) {
   const siteUrl = env("PUBLIC_SITE_URL") || appUrl;
   const trialDays = betaTrialDays(code);
 
+  // A buyer who redeems the beta code is a BETA family: exempt from the 12-month
+  // commitment (they can leave freely). We stamp this on the subscription so the
+  // webhook/claim can persist family_billing.is_beta.
+  const isBeta = trialDays > 0;
+
   // deno-lint-ignore no-explicit-any
   const subscription_data: any = {
-    metadata: { pending: "1", base_interval: interval, source: "public-checkout" },
+    metadata: { pending: "1", base_interval: interval, source: "public-checkout", beta: isBeta ? "1" : "0" },
   };
   if (trialDays > 0) {
     subscription_data.trial_period_days = trialDays;

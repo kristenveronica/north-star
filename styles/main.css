@@ -3116,3 +3116,71 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   min-height: 70px; resize: none;
 }
 .lt-acc--form .lt-acc__body .fs-textarea { min-height: 84px; }
+
+/* ============================================================
+   Commitment / retention flow (cancelFlow.js)
+   Centred "orientation bubble" sequence — calm, premium, one idea at a time.
+   ============================================================ */
+.ns-commit-backdrop {
+  position: fixed; inset: 0; z-index: 1200;
+  display: grid; place-items: center; padding: 24px;
+  background: rgba(27, 37, 56, 0.55); backdrop-filter: blur(6px);
+  animation: ns-commit-fade 0.25s ease;
+}
+@keyframes ns-commit-fade { from { opacity: 0; } to { opacity: 1; } }
+.ns-commit-card {
+  position: relative; width: 100%; max-width: 480px;
+  background: var(--card-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-lg);
+  padding: 40px 38px 34px;
+  text-align: center;
+  animation: ns-commit-rise 0.32s cubic-bezier(0.2, 0.8, 0.25, 1);
+}
+@keyframes ns-commit-rise { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+.ns-commit-card.is-busy { opacity: 0.6; pointer-events: none; }
+.ns-commit-mark {
+  width: 56px; height: 56px; margin: 0 auto 18px;
+  display: grid; place-items: center; font-size: 26px;
+  background: var(--midnight); color: var(--starlight);
+  border-radius: var(--r-pill); box-shadow: var(--shadow-md);
+}
+.ns-commit-eyebrow {
+  font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--primary); font-weight: 700; margin-bottom: 10px;
+}
+.ns-commit-card h2 {
+  font-family: var(--font-serif); font-size: clamp(26px, 6vw, 32px);
+  line-height: 1.12; color: var(--midnight-deep); margin-bottom: 14px;
+}
+.ns-commit-lede { font-size: 15.5px; line-height: 1.62; color: var(--text-muted); margin: 0 auto 14px; max-width: 40ch; }
+.ns-commit-lede strong { color: var(--text); font-weight: 700; }
+.ns-commit-note {
+  font-size: 13.5px; line-height: 1.55; color: var(--text-soft);
+  background: var(--bg-2); border-radius: var(--r-md);
+  padding: 12px 16px; margin: 18px auto 4px; max-width: 42ch;
+}
+.ns-commit-actions { display: flex; flex-direction: column; gap: 10px; align-items: center; margin-top: 24px; }
+.ns-commit-actions .btn { width: 100%; max-width: 320px; justify-content: center; }
+.ns-commit-actions .btn-ghost { color: var(--text-muted); }
+.ns-commit-actions .ns-commit-leave:hover { color: var(--danger); }
+.ns-commit-spinner { color: var(--text-muted); padding: 20px; }
+
+/* pause options */
+.ns-commit-pause { display: flex; gap: 12px; justify-content: center; margin: 22px 0 6px; }
+.ns-commit-pausebtn {
+  flex: 1; max-width: 110px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 16px 8px; background: var(--card);
+  border: 1.5px solid var(--border-strong); border-radius: var(--r-lg);
+  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+.ns-commit-pausebtn:hover { border-color: var(--midnight); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.ns-commit-pausebtn .n { font-family: var(--font-serif); font-size: 30px; font-weight: 600; color: var(--midnight); line-height: 1; }
+.ns-commit-pausebtn .u { font-size: 12px; letter-spacing: 0.04em; color: var(--text-muted); text-transform: uppercase; }
+
+@media (max-width: 540px) {
+  .ns-commit-backdrop { padding: 0; place-items: end center; }
+  .ns-commit-card { max-width: 100%; border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 32px 24px calc(28px + env(safe-area-inset-bottom)); }
+}

@@ -49,10 +49,45 @@ export function getBillingPrices() {
   return invokeBilling("get-prices");
 }
 
-/** Open the Stripe Billing Portal to manage or cancel the subscription. */
+/** Open the Stripe Billing Portal to update card / view invoices.
+    Cancellation is intentionally disabled there — it runs through our in-app
+    commitment flow instead (see lib's cancel/pause helpers below). */
 export async function openBillingPortal() {
   const { url } = await invokeBilling("create-portal");
   if (url) window.location.href = url;
+}
+
+/* ---------- 12-month commitment: manage / pause / cancel ----------
+   Full-price families commit to a 12-month rhythm. Leaving is possible but
+   passes through a retention gauntlet (reminder → pause offer → confirm).
+   Beta families are exempt and can cancel directly. The server decides which
+   via get-subscription → { stillCommitted, isBeta, ... }. */
+
+/** Live subscription + commitment state for the management UI. */
+export function getSubscription() {
+  return invokeBilling("get-subscription");
+}
+
+/** Pause billing for `months` (1–6). Generous save-offer: access kept, no
+    charges, auto-resumes. Returns { ok, pausedUntil, months }. */
+export function pauseSubscription(months = 1) {
+  return invokeBilling("pause", { months });
+}
+
+/** Lift a pause. */
+export function resumeSubscription() {
+  return invokeBilling("resume");
+}
+
+/** Schedule cancellation at the end of the paid period (access kept until then,
+    data preserved). Returns { ok, endsAt }. */
+export function cancelSubscription() {
+  return invokeBilling("cancel");
+}
+
+/** Undo a scheduled cancellation — "actually, stay". */
+export function keepSubscription() {
+  return invokeBilling("keep");
 }
 
 /* ---------- Adult contributor (AI) seats ----------
