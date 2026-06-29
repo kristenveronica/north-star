@@ -16,13 +16,14 @@ export function renderDashboard(container) {
     <div class="topbar">
       <div>
         <h1>Welcome back, ${esc(family.parentName || "Parent")}.</h1>
-        <div class="sub">${esc(family.familyName)}</div>
       </div>
-      <div class="btn-row">
-        <button class="btn" data-go="/calendar">${icon("calendar")} Calendar</button>
-        <button class="btn btn-sage" data-go="/reports">${icon("report")} Generate Growth Report</button>
-        <button class="btn btn-primary" data-go="/projects">${icon("plus")} New Project</button>
-      </div>
+      ${s.children.length ? `
+        <div class="btn-row">
+          <button class="btn" data-go="/calendar">${icon("calendar")} Calendar</button>
+          <button class="btn btn-sage" data-go="/reports">${icon("report")} Generate Growth Report</button>
+          <button class="btn btn-primary" data-go="/projects">${icon("plus")} New Project</button>
+        </div>
+      ` : ""}
     </div>
 
     ${family.coreWord ? `
@@ -44,26 +45,28 @@ export function renderDashboard(container) {
       </div>
     ` : ""}
 
-    ${family.motto || family.mission ? `
-      <div class="row-between mb-3" style="padding:2px 6px;flex-wrap:wrap;gap:8px;align-items:baseline">
-        <p style="font-family:var(--font-serif);font-style:italic;font-size:16px;color:var(--text-muted);margin:0">${esc(family.motto || "Your family's North Star.")}</p>
-        <a href="#/vision" class="small text-muted" style="white-space:nowrap">Your Family Vision →</a>
+    ${s.children.length ? `
+      <div class="grid grid-auto mb-3">
+        ${s.children.map(c => childStatCard(c)).join("")}
       </div>
-    ` : ""}
 
-    <div class="grid grid-auto mb-3">
-      ${s.children.map(c => childStatCard(c)).join("")}
-    </div>
-
-    <div class="card">
-      <div class="row-between mb-2">
-        <h3>What's coming up</h3>
-        <button class="btn btn-ghost btn-sm" data-go="/calendar">View calendar →</button>
+      <div class="card">
+        <div class="row-between mb-2">
+          <h3>What's coming up</h3>
+          <button class="btn btn-ghost btn-sm" data-go="/calendar">View calendar →</button>
+        </div>
+        ${upcoming.length === 0
+          ? `<div class="empty"><div class="emoji">🌅</div>Nothing on the horizon yet — generate a project to get started.</div>`
+          : `<div class="stack">${upcoming.map(eventRow).join("")}</div>`}
       </div>
-      ${upcoming.length === 0
-        ? `<div class="empty"><div class="emoji">🌅</div>Nothing on the horizon. Add a project to get started.</div>`
-        : `<div class="stack">${upcoming.map(eventRow).join("")}</div>`}
-    </div>
+    ` : `
+      <div class="empty" style="padding:52px 24px">
+        <div class="emoji">🧭</div>
+        <h3 style="font-family:var(--font-serif);font-size:22px;margin-bottom:6px">Add your first child to begin</h3>
+        <p class="text-muted small" style="max-width:440px;margin:0 auto 18px">North Star is built around each child. Create a profile and their learning workspace appears right here.</p>
+        <button class="btn btn-primary" data-go="/children">${icon("plus")} Add a child</button>
+      </div>
+    `}
   `;
 
   container.querySelectorAll("[data-go]").forEach(b => {
