@@ -11,7 +11,7 @@ import { navigate, currentPath } from "../router.js";
 import { hasAccount, isLoggedIn, signup, login, logout, currentUserEmail, requestPasswordReset, updatePassword } from "../auth.js";
 import { logoLockup, logoStacked } from "../components/logo.js";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../lib/supabase.js";
-import { getPendingCheckout } from "../lib/repo.js";
+import { getPendingCheckout, getPendingInvite } from "../lib/repo.js";
 
 /** Ask the public-checkout function whether an email already has a LIVE
     subscription. Used to gate sign-up so only subscribers can create an account.
@@ -1368,25 +1368,35 @@ export function renderSignup(container) {
     return;
   }
 
-  // Gateway: a North Star account requires a membership. If they arrived straight
-  // from checkout we have a pending session (paid → welcome them). Otherwise we
-  // verify on submit that their email has a live subscription, else → /pricing.
+  // Gateway: a North Star account requires a membership. EXCEPTION: someone
+  // joining an existing family via an invitation (a supporting adult / co-owner)
+  // is covered by that family's subscription and must NOT be gated.
+  const invited = !!getPendingInvite();
+  // If they arrived straight from checkout we have a pending session (paid →
+  // welcome them). Otherwise we verify on submit that their email has a live
+  // subscription, else → /pricing.
   const paidViaCheckout = !!getPendingCheckout();
 
   container.innerHTML = `
     <section class="hero" style="grid-template-columns:1fr;padding-top:60px;padding-bottom:30px;text-align:center">
       <div>
-        <span class="hero-eyebrow">${paidViaCheckout ? "Payment received ✓" : "Create your account"}</span>
-        <h1 style="margin:0 auto">${paidViaCheckout ? "Activate your membership." : "Create your account."}</h1>
-        <p class="lede" style="margin:14px auto 0">${paidViaCheckout
-          ? "Thank you — your payment went through. Create your account below to activate your membership and set up your family."
-          : "Your secure North Star account — synced across your devices, with every family's data kept private and isolated."}</p>
+        <span class="hero-eyebrow">${invited ? "You're invited ✦" : paidViaCheckout ? "Payment received ✓" : "Create your account"}</span>
+        <h1 style="margin:0 auto">${invited ? "Join your family." : paidViaCheckout ? "Activate your membership." : "Create your account."}</h1>
+        <p class="lede" style="margin:14px auto 0">${invited
+          ? "Create your account below to join the family you were invited to — no payment needed, you're covered by their membership."
+          : paidViaCheckout
+            ? "Thank you — your payment went through. Create your account below to activate your membership and set up your family."
+            : "Your secure North Star account — synced across your devices, with every family's data kept private and isolated."}</p>
       </div>
     </section>
 
     <section class="section" style="border-top:none;padding-top:0">
       <div class="card" style="max-width:520px;margin:0 auto;padding:32px">
-        ${paidViaCheckout ? `<div class="hint" style="background:var(--sage-soft);color:var(--sage-ink);border-radius:10px;padding:11px 14px;margin-bottom:18px;line-height:1.5">Use the <strong>same email</strong> you paid with so we can link your membership automatically.</div>` : ""}
+        ${invited
+          ? `<div class="hint" style="background:var(--sage-soft);color:var(--sage-ink);border-radius:10px;padding:11px 14px;margin-bottom:18px;line-height:1.5">Use the <strong>same email your invitation was sent to</strong> so we can add you to the family automatically.</div>`
+          : paidViaCheckout
+            ? `<div class="hint" style="background:var(--sage-soft);color:var(--sage-ink);border-radius:10px;padding:11px 14px;margin-bottom:18px;line-height:1.5">Use the <strong>same email</strong> you paid with so we can link your membership automatically.</div>`
+            : ""}
         <div class="field">
           <label>Your name</label>
           <input class="input" id="su-name" placeholder="e.g. Kristen"/>
@@ -1421,9 +1431,9 @@ export function renderSignup(container) {
     if (password !== confirm) { toast("Passwords don't match", { type: "warning" }); return; }
     try {
       createBtn.disabled = true;
-      // Membership gateway: unless they just paid (pending checkout), require a
-      // live subscription for this email before allowing account creation.
-      if (!paidViaCheckout) {
+      // Membership gateway: unless they just paid (pending checkout) OR are joining
+      // a family via invitation, require a live subscription for this email.
+      if (!paidViaCheckout && !invited) {
         createBtn.textContent = "Checking your membership…";
         const { active, error } = await checkActiveSubscription(email);
         if (!active) {
@@ -1447,12 +1457,14 @@ export function renderSignup(container) {
             <div class="em">✉️</div>
             <h3 style="font-family:var(--font-serif);font-size:24px">Check your email</h3>
             <p class="text-muted" style="margin-top:8px">We've sent a confirmation link to <span class="kbd">${esc(email)}</span>.
-            Click it, then come back and <a href="#/login">log in</a> to set up your family.</p>
+            Click it, then come back and <a href="#/login">log in</a> to ${invited ? "join your family" : "set up your family"}.</p>
           </div>`;
         return;
       }
-      toast("Account created — let's set up your family ✦", { type: "success", duration: 3000 });
-      navigate("/onboarding");
+      // Invitees join an existing family (redeemed on hydrate) → go to the portal,
+      // not the new-family onboarding wizard.
+      toast(invited ? "Account created — joining your family ✦" : "Account created — let's set up your family ✦", { type: "success", duration: 3000 });
+      navigate(invited ? "/" : "/onboarding");
     } catch (e) {
       createBtn.disabled = false; createBtn.textContent = "Create account & continue →";
       toast(e.message || "Couldn't create account", { type: "warning", duration: 3500 });

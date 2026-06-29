@@ -511,6 +511,9 @@ const PENDING_INVITE_KEY = "northstar::pendingInvite";
 export function setPendingInvite(token) {
   try { token ? localStorage.setItem(PENDING_INVITE_KEY, token) : localStorage.removeItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
 }
+export function getPendingInvite() {
+  try { return localStorage.getItem(PENDING_INVITE_KEY); } catch { return null; }
+}
 export async function acceptInvite(token) {
   const { error } = await supabase.rpc("accept_invitation", { p_token: token });
   if (error) throw new Error(error.message || "This invitation could not be accepted.");
