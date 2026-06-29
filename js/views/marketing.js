@@ -487,9 +487,15 @@ export function renderAbout(container) {
         </div>
       </div>
       <div class="hero-art">
-        <div class="hero-compass">
-          <span class="hero-compass-halo" aria-hidden="true"></span>
-          ${heroCompassIllustration()}
+        <div class="about-montage">
+          <span class="about-montage-glow" aria-hidden="true"></span>
+          <figure class="about-photo about-photo--family">
+            <img src="assets/images/about-family.jpg" alt="Kristen, Mikey, Noah and Jett together on a family ski adventure" loading="lazy" />
+          </figure>
+          <figure class="about-photo about-photo--couple">
+            <img src="assets/images/about-kristen-mikey.jpg" alt="Kristen and Mikey" loading="lazy" />
+          </figure>
+          <span class="about-montage-badge">Kristen &amp; Mikey · with Noah &amp; Jett</span>
         </div>
       </div>
     </section>

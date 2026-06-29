@@ -1180,6 +1180,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
     var(--bg);
   min-height: 100vh;
   position: relative;
+  overflow-x: hidden; /* belt-and-suspenders against horizontal scroll on mobile */
 }
 .public-header, .public-main, .public-footer { position: relative; z-index: 1; }
 .public-header {
@@ -1204,8 +1205,8 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   text-decoration: none;
   transition: background 0.15s ease;
 }
-.public-nav a:hover { background: rgba(0,0,0,0.04); text-decoration: none; }
-.public-nav a.active { background: var(--card); box-shadow: var(--shadow-sm); }
+.public-nav a:hover { background: none; color: var(--primary); text-decoration: none; }
+.public-nav a.active { background: none; box-shadow: none; color: var(--primary); }
 
 .public-brand {
   display: flex; align-items: center; gap: 12px;
@@ -2034,10 +2035,21 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   outline: 2px solid var(--primary);
   outline-offset: 3px;
 }
+/* Elegant active state — no button/pill: the current tab is simply in the brand
+   clay with a soft underline tick, so the menu reads as a menu, not buttons. */
 .public-nav a.active {
-  background: var(--card);
-  box-shadow: 0 2px 6px rgba(42, 57, 84, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  border: 1px solid var(--border);
+  background: none;
+  box-shadow: none;
+  border: none;
+  color: var(--primary);
+  position: relative;
+}
+.public-nav a.active::after {
+  content: "";
+  position: absolute;
+  left: 14px; right: 14px; bottom: 1px;
+  height: 1.5px; border-radius: 2px;
+  background: var(--primary);
 }
 
 /* Feature card polish — refined hover + crafted shadow */
@@ -2086,8 +2098,17 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .problem-quote { padding: 22px 22px 22px 30px; }
   .problem-quote-mark { width: 26px; height: 26px; left: -13px; top: 22px; }
 }
+/* Narrow screens: wrap the header so the nav never forces the page wider than
+   the viewport (which otherwise breaks mobile layout + media queries site-wide). */
+@media (max-width: 760px) {
+  .public-header-inner { flex-wrap: wrap; justify-content: center; gap: 8px 4px; padding: 10px 16px; }
+  /* width:100% constrains the nav to the line so its links wrap instead of
+     overflowing (an overflowing nav would force the whole page wider than the
+     screen and clip the hero on mobile). */
+  .public-nav { flex-wrap: wrap; justify-content: center; row-gap: 4px; width: 100%; }
+}
 @media (max-width: 560px) {
-  .public-header-inner { padding: 10px 18px; }
+  .public-header-inner { padding: 10px 16px; }
   .public-nav { gap: 2px; }
   .public-nav a { padding: 5px 8px; font-size: 12.5px; }
   .public-brand .name { font-size: 18px; }
@@ -3272,3 +3293,51 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .pm-commit p:last-child{ margin-bottom:0; }
 .pm-commit .pm-keep{ color:var(--text); }
 .pm-post{ text-align:center; color:var(--text-muted); font-size:13.5px; margin:24px auto 0; max-width:38em; line-height:1.6; }
+
+/* ============================================================
+   About hero — founder photo montage (replaces the compass).
+   Warm, scrapbook overlap: the family shot behind, Kristen & Mikey
+   in front, a soft starlight glow to keep the brand energy.
+   ============================================================ */
+.about-montage{
+  position:relative; width:100%; max-width:480px; margin-inline:auto;
+  aspect-ratio: 1 / 1.02; isolation:isolate;
+}
+.about-montage-glow{
+  position:absolute; inset:4% 2% 8%; z-index:0; border-radius:50%;
+  background:radial-gradient(circle at 52% 42%, rgba(244,233,197,0.55) 0%, rgba(244,233,197,0.18) 42%, rgba(244,233,197,0) 70%);
+  filter:blur(6px);
+}
+.about-photo{
+  position:absolute; margin:0; overflow:hidden; background:#fff;
+  border:6px solid #fff; border-radius:16px;
+  box-shadow:0 22px 44px -20px rgba(43,61,94,0.42), 0 4px 12px rgba(45,35,23,0.10);
+}
+.about-photo img{ display:block; width:100%; height:100%; object-fit:cover; }
+/* family — wide card, behind, tilted left, anchored top.
+   Inset from the edge so the tilted corner stays INSIDE the montage box
+   (otherwise it overflows → inflates mobile layout width → breaks the page). */
+.about-photo--family{
+  z-index:1; top:2%; left:3%; width:77%; aspect-ratio: 16 / 10;
+  transform:rotate(-3deg);
+}
+/* couple — tall card, in front, tilted right, overlapping lower-right.
+   Inset from the right edge so its tilted corner stays inside the box. */
+.about-photo--couple{
+  z-index:2; bottom:2%; right:3%; width:45%; aspect-ratio: 3 / 4;
+  transform:rotate(3.5deg);
+}
+.about-montage-badge{
+  position:absolute; z-index:3; left:50%; bottom:-6px; transform:translateX(-50%);
+  background:var(--midnight); color:var(--starlight);
+  font-family:var(--font-sans); font-size:12px; font-weight:600; letter-spacing:0.02em;
+  padding:7px 16px; border-radius:var(--r-pill); white-space:nowrap;
+  box-shadow:0 8px 20px -10px rgba(27,37,56,0.6);
+}
+@media (max-width:760px){
+  .about-montage{ max-width:360px; }
+  .about-montage-badge{ font-size:11px; padding:6px 13px; }
+}
+@media (max-width:430px){
+  .about-montage{ max-width:300px; }
+}
