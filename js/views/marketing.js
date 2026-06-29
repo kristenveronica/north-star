@@ -1108,7 +1108,7 @@ export function renderPricing(container) {
   $("#pm-promo").addEventListener("input", () => {
     const v = $("#pm-promo").value.trim();
     $("#pm-trial").style.display = v ? "block" : "none";
-    if (v) $("#pm-trial").textContent = "If this is a valid beta code, your first 30 days are free — then your chosen membership begins. Beta families have no 12-month commitment.";
+    if (v) $("#pm-trial").textContent = "If this is a valid beta code, your membership is free through the beta — then your chosen membership begins. Beta families have no 12-month commitment.";
   });
 
   $("#pm-go").addEventListener("click", async () => {

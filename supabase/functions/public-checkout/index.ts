@@ -14,9 +14,16 @@
 //
 // BETA PROMO: if the buyer enters the beta code (env BETA_PROMO_CODE) and the
 // code window is still open (env BETA_PROMO_EXPIRES, ISO date), the subscription
-// gets a 30-day FREE TRIAL (env BETA_PROMO_TRIAL_DAYS, default 30). A card is
-// collected up front, so at day 30 they're billed the normal monthly/annual fee
-// they chose — unless they cancel first. Outside the promo, checkout bills now.
+// gets a FREE TRIAL. A card is collected up front, so when the trial ends they're
+// billed the normal monthly/annual fee they chose — unless they cancel first.
+// Outside the promo, checkout bills now.
+//
+// The trial can be defined two ways:
+//   • BETA_PROMO_TRIAL_END (ISO date) — a FIXED end date: every beta family's
+//     first charge lands on the same calendar day no matter when they sign up.
+//     Preferred for a time-boxed beta. (Clamped to ≥3 days out per Stripe's rule.)
+//   • BETA_PROMO_TRIAL_DAYS (int, default 30) — a rolling N-day trial from signup.
+//     Used only when BETA_PROMO_TRIAL_END is not set.
 //
 // Required env:
 //   STRIPE_SECRET_KEY
@@ -26,7 +33,8 @@
 //   APP_URL            (where the app lives — buyers return here to sign up)
 //   PUBLIC_SITE_URL    (marketing site — used for the cancel URL; falls back to APP_URL)
 // Optional env (beta promo):
-//   BETA_PROMO_CODE  BETA_PROMO_TRIAL_DAYS(=30)  BETA_PROMO_EXPIRES(ISO date)
+//   BETA_PROMO_CODE  BETA_PROMO_EXPIRES(ISO date)
+//   BETA_PROMO_TRIAL_END(ISO date)  -or-  BETA_PROMO_TRIAL_DAYS(=30)
 // ============================================================================
 
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno&no-check";
@@ -71,18 +79,34 @@ async function getPrices() {
   return json(result);
 }
 
-/** Is the supplied code the active beta promo, within its open window? */
-function betaTrialDays(code: string): number {
+/** If `code` is the active beta promo (within its open window), return the trial
+    config to apply: a fixed `trialEnd` (unix seconds) when BETA_PROMO_TRIAL_END is
+    set, otherwise a rolling `trialDays`. Returns null when not eligible. */
+function betaTrial(code: string): { trialEnd?: number; trialDays?: number } | null {
   const want = env("BETA_PROMO_CODE").trim();
-  if (!want || !code || code.trim().toLowerCase() !== want.toLowerCase()) return 0;
+  if (!want || !code || code.trim().toLowerCase() !== want.toLowerCase()) return null;
+
+  const now = Date.now();
   const expires = env("BETA_PROMO_EXPIRES").trim();
   if (expires) {
     const exp = Date.parse(expires);
-    // Compare against a request-time "now"; if the window has closed, no trial.
-    if (!Number.isNaN(exp) && Date.parse(new Date().toISOString()) > exp) return 0;
+    if (!Number.isNaN(exp) && now > exp) return null; // code window has closed
   }
+
+  // Preferred: a fixed trial-end date — same first-charge day for everyone.
+  const endIso = env("BETA_PROMO_TRIAL_END").trim();
+  if (endIso) {
+    const end = Date.parse(endIso);
+    if (!Number.isNaN(end)) {
+      // Stripe requires the trial to be at least ~48h out; clamp up if we're
+      // signing someone up very close to (or past) the configured end date.
+      const minEnd = now + 3 * 24 * 60 * 60 * 1000;
+      return { trialEnd: Math.floor(Math.max(end, minEnd) / 1000) };
+    }
+  }
+
   const days = parseInt(env("BETA_PROMO_TRIAL_DAYS") || "30", 10);
-  return Number.isFinite(days) && days > 0 ? days : 30;
+  return { trialDays: Number.isFinite(days) && days > 0 ? days : 30 };
 }
 
 async function createSession(payload: any) {
@@ -102,20 +126,23 @@ async function createSession(payload: any) {
 
   const appUrl = env("APP_URL") || "http://localhost:8765";
   const siteUrl = env("PUBLIC_SITE_URL") || appUrl;
-  const trialDays = betaTrialDays(code);
+  const trial = betaTrial(code);
 
   // A buyer who redeems the beta code is a BETA family: exempt from the 12-month
   // commitment (they can leave freely). We stamp this on the subscription so the
   // webhook/claim can persist family_billing.is_beta.
-  const isBeta = trialDays > 0;
+  const isBeta = !!trial;
 
   // deno-lint-ignore no-explicit-any
   const subscription_data: any = {
     metadata: { pending: "1", base_interval: interval, source: "public-checkout", beta: isBeta ? "1" : "0" },
   };
-  if (trialDays > 0) {
-    subscription_data.trial_period_days = trialDays;
-    // If they somehow reach day 30 with no usable card, cancel rather than dunning.
+  if (trial?.trialEnd) {
+    subscription_data.trial_end = trial.trialEnd;             // fixed calendar date
+    subscription_data.trial_settings = { end_behavior: { missing_payment_method: "cancel" } };
+  } else if (trial?.trialDays) {
+    subscription_data.trial_period_days = trial.trialDays;    // rolling N days
+    // If the trial ends with no usable card, cancel rather than dunning.
     subscription_data.trial_settings = { end_behavior: { missing_payment_method: "cancel" } };
   }
 
@@ -134,7 +161,7 @@ async function createSession(payload: any) {
     metadata: { pending: "1", base_interval: interval, child_seats: String(childSeats), adult_seats: String(adultSeats) },
   });
 
-  return json({ url: session.url, trialDays });
+  return json({ url: session.url, isBeta, trialEnd: trial?.trialEnd, trialDays: trial?.trialDays });
 }
 
 /** Gateway helper for the sign-up page: does this email already have a LIVE
