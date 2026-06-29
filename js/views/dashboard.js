@@ -31,7 +31,7 @@ export function renderDashboard(container) {
         <div class="row" style="gap:18px; align-items:flex-start; flex-wrap:wrap">
           <div>
             <div class="small text-muted" style="letter-spacing:0.1em;text-transform:uppercase">Core Word</div>
-            <div style="font-family:var(--font-serif); font-size:46px; font-weight:600; color:var(--primary-ink); letter-spacing:0.03em">${esc(family.coreWord)}</div>
+            <div style="font-family:var(--font-serif); font-size:clamp(32px,11vw,46px); font-weight:600; color:var(--primary-ink); letter-spacing:0.03em">${esc(family.coreWord)}</div>
           </div>
           <div class="grid" style="grid-template-columns: repeat(${family.acronym?.length || 5}, minmax(0,1fr)); gap:10px; flex:1; min-width: 320px">
             ${(family.acronym || []).map(a => `

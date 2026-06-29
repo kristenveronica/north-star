@@ -419,12 +419,12 @@ export function renderReportDetail(container, params) {
 function renderFamilyCompass(family) {
   return `
     <p class="text-muted" style="margin:0 0 16px;font-size:15px">Three months ago, this is the family you set out to become.</p>
-    <div class="card" style="background:linear-gradient(135deg,#2C3D5E,#1B2335);border:none;color:#F4ECD8;padding:28px 30px">
+    <div class="card" style="background:linear-gradient(135deg,#2C3D5E,#1B2335);border:none;color:#F4ECD8;padding:clamp(20px,5vw,28px) clamp(18px,5vw,30px)">
       ${family?.mission ? `
         <div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:10px">Family Vision</div>
-        <p style="font-family:var(--font-serif);font-size:20px;line-height:1.5;color:#FBF6EE;margin:0 0 22px">${esc(family.mission)}</p>` : ""}
-      <div class="row" style="gap:34px;flex-wrap:wrap">
-        ${family?.coreWord ? `<div><div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:6px">Core Word</div><div style="font-family:var(--font-serif);font-size:30px;font-weight:600;color:#FBF6EE;line-height:1">${esc(family.coreWord)}</div></div>` : ""}
+        <p style="font-family:var(--font-serif);font-size:clamp(17px,4.5vw,20px);line-height:1.5;color:#FBF6EE;margin:0 0 22px">${esc(family.mission)}</p>` : ""}
+      <div class="row" style="gap:clamp(20px,5vw,34px);flex-wrap:wrap">
+        ${family?.coreWord ? `<div><div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:6px">Core Word</div><div style="font-family:var(--font-serif);font-size:clamp(24px,7vw,30px);font-weight:600;color:#FBF6EE;line-height:1">${esc(family.coreWord)}</div></div>` : ""}
         ${family?.motto ? `<div style="flex:1;min-width:200px"><div class="small" style="letter-spacing:0.16em;text-transform:uppercase;color:#D9B779;font-weight:600;margin-bottom:6px">Family Credo</div><div style="font-family:var(--font-serif);font-style:italic;font-size:17px;color:#F4ECD8">${esc(family.motto)}</div></div>` : ""}
       </div>
     </div>`;

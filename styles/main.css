@@ -356,6 +356,13 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .main { padding: 16px 14px calc(80px + env(safe-area-inset-bottom)); }
   .topbar h1 { font-size: 23px; }
   .card { padding: 18px; }
+  /* Onboarding / welcome cards: tighter padding + smaller hero on a phone. */
+  .welcome { padding: 20px 14px; }
+  .welcome-card { padding: 26px 20px; }
+  .welcome-card h1 { font-size: 27px; }
+  .welcome-card .lede { font-size: 15px; }
+  /* Report cover/section headings shouldn't dominate a small screen. */
+  .report-cover-top h1 { font-size: 26px !important; }
   /* 16px inputs stop iOS Safari from zooming in on focus. */
   .input, .textarea, .select { font-size: 16px; }
   /* Comfortable tap targets. */
