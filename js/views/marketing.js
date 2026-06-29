@@ -887,10 +887,10 @@ export function renderFeaturesPublic(container) {
 /* ============================================================
    PRICING PAGE
    ============================================================ */
-// Two cadences → two cards. Annual is the featured (navy) card.
+// Two ways to pay for the SAME 12-month membership. Annual is featured (navy).
 const MEMBERSHIP_PLANS = [
-  { key: "month", name: "Monthly", per: "per month", desc: "A flexible month-to-month rhythm. Stay as long as it serves your family." },
-  { key: "year",  name: "Annual",  per: "per year",  desc: "Our best value — one simple payment for a full year of growth.", featured: true, tag: "Best value" },
+  { key: "month", name: "Monthly", per: "per month", desc: "Your full 12-month membership, spread into comfortable monthly payments." },
+  { key: "year",  name: "Annual",  per: "per year",  desc: "Your full 12-month membership, paid in one — and you save.", featured: true, tag: "Best value" },
 ];
 
 const MEMBERSHIP_BELIEFS = [
@@ -932,6 +932,7 @@ export function renderPricing(container) {
       </div>
 
       <!-- Membership cards — above the fold (populated synchronously below) -->
+      <p class="pm-cards-note">Every membership is a <b>12-month journey</b> — simply choose how you'd like to pay. Your first child is always included.</p>
       <div class="pm-cards" id="pm-cards"></div>
 
       <!-- Configurator (appears after a card is chosen) -->
@@ -1004,13 +1005,21 @@ export function renderPricing(container) {
     const priceHtml = prices
       ? money(set.base?.amount ?? null, cur)
       : `<span class="pm-price-skeleton" aria-hidden="true"></span>`;
+    // On the annual card, show the saving vs paying monthly for the year.
+    let saveHtml = "";
+    if (p.featured && prices?.month?.base?.amount && prices?.year?.base?.amount) {
+      const save = prices.month.base.amount * 12 - prices.year.base.amount;
+      if (save > 0) saveHtml = `<div class="pm-psave">Save ${money(save, cur)} vs paying monthly</div>`;
+    }
     return `
       <div class="pm-plan ${p.featured ? "featured" : ""} ${interval === p.key ? "selected" : ""}" data-plan="${p.key}">
         ${p.tag ? `<div class="pm-ribbon">${p.tag}</div>` : ""}
         <div class="pm-pstar">✦</div>
         <div class="pm-pname">${p.name}</div>
+        <div class="pm-pterm">12-month membership</div>
         <div class="pm-pprice">${priceHtml}</div>
         <div class="pm-pper">${p.per} · your first child included</div>
+        ${saveHtml}
         <div class="pm-pdesc">${p.desc}</div>
         <button class="pm-cta" type="button">${interval === p.key ? "Selected ✓" : "Choose " + p.name}</button>
       </div>`;
@@ -1048,7 +1057,7 @@ export function renderPricing(container) {
     $("#pm-children").textContent = children;
     $("#pm-adults").textContent = adults;
     $("#pm-child-note").textContent = extraChild ? `Your first child + ${extraChild} more` : "Your first child is included.";
-    $("#pm-chosen").innerHTML = `${p.name} membership · ${money(set.base?.amount ?? null, cur)} ${p.per}
+    $("#pm-chosen").innerHTML = `12-month membership · paid ${p.name.toLowerCase()} · ${money(set.base?.amount ?? null, cur)} ${p.per}
       <button type="button" id="pm-change">change</button>`;
     $("#pm-change").addEventListener("click", () => {
       $("#pm-config").classList.remove("open");
