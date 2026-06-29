@@ -10,6 +10,7 @@ import { childPortalLogin } from "../lib/childPortalCloud.js";
 import { navigate, currentPath } from "../router.js";
 import { hasAccount, isLoggedIn, signup, login, logout, currentUserEmail, requestPasswordReset, updatePassword } from "../auth.js";
 import { logoLockup, logoStacked } from "../components/logo.js";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../lib/supabase.js";
 
 const NAV_LINKS = [
   { path: "/welcome",      label: "Home" },
@@ -864,81 +865,216 @@ export function renderFeaturesPublic(container) {
 /* ============================================================
    PRICING PAGE
    ============================================================ */
+// Two cadences → two cards. Annual is the featured (navy) card.
+const MEMBERSHIP_PLANS = [
+  { key: "month", name: "Monthly", per: "per month", desc: "A flexible month-to-month rhythm. Stay as long as it serves your family." },
+  { key: "year",  name: "Annual",  per: "per year",  desc: "Our best value — one simple payment for a full year of growth.", featured: true, tag: "Best value" },
+];
+
+const MEMBERSHIP_BELIEFS = [
+  ["Learning shaped around <b>who your child already is</b>", "their interests, strengths and readiness."],
+  ["Your family's values woven naturally through everyday learning", "<b>never bolted on</b>."],
+  ["Real-world capability grown <b>alongside</b> literacy and numeracy", "not instead of them."],
+  ["Projects that raise <b>capable adults</b>", "not just successful students."],
+  ["Intelligence that <b>understands your family</b>", "before it suggests a single thing."],
+  ["Designed for the <b>whole arc of childhood</b>", "not a single school year."],
+];
+
 export function renderPricing(container) {
-  container.innerHTML = `
-    <section class="hero" style="grid-template-columns:1fr;padding-top:60px;padding-bottom:30px">
-      <div>
-        <span class="hero-eyebrow">Pricing</span>
-        <h1>Three ways to begin.</h1>
-        <p class="lede">Honest pricing for a tool you actually use. The MVP is free — these are early indications of where the platform is heading.</p>
-      </div>
-    </section>
+  const FN = `${SUPABASE_URL}/functions/v1/public-checkout`;
+  const money = (amt, cur = "usd") => amt == null ? "—"
+    : new Intl.NumberFormat(undefined, { style: "currency", currency: (cur || "usd").toUpperCase() }).format(amt / 100);
+  const planOf = (k) => MEMBERSHIP_PLANS.find(p => p.key === k) || {};
 
-    <section class="section" style="border-top:none;padding-top:0">
-      <div class="pricing-grid">
-        <div class="price-card">
-          <span class="price-tag">North Star Family</span>
-          <h3>Core platform</h3>
-          <div class="price">$0<small>/ MVP</small></div>
-          <p class="text-muted">Everything you need to run a real family learning journey.</p>
-          <ul>
-            <li>Family Vision builder</li>
-            <li>Unlimited children + child portals</li>
-            <li>Projects, milestones, Momentum Points</li>
-            <li>Voice reflections</li>
-            <li>Growth Reports</li>
-            <li>Family Councils &amp; Legacy</li>
-            <li>Calendar, materials, mock cart</li>
-          </ul>
-          <button class="btn btn-primary" data-cta="trial">Start Free Trial</button>
-        </div>
+  let interval = null, children = 1, adults = 0, prices = null;
+  const $ = (sel) => container.querySelector(sel);
 
-        <div class="price-card featured">
-          <span class="price-tag">North Star Premium</span>
-          <h3>For families ready to go deeper</h3>
-          <div class="price">$19<small>/ month · placeholder</small></div>
-          <p>Everything in Family, plus deeper developmental intelligence and community.</p>
-          <ul>
-            <li>Child Insights (optional, parent-controlled)</li>
-            <li>Optional interpretive frameworks</li>
-            <li>Personality lenses + longitudinal map</li>
-            <li>The Learning Guild (community)</li>
-            <li>Priority Growth Report features</li>
-            <li>Print-ready Family Legacy book</li>
-          </ul>
-          <button class="btn btn-primary" data-cta="waitlist">Join Waitlist</button>
-        </div>
-
-        <div class="price-card">
-          <span class="price-tag">Guided Setup</span>
-          <h3>One-hour onboarding call</h3>
-          <div class="price">$149<small>/ once · placeholder</small></div>
-          <p class="text-muted">Sit with a North Star guide and design your family's vision, slider, domains and first term.</p>
-          <ul>
-            <li>60-minute live call</li>
-            <li>Your Family North Star captured with you</li>
-            <li>First-term project plan</li>
-            <li>Follow-up notes + recording</li>
-            <li>Includes Family plan for 3 months</li>
-          </ul>
-          <button class="btn" data-cta="guided">Book Guided Setup</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <h2 style="font-size:28px">Honest about what's mocked.</h2>
-      <p class="lede">The MVP runs locally on your device. Real payments, real accounts, real community matching and real LLM-powered suggestions arrive as the platform matures. Your journey doesn't have to wait.</p>
-    </section>
-  `;
-  container.querySelectorAll("[data-cta]").forEach(b => {
-    b.addEventListener("click", () => {
-      const what = b.dataset.cta;
-      if (what === "trial") navigate("/signup");
-      else if (what === "guided") navigate("/contact");
-      else { toast("You're on the waitlist ✦ we'll be in touch.", { type: "success", duration: 3500 }); }
+  async function call(action, payload) {
+    const res = await fetch(FN, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": SUPABASE_PUBLISHABLE_KEY, "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}` },
+      body: JSON.stringify({ action, payload }),
     });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || `Request failed (${res.status})`);
+    return data;
+  }
+
+  container.innerHTML = `
+    <div class="pm">
+      <!-- Short hero -->
+      <div class="pm-hero">
+        <span class="pm-eyebrow">Join North Star</span>
+        <h1 class="pm-h1">A different way to raise learners.</h1>
+        <p class="pm-lede">North Star helps families build a learning path around who their child is becoming, what they love, and the values they are growing up inside.</p>
+      </div>
+
+      <!-- Membership cards — above the fold -->
+      <div class="pm-cards" id="pm-cards">
+        <div class="pm-loading">Loading membership…</div>
+      </div>
+
+      <!-- Configurator (appears after a card is chosen) -->
+      <div class="pm-config" id="pm-config">
+        <div class="pm-calc">
+          <h3 class="pm-calc-head">Begin your family's journey</h3>
+          <p class="pm-calc-sub">A few details and you're ready. You can change everything later.</p>
+          <div class="pm-chosen" id="pm-chosen"></div>
+
+          <label class="pm-label">Your email</label>
+          <input id="pm-email" class="pm-input" type="email" placeholder="you@example.com" autocomplete="email" />
+
+          <label class="pm-label">How many children?</label>
+          <div class="pm-step">
+            <button data-step-child="-1" type="button">−</button>
+            <span class="pm-n" id="pm-children">1</span>
+            <button data-step-child="1" type="button">+</button>
+            <span class="pm-note" id="pm-child-note">Your first child is included.</span>
+          </div>
+
+          <label class="pm-label">Supporting adults <span class="pm-muted" style="font-weight:600">(optional)</span></label>
+          <div class="pm-help">Co-parents, tutors or mentors who help guide the learning — each can create projects and growth reports.</div>
+          <div class="pm-step">
+            <button data-step-adult="-1" type="button">−</button>
+            <span class="pm-n" id="pm-adults">0</span>
+            <button data-step-adult="1" type="button">+</button>
+          </div>
+
+          <button class="pm-promo-link" id="pm-promo-toggle" type="button">Have a beta code?</button>
+          <div class="pm-promo-wrap" id="pm-promo-wrap">
+            <input id="pm-promo" class="pm-input" type="text" placeholder="Enter your code" autocomplete="off" style="margin-top:10px" />
+            <div class="pm-trial" id="pm-trial" style="display:none"></div>
+          </div>
+
+          <div class="pm-breakdown" id="pm-breakdown"></div>
+
+          <button class="pm-go" id="pm-go" type="button">Continue →</button>
+          <div class="pm-trust">Secure payment · Your family's data stays yours · Built for years of learning, not months</div>
+          <div class="pm-err" id="pm-err"></div>
+        </div>
+      </div>
+
+      <!-- Philosophy (below the cards) -->
+      <div class="pm-beliefs">
+        <div class="pm-beliefs-head">North Star is built on a few firm beliefs.</div>
+        ${MEMBERSHIP_BELIEFS.map(([a, b]) => `
+          <div class="pm-belief"><span class="pm-tick">✓</span><p>${a} — ${b}</p></div>
+        `).join("")}
+      </div>
+
+      <!-- 12-month commitment (reassuring, below) -->
+      <div class="pm-commit">
+        <h3>A 12-month rhythm — and your journey is always yours</h3>
+        <p>Real human development doesn't happen in 30-day cycles. North Star is a <b>12-month commitment</b> — because growing curiosity, character and capability needs room to unfold, and because a full year lets North Star truly come to know your family.</p>
+        <p class="pm-keep">And the work is never lost. Every project, reflection, portfolio and milestone your family creates stays safely stored.</p>
+        <p>If life ever calls you away, pause whenever you need — and if you return, your family's journey simply continues where it left off. We don't erase years of a childhood because a subscription paused.</p>
+      </div>
+
+      <p class="pm-post">After payment you'll create your North Star account with this email — your membership links automatically.</p>
+    </div>
+  `;
+
+  const availablePlans = () => MEMBERSHIP_PLANS.filter(p => prices?.[p.key]?.base);
+
+  function renderCards() {
+    const host = $("#pm-cards");
+    if (!prices) { host.innerHTML = `<div class="pm-loading">Loading membership…</div>`; return; }
+    const avail = availablePlans();
+    if (!avail.length) { host.innerHTML = `<div class="pm-loading">Memberships are being finalised — please check back shortly.</div>`; return; }
+
+    host.innerHTML = avail.map(p => {
+      const set = prices[p.key] || {};
+      const cur = set.base?.currency || "usd";
+      return `
+        <div class="pm-plan ${p.featured ? "featured" : ""} ${interval === p.key ? "selected" : ""}" data-plan="${p.key}">
+          ${p.tag ? `<div class="pm-ribbon">${p.tag}</div>` : ""}
+          <div class="pm-pstar">✦</div>
+          <div class="pm-pname">${p.name}</div>
+          <div class="pm-pprice">${money(set.base?.amount ?? null, cur)}</div>
+          <div class="pm-pper">${p.per} · your first child included</div>
+          <div class="pm-pdesc">${p.desc}</div>
+          <button class="pm-cta" type="button">${interval === p.key ? "Selected ✓" : "Choose " + p.name}</button>
+        </div>`;
+    }).join("");
+    host.querySelectorAll("[data-plan]").forEach(card => card.addEventListener("click", () => choose(card.dataset.plan)));
+  }
+
+  function choose(key) {
+    interval = key;
+    renderCards();
+    renderConfig();
+    $("#pm-config").classList.add("open");
+    setTimeout(() => $("#pm-config").scrollIntoView({ behavior: "smooth", block: "center" }), 80);
+  }
+
+  function renderConfig() {
+    if (!interval) return;
+    const p = planOf(interval);
+    const set = prices?.[interval] || {};
+    const cur = set.base?.currency || "usd";
+    const extraChild = Math.max(0, children - 1);
+
+    $("#pm-children").textContent = children;
+    $("#pm-adults").textContent = adults;
+    $("#pm-child-note").textContent = extraChild ? `Your first child + ${extraChild} more` : "Your first child is included.";
+    $("#pm-chosen").innerHTML = `${p.name} membership · ${money(set.base?.amount ?? null, cur)} ${p.per}
+      <button type="button" id="pm-change">change</button>`;
+    $("#pm-change").addEventListener("click", () => {
+      $("#pm-config").classList.remove("open");
+      interval = null; renderCards();
+      $("#pm-cards").scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+
+    const baseAmt = set.base?.amount ?? null, seatAmt = set.seat?.amount ?? null, aiAmt = set.aiseat?.amount ?? null;
+    const total = baseAmt == null ? null : baseAmt + extraChild * (seatAmt || 0) + adults * (aiAmt || 0);
+    const per = p.per === "per year" ? "/yr" : "/mo";
+
+    $("#pm-breakdown").innerHTML = `
+      <div class="pm-row"><span>Base membership · your first child</span><span>${money(baseAmt, cur)}${per}</span></div>
+      ${extraChild > 0 ? `<div class="pm-row"><span class="pm-muted">${extraChild} additional ${extraChild === 1 ? "child" : "children"}</span><span>${money(seatAmt != null ? seatAmt * extraChild : null, cur)}${per}</span></div>` : ""}
+      ${adults > 0 ? `<div class="pm-row"><span class="pm-muted">${adults} supporting ${adults === 1 ? "adult" : "adults"}</span><span>${money(aiAmt != null ? aiAmt * adults : null, cur)}${per}</span></div>` : ""}
+      <div class="pm-total"><span>Total</span><span>${money(total, cur)}${per}</span></div>`;
+    $("#pm-go").disabled = baseAmt == null;
+  }
+
+  container.querySelectorAll("[data-step-child]").forEach(b => b.addEventListener("click", () => { children = Math.max(1, children + (+b.dataset.stepChild)); renderConfig(); }));
+  container.querySelectorAll("[data-step-adult]").forEach(b => b.addEventListener("click", () => { adults = Math.max(0, adults + (+b.dataset.stepAdult)); renderConfig(); }));
+
+  $("#pm-promo-toggle").addEventListener("click", () => {
+    const w = $("#pm-promo-wrap");
+    const open = w.classList.toggle("open");
+    $("#pm-promo-toggle").textContent = open ? "Hide beta code" : "Have a beta code?";
+    if (open) $("#pm-promo").focus();
   });
+  $("#pm-promo").addEventListener("input", () => {
+    const v = $("#pm-promo").value.trim();
+    $("#pm-trial").style.display = v ? "block" : "none";
+    if (v) $("#pm-trial").textContent = "If this is a valid beta code, your first 30 days are free — then your chosen membership begins. Beta families have no 12-month commitment.";
+  });
+
+  $("#pm-go").addEventListener("click", async () => {
+    $("#pm-err").textContent = "";
+    if (!interval) { $("#pm-err").textContent = "Please choose a membership above."; return; }
+    const email = $("#pm-email").value.trim();
+    if (!email) { $("#pm-err").textContent = "Please enter your email."; return; }
+    const go = $("#pm-go");
+    go.disabled = true; go.textContent = "Redirecting…";
+    try {
+      const { url } = await call("create", {
+        interval, email, promoCode: $("#pm-promo").value.trim(),
+        childSeats: Math.max(0, children - 1), adultSeats: adults,
+      });
+      window.location.href = url;
+    } catch (e) {
+      $("#pm-err").textContent = e.message || "Couldn't start checkout.";
+      go.disabled = false; go.textContent = "Continue →";
+    }
+  });
+
+  (async () => {
+    try { prices = await call("prices"); } catch (e) { $("#pm-err").textContent = e.message; }
+    renderCards();
+  })();
 }
 
 /* ============================================================

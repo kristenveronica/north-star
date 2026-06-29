@@ -3184,3 +3184,91 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .ns-commit-backdrop { padding: 0; place-items: end center; }
   .ns-commit-card { max-width: 100%; border-radius: var(--r-xl) var(--r-xl) 0 0; padding: 32px 24px calc(28px + env(safe-area-inset-bottom)); }
 }
+
+/* ============================================================
+   Membership / pricing page (renderPricing) — premium, on-brand,
+   cards above the fold, philosophy below.
+   ============================================================ */
+.pm{ max-width:760px; margin:0 auto; }
+.pm-hero{ text-align:center; padding:40px 0 30px; }
+.pm-eyebrow{ font-size:12px; letter-spacing:0.22em; text-transform:uppercase; color:var(--primary); font-weight:700; }
+.pm-h1{ font-family:var(--font-serif); font-weight:500; font-size:clamp(32px,6.4vw,46px); line-height:1.06; margin:14px 0 14px; }
+.pm-lede{ color:var(--text-muted); font-size:clamp(16px,3.6vw,18px); line-height:1.55; max-width:34em; margin:0 auto; }
+
+/* cards */
+.pm-cards{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+@media (max-width:600px){ .pm-cards{ grid-template-columns:1fr; } }
+.pm-loading{ grid-column:1/-1; text-align:center; color:var(--text-muted); font-size:14px; padding:24px; }
+.pm-plan{ position:relative; background:var(--card); border:1.5px solid var(--border); border-radius:var(--r-lg);
+          padding:30px 26px 26px; text-align:center; cursor:pointer; display:flex; flex-direction:column;
+          transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.pm-plan:hover{ transform:translateY(-3px); box-shadow:var(--shadow-lg); }
+.pm-plan.selected{ border-color:var(--primary); box-shadow:0 18px 40px -22px rgba(201,123,78,.5); }
+.pm-pstar{ font-size:18px; color:var(--primary); margin-bottom:10px; line-height:1; }
+.pm-pname{ font-family:var(--font-serif); font-size:25px; font-weight:600; margin-bottom:4px; color:var(--text); }
+.pm-pprice{ font-family:var(--font-serif); font-size:40px; font-weight:600; line-height:1; margin:14px 0 2px; color:var(--text); }
+.pm-pper{ color:var(--text-muted); font-size:13.5px; margin-bottom:14px; }
+.pm-pdesc{ color:var(--text-muted); font-size:14px; line-height:1.55; margin:0 auto 22px; max-width:22em; flex:1; }
+.pm-cta{ width:100%; padding:14px; border-radius:12px; border:1.5px solid var(--primary); background:transparent; color:var(--primary);
+         font-family:var(--font-sans); font-weight:700; font-size:15px; cursor:pointer; transition:all .15s ease; }
+.pm-plan:hover .pm-cta, .pm-plan.selected .pm-cta{ background:var(--primary); color:#fff; }
+
+/* featured (Annual) — navy */
+.pm-plan.featured{ background:linear-gradient(160deg,var(--midnight) 0%, var(--midnight-deep) 100%); border-color:var(--midnight-deep); }
+.pm-plan.featured .pm-pname, .pm-plan.featured .pm-pprice{ color:#fff; }
+.pm-plan.featured .pm-pper, .pm-plan.featured .pm-pdesc{ color:#C9D2E2; }
+.pm-plan.featured .pm-pstar{ color:var(--starlight); }
+.pm-plan.featured .pm-cta{ border-color:var(--starlight); background:var(--starlight); color:var(--midnight-deep); }
+.pm-plan.featured:hover .pm-cta, .pm-plan.featured.selected .pm-cta{ background:#fff; border-color:#fff; }
+.pm-plan.featured.selected{ border-color:var(--starlight); box-shadow:0 20px 44px -20px rgba(27,37,56,.6); }
+.pm-ribbon{ position:absolute; top:16px; right:-1px; background:var(--starlight); color:var(--midnight-deep); font-size:11px; font-weight:700;
+            letter-spacing:.08em; text-transform:uppercase; padding:5px 12px; border-radius:8px 0 0 8px; }
+
+/* configurator (progressive disclosure) */
+.pm-config{ overflow:hidden; max-height:0; opacity:0; transition:max-height .4s ease, opacity .3s ease, margin .4s ease; }
+.pm-config.open{ max-height:1500px; opacity:1; margin-top:26px; }
+.pm-calc{ background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg); padding:30px 26px; box-shadow:var(--shadow-sm); max-width:560px; margin:0 auto; }
+.pm-calc-head{ font-family:var(--font-serif); font-size:25px; font-weight:600; margin:0 0 4px; text-align:center; }
+.pm-calc-sub{ color:var(--text-muted); font-size:14px; margin:0 auto 8px; text-align:center; max-width:26em; }
+.pm-chosen{ text-align:center; font-size:13px; color:var(--primary); font-weight:700; margin-bottom:22px; }
+.pm-chosen button{ background:none; border:0; color:var(--text-soft); font-family:var(--font-sans); font-size:12.5px; font-weight:600; cursor:pointer; text-decoration:underline; margin-left:6px; }
+.pm-label{ display:block; font-weight:700; margin:20px 0 8px; font-size:14px; color:var(--text); }
+.pm-help{ color:var(--text-muted); font-size:13px; line-height:1.5; margin:-3px 0 10px; }
+.pm-muted{ color:var(--text-muted); }
+.pm-input{ width:100%; padding:13px 14px; border:1px solid var(--border); border-radius:11px; font-size:16px; font-family:var(--font-sans); background:var(--card-elev); color:var(--text); }
+.pm-input::placeholder{ color:var(--text-soft); }
+.pm-step{ display:flex; align-items:center; gap:14px; }
+.pm-step button{ width:44px; height:44px; border:1.5px solid var(--border); background:#fff; border-radius:11px; font-size:20px; cursor:pointer; color:var(--text); }
+.pm-step button:active{ background:var(--primary-soft); }
+.pm-n{ font-size:19px; font-weight:700; min-width:2ch; text-align:center; }
+.pm-note{ color:var(--text-muted); font-size:13px; }
+.pm-promo-link{ display:inline-block; margin-top:22px; color:var(--primary); font-size:14px; font-weight:600; cursor:pointer; border:0; background:none; padding:0; font-family:var(--font-sans); }
+.pm-promo-wrap{ overflow:hidden; max-height:0; transition:max-height .25s ease; }
+.pm-promo-wrap.open{ max-height:180px; }
+.pm-trial{ background:var(--sage-soft); color:var(--sage-ink); border-radius:10px; padding:10px 12px; font-size:13.5px; margin-top:10px; line-height:1.5; }
+.pm-breakdown{ margin-top:24px; padding-top:20px; border-top:1px solid var(--divider); }
+.pm-row{ display:flex; justify-content:space-between; gap:12px; margin:7px 0; font-size:15px; color:var(--text); }
+.pm-row span:last-child{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+.pm-total{ display:flex; justify-content:space-between; font-weight:700; font-size:19px; border-top:1px solid var(--border); padding-top:12px; margin-top:12px; }
+.pm-go{ width:100%; padding:17px; background:var(--primary); color:#fff; border:0; border-radius:13px; font-size:16px; font-weight:700; font-family:var(--font-sans); cursor:pointer; margin-top:20px; }
+.pm-go:hover{ background:var(--primary-hover); }
+.pm-go[disabled]{ opacity:.5; cursor:not-allowed; }
+.pm-trust{ text-align:center; color:var(--text-soft); font-size:12.5px; margin-top:14px; line-height:1.7; }
+.pm-err{ color:var(--danger); font-size:14px; margin-top:10px; text-align:center; }
+
+/* philosophy below the cards */
+.pm-beliefs{ max-width:34em; margin:64px auto 0; }
+.pm-beliefs-head{ font-family:var(--font-serif); font-style:italic; font-size:22px; text-align:center; margin-bottom:22px; color:var(--text); }
+.pm-belief{ display:flex; gap:14px; align-items:flex-start; padding:15px 0; border-top:1px solid var(--divider); }
+.pm-belief:first-of-type{ border-top:none; padding-top:0; }
+.pm-tick{ flex:none; width:24px; height:24px; border-radius:50%; background:var(--primary-soft); color:var(--primary-ink); display:grid; place-items:center; font-size:13px; font-weight:700; margin-top:1px; }
+.pm-belief p{ margin:0; font-size:16.5px; line-height:1.5; color:var(--text); }
+.pm-belief b{ font-weight:700; }
+
+/* commitment */
+.pm-commit{ max-width:620px; margin:48px auto 0; padding:30px 28px; background:var(--card-elev); border:1px solid var(--border); border-radius:var(--r-lg); }
+.pm-commit h3{ font-family:var(--font-serif); font-size:23px; font-weight:600; margin:0 0 10px; text-align:center; }
+.pm-commit p{ color:var(--text-muted); font-size:14.5px; line-height:1.62; margin:0 auto 12px; text-align:center; max-width:34em; }
+.pm-commit p:last-child{ margin-bottom:0; }
+.pm-commit .pm-keep{ color:var(--text); }
+.pm-post{ text-align:center; color:var(--text-muted); font-size:13.5px; margin:24px auto 0; max-width:38em; line-height:1.6; }
