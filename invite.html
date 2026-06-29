@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>You're invited to North Star</title>
+  <meta name="description" content="You've been invited to join a family's learning journey on North Star — a personalised platform for understanding each child and nurturing who they are becoming." />
+
+  <!-- Rich link preview — shows an invitation card (not the generic site) when
+       the link is pasted into iMessage, WhatsApp, email, etc. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="North Star" />
+  <meta property="og:title" content="You're invited to North Star ✦" />
+  <meta property="og:description" content="A family has invited you to join their learning journey. Create your account to step inside." />
+  <meta property="og:image" content="https://northstar-family.com/assets/images/og-invite.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:url" content="https://northstar-family.com/invite.html" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="You're invited to North Star ✦" />
+  <meta name="twitter:description" content="A family has invited you to join their learning journey. Create your account to step inside." />
+  <meta name="twitter:image" content="https://northstar-family.com/assets/images/og-invite.png" />
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="theme-color" content="#0E1626" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Mulish:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root { --navy:#0E1626; --navy-2:#17223A; --cream:#F5EFE4; --muted:#C9D0DD; --clay:#D8A05E; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: radial-gradient(120% 90% at 50% 0%, var(--navy-2), var(--navy));
+      color: var(--cream);
+      font-family: "Mulish", system-ui, sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      text-align: center; padding: 24px; min-height: 100vh;
+    }
+    .card { max-width: 460px; }
+    .rose { width: 132px; height: 132px; margin: 0 auto 22px; display: block; filter: drop-shadow(0 10px 30px rgba(0,0,0,.45)); }
+    .eyebrow { color: var(--clay); letter-spacing: .28em; font-size: .72rem; font-weight: 600; text-transform: uppercase; margin-bottom: 14px; }
+    h1 { font-family: "Cormorant Garamond", Georgia, serif; font-weight: 500; font-size: 2.5rem; line-height: 1.12; margin: 0 0 14px; }
+    p { color: var(--muted); font-size: 1.02rem; line-height: 1.6; margin: 0 auto 26px; max-width: 30em; }
+    .go {
+      display: inline-block; background: #C57B47; color: #fff; text-decoration: none;
+      font-weight: 600; padding: 14px 30px; border-radius: 999px; font-size: 1rem;
+      box-shadow: 0 12px 30px rgba(197,123,71,.35); transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .go:hover { transform: translateY(-1px); box-shadow: 0 16px 36px rgba(197,123,71,.45); }
+    .hint { font-size: .82rem; color: #8C97AB; margin-top: 22px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <img class="rose" src="/assets/images/hero-compass-rose.png" alt="" />
+    <div class="eyebrow">An invitation</div>
+    <h1>You've been invited<br />to North Star</h1>
+    <p>A family would love you to join their learning journey. Continue to set up your account — it only takes a minute.</p>
+    <a class="go" id="continue" href="/#/">Continue&nbsp;→</a>
+    <div class="hint">Taking you in&hellip; use the same email your invitation was sent to.</div>
+  </main>
+  <script>
+    // Pull the token from ?t=… and hand off to the in-app accept route.
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var token = params.get("t") || params.get("token") || "";
+      var target = token ? "/#/invite/" + encodeURIComponent(token) : "/#/";
+      document.getElementById("continue").setAttribute("href", target);
+      // Auto-forward for humans (crawlers don't run JS, so they keep the preview).
+      setTimeout(function () { location.replace(target); }, 1200);
+    })();
+  </script>
+</body>
+</html>

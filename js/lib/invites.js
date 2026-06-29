@@ -19,7 +19,11 @@ function roleForAccessLevel(level) {
 }
 
 export function inviteLink(token) {
-  return `${location.origin}${location.pathname}#/invite/${token}`;
+  // Points at the static invite.html page (not the SPA hash route) so that when
+  // the link is pasted into iMessage/WhatsApp/email it shows a personalised
+  // "You're invited" preview card. That page then hands off to the in-app
+  // /#/invite/:token accept route.
+  return `${location.origin}/invite.html?t=${encodeURIComponent(token)}`;
 }
 
 function randomToken() {
