@@ -931,10 +931,8 @@ export function renderPricing(container) {
         <p class="pm-lede">North Star helps families build a learning path around who their child is becoming, what they love, and the values they are growing up inside.</p>
       </div>
 
-      <!-- Membership cards — above the fold -->
-      <div class="pm-cards" id="pm-cards">
-        <div class="pm-loading">Loading membership…</div>
-      </div>
+      <!-- Membership cards — above the fold (populated synchronously below) -->
+      <div class="pm-cards" id="pm-cards"></div>
 
       <!-- Configurator (appears after a card is chosen) -->
       <div class="pm-config" id="pm-config">
@@ -998,26 +996,37 @@ export function renderPricing(container) {
 
   const availablePlans = () => MEMBERSHIP_PLANS.filter(p => prices?.[p.key]?.base);
 
+  function cardHtml(p) {
+    const set = prices?.[p.key] || {};
+    const cur = set.base?.currency || "usd";
+    // Show a shimmer where the price will be until the live amount loads, so the
+    // two cards appear instantly and only the number fills in (no layout jump).
+    const priceHtml = prices
+      ? money(set.base?.amount ?? null, cur)
+      : `<span class="pm-price-skeleton" aria-hidden="true"></span>`;
+    return `
+      <div class="pm-plan ${p.featured ? "featured" : ""} ${interval === p.key ? "selected" : ""}" data-plan="${p.key}">
+        ${p.tag ? `<div class="pm-ribbon">${p.tag}</div>` : ""}
+        <div class="pm-pstar">✦</div>
+        <div class="pm-pname">${p.name}</div>
+        <div class="pm-pprice">${priceHtml}</div>
+        <div class="pm-pper">${p.per} · your first child included</div>
+        <div class="pm-pdesc">${p.desc}</div>
+        <button class="pm-cta" type="button">${interval === p.key ? "Selected ✓" : "Choose " + p.name}</button>
+      </div>`;
+  }
+
   function renderCards() {
     const host = $("#pm-cards");
-    if (!prices) { host.innerHTML = `<div class="pm-loading">Loading membership…</div>`; return; }
-    const avail = availablePlans();
-    if (!avail.length) { host.innerHTML = `<div class="pm-loading">Memberships are being finalised — please check back shortly.</div>`; return; }
-
-    host.innerHTML = avail.map(p => {
-      const set = prices[p.key] || {};
-      const cur = set.base?.currency || "usd";
-      return `
-        <div class="pm-plan ${p.featured ? "featured" : ""} ${interval === p.key ? "selected" : ""}" data-plan="${p.key}">
-          ${p.tag ? `<div class="pm-ribbon">${p.tag}</div>` : ""}
-          <div class="pm-pstar">✦</div>
-          <div class="pm-pname">${p.name}</div>
-          <div class="pm-pprice">${money(set.base?.amount ?? null, cur)}</div>
-          <div class="pm-pper">${p.per} · your first child included</div>
-          <div class="pm-pdesc">${p.desc}</div>
-          <button class="pm-cta" type="button">${interval === p.key ? "Selected ✓" : "Choose " + p.name}</button>
-        </div>`;
-    }).join("");
+    // Before prices load, render BOTH cards (with a price skeleton) so the
+    // membership options are visible immediately — no "Loading…" placeholder
+    // that lets the philosophy section flash up before the cards arrive.
+    const list = prices ? availablePlans() : MEMBERSHIP_PLANS;
+    if (prices && !list.length) {
+      host.innerHTML = `<div class="pm-loading">Memberships are being finalised — please check back shortly.</div>`;
+      return;
+    }
+    host.innerHTML = list.map(cardHtml).join("");
     host.querySelectorAll("[data-plan]").forEach(card => card.addEventListener("click", () => choose(card.dataset.plan)));
   }
 
@@ -1093,9 +1102,13 @@ export function renderPricing(container) {
     }
   });
 
+  // Render the cards immediately (skeleton prices) so the page never flashes an
+  // empty/loading state, then fetch live prices and fill them in.
+  renderCards();
   (async () => {
     try { prices = await call("prices"); } catch (e) { $("#pm-err").textContent = e.message; }
     renderCards();
+    if (interval) renderConfig(); // if a card was chosen before prices loaded, fill totals
   })();
 }
 
