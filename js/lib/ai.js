@@ -57,3 +57,9 @@ export function aiGenerateProject(family, child, constraints = {}) {
 export function aiGrowthReflection(family, child, summary) {
   return invokeAi("growth-reflection", { family, child, summary });
 }
+
+/** Which Core Word qualities were GENUINELY lived in recent work (sincere or empty).
+    Returns { connections:[{ letter, quality, evidence }] }. */
+export function aiCoreWordLiving(family, summary) {
+  return invokeAi("coreword-living", { family, summary });
+}

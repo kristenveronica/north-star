@@ -791,6 +791,59 @@ Write ${c.name || "this child"}'s reflection against THIS family's vision.`;
   return callClaude(system, userText, REFLECTION_SCHEMA, apiKey);
 }
 
+// ---- Action: coreword-living (which Core Word qualities were genuinely lived) ----
+const COREWORD_LIVING_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["connections"],
+  properties: {
+    connections: {
+      type: "array",
+      items: {
+        type: "object", additionalProperties: false, required: ["letter", "quality", "evidence"],
+        properties: { letter: { type: "string" }, quality: { type: "string" }, evidence: { type: "string" } },
+      },
+    },
+  },
+};
+
+async function coreWordLiving(payload: any, apiKey: string) {
+  const f = payload?.family || {};
+  const s = payload?.summary || {};
+  const acronym = Array.isArray(f.acronym) ? f.acronym.filter((a: any) => a.meaning) : [];
+  if (!f.coreWord || !acronym.length) return { parsed: { connections: [] }, usage: null };
+
+  const meanings = acronym.map((a: any) => `${a.letter} = ${a.meaning}`).join("\n");
+  const projects = Array.isArray(s.projects) ? s.projects : [];
+  const projLines = projects.map((p: any) =>
+    `  • ${p.childName || "A child"}: "${p.title}" [${p.status}]${(p.capabilities || []).length ? ` — built: ${(p.capabilities).join(", ")}` : ""}${(p.domains || []).length ? `; areas: ${(p.domains).join(", ")}` : ""}${p.passion ? `; sparked by ${p.passion}` : ""}`).join("\n");
+  const refl = (s.reflectionSnippets || []).map((r: string) => `  • "${r}"`).join("\n");
+
+  const system = `This family's Core Word is "${f.coreWord}". Each letter stands for a quality they are
+intentionally growing in their children:
+${meanings}
+
+TASK: From the children's ACTUAL recent work below, identify ONLY the qualities that were GENUINELY and
+specifically demonstrated. For each, return its letter, the quality (exactly as written above), and ONE
+short, warm, concrete sentence of evidence that names the child and the specific project or action.
+
+SINCERITY IS EVERYTHING — families instantly sense a forced or generic connection, and a false one does
+real damage to their trust. Rules:
+- Include a quality ONLY when there is clear, specific evidence in the work below. When in doubt, leave it out.
+- It is far better to return FEW connections — or an EMPTY list — than to manufacture one.
+- Never generalise ("they showed growth"). Cite the real, observable thing the child did.
+- The evidence must be an action/outcome, never just a restatement of the quality.
+- Return at most 3 connections — only the strongest, most clearly evidenced.
+If nothing clearly qualifies, return an empty "connections" list. That is a perfectly good answer.`;
+
+  const userText = `RECENT WORK
+${projLines || "  (no recent projects)"}
+${refl ? `\nRECENT REFLECTIONS\n${refl}` : ""}
+
+Which Core Word qualities were genuinely brought to life — and only those?`;
+  return callClaude(system, userText, COREWORD_LIVING_SCHEMA, apiKey);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -807,6 +860,7 @@ Deno.serve(async (req) => {
     else if (action === "suggest-focus") result = await suggestFocus(payload, apiKey);
     else if (action === "generate-project") result = await generateProject(payload, apiKey);
     else if (action === "growth-reflection") result = await growthReflection(payload, apiKey);
+    else if (action === "coreword-living") result = await coreWordLiving(payload, apiKey);
     else return json({ error: `Unknown action: ${action}` }, 400);
 
     console.log(`[ai] ${action} usage:`, JSON.stringify(result.usage));
