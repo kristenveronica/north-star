@@ -48,14 +48,17 @@ const stripe: any = new Stripe(env("STRIPE_SECRET_KEY"), {
 });
 
 const PRICES: Record<string, { base: string; seat: string; aiseat: string }> = {
-  month: { base: env("STRIPE_PRICE_BASE_MONTH"), seat: env("STRIPE_PRICE_SEAT_MONTH"), aiseat: env("STRIPE_PRICE_AISEAT_MONTH") },
-  year:  { base: env("STRIPE_PRICE_BASE_YEAR"),  seat: env("STRIPE_PRICE_SEAT_YEAR"),  aiseat: env("STRIPE_PRICE_AISEAT_YEAR")  },
+  month:   { base: env("STRIPE_PRICE_BASE_MONTH"),   seat: env("STRIPE_PRICE_SEAT_MONTH"),   aiseat: env("STRIPE_PRICE_AISEAT_MONTH")   },
+  quarter: { base: env("STRIPE_PRICE_BASE_QUARTER"), seat: env("STRIPE_PRICE_SEAT_QUARTER"), aiseat: env("STRIPE_PRICE_AISEAT_QUARTER") },
+  year:    { base: env("STRIPE_PRICE_BASE_YEAR"),    seat: env("STRIPE_PRICE_SEAT_YEAR"),    aiseat: env("STRIPE_PRICE_AISEAT_YEAR")    },
 };
+const INTERVALS = ["month", "quarter", "year"];
 
-/** Return amounts so the public page can show pricing without hard-coding it. */
+/** Return amounts so the public page can show pricing without hard-coding it.
+    Quarterly only appears once its prices are configured in Stripe (else null). */
 async function getPrices() {
-  const result: Record<string, Record<string, unknown>> = { month: {}, year: {} };
-  for (const interval of ["month", "year"]) {
+  const result: Record<string, Record<string, unknown>> = { month: {}, quarter: {}, year: {} };
+  for (const interval of INTERVALS) {
     for (const key of ["base", "seat", "aiseat"] as const) {
       const id = PRICES[interval]?.[key] || "";
       if (!id) { result[interval][key] = null; continue; }
@@ -83,7 +86,7 @@ function betaTrialDays(code: string): number {
 }
 
 async function createSession(payload: any) {
-  const interval = payload?.interval === "year" ? "year" : "month";
+  const interval = INTERVALS.includes(payload?.interval) ? payload.interval : "month";
   const childSeats = Math.max(0, Math.floor(Number(payload?.childSeats) || 0)); // extra children beyond the 1 included
   const adultSeats = Math.max(0, Math.floor(Number(payload?.adultSeats) || 0)); // adult AI contributor seats
   const email = (payload?.email || "").toString().trim();

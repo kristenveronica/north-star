@@ -3,80 +3,166 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>North Star — Choose your plan</title>
+<title>North Star — A different way to raise learners</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <meta name="theme-color" content="#0E1626" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=Mulish:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&family=Mulish:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
-  :root{ --cream:#FBF6EE; --card:#FFFFFF; --ink:#2D2317; --muted:#7A6F60; --clay:#C97B4E; --clay-hover:#B36A3F; --sage:#7FA68A; --border:#EADFCD; --r:16px;
-    --serif:"Cormorant Garamond",Georgia,serif; --sans:"Mulish",system-ui,-apple-system,"Segoe UI",sans-serif; }
-  *{ box-sizing:border-box; } body{ margin:0; font-family:var(--sans); background:var(--cream); color:var(--ink); -webkit-font-smoothing:antialiased; }
-  .wrap{ max-width:560px; margin:0 auto; padding:40px 20px 80px; }
-  h1{ font-family:var(--serif); font-weight:500; font-size:38px; line-height:1.1; letter-spacing:0; margin:0 0 8px; }
-  .sub{ color:var(--muted); margin:0 0 24px; font-size:16px; line-height:1.55; }
-  .card{ background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:22px; margin-bottom:18px; box-shadow:0 1px 3px rgba(45,35,23,0.04); }
-  label{ display:block; font-weight:600; margin:14px 0 6px; font-size:15px; }
-  .help{ color:var(--muted); font-size:13px; line-height:1.5; margin:0 0 10px; }
-  input[type=email], input[type=text]{ width:100%; padding:12px 14px; border:1px solid var(--border); border-radius:10px; font-size:16px; font-family:var(--sans); background:#FFFDF9; }
-  input::placeholder{ color:#A99F8E; }
+  :root{
+    --cream:#FBF6EE; --card:#FFFFFF; --ink:#2D2317; --muted:#7A6F60; --soft:#9C8F7C;
+    --clay:#C97B4E; --clay-hover:#B36A3F; --clay-soft:#FBEFE6; --sage:#7FA68A; --navy:#2C3D5E;
+    --border:#EADFCD; --line:#F0E8DA; --r:16px;
+    --serif:"Cormorant Garamond",Georgia,serif; --sans:"Mulish",system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:var(--sans); background:var(--cream); color:var(--ink); -webkit-font-smoothing:antialiased; line-height:1.5; }
+  .wrap{ max-width:640px; margin:0 auto; padding:64px 22px 96px; }
+
+  /* ---- Hero ---- */
+  .eyebrow{ font-size:12px; letter-spacing:0.22em; text-transform:uppercase; color:var(--clay); font-weight:700; margin-bottom:18px; }
+  h1{ font-family:var(--serif); font-weight:500; font-size:clamp(34px,8vw,50px); line-height:1.06; letter-spacing:0; margin:0 0 18px; }
+  .lede{ color:var(--muted); margin:0; font-size:clamp(16px,4.4vw,18px); line-height:1.6; max-width:30em; }
+
+  /* ---- Beliefs (the emotional hero) ---- */
+  .beliefs{ margin:54px 0 12px; }
+  .beliefs-head{ font-family:var(--serif); font-style:italic; font-size:21px; color:var(--ink); margin-bottom:22px; }
+  .belief{ display:flex; gap:14px; align-items:flex-start; padding:15px 0; border-top:1px solid var(--line); }
+  .belief:first-of-type{ border-top:none; padding-top:0; }
+  .tick{ flex:none; width:24px; height:24px; border-radius:50%; background:var(--clay-soft); color:var(--clay);
+         display:grid; place-items:center; font-size:13px; font-weight:700; margin-top:1px; }
+  .belief p{ margin:0; font-size:16.5px; line-height:1.5; color:var(--ink); }
+  .belief b{ font-weight:700; }
+  .turn{ margin:40px 0 8px; font-family:var(--serif); font-size:22px; font-style:italic; color:var(--navy); text-align:center; line-height:1.4; }
+
+  /* ---- Calculator (clean, secondary) ---- */
+  .calc{ background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:26px 24px; box-shadow:0 1px 3px rgba(45,35,23,0.05); margin-top:26px; }
+  .calc-head{ font-family:var(--serif); font-size:24px; font-weight:600; margin:0 0 4px; }
+  .calc-sub{ color:var(--muted); font-size:14px; margin:0 0 20px; }
+  label{ display:block; font-weight:700; margin:18px 0 8px; font-size:14px; }
+  .help{ color:var(--muted); font-size:13px; line-height:1.5; margin:-2px 0 10px; }
+  input[type=email], input[type=text]{ width:100%; padding:13px 14px; border:1px solid var(--border); border-radius:11px; font-size:16px; font-family:var(--sans); background:#FFFDF9; }
+  input::placeholder{ color:#B6A88F; }
+
+  /* billing cadence — more weight, unmistakable active state */
   .seg{ display:flex; gap:8px; }
-  .seg button{ flex:1; padding:11px; border:1px solid var(--border); background:#fff; border-radius:10px; cursor:pointer; font-size:14px; font-family:var(--sans); font-weight:600; color:var(--ink); }
-  .seg button.on{ border-color:var(--clay); background:#FBEFE6; color:var(--clay); }
+  .seg button{ flex:1; padding:14px 8px; border:1.5px solid var(--border); background:#fff; border-radius:12px; cursor:pointer;
+               font-family:var(--sans); font-weight:700; color:var(--ink); font-size:15px; line-height:1.2; transition:all .15s ease; position:relative; }
+  .seg button small{ display:block; font-weight:600; font-size:11px; color:var(--soft); margin-top:3px; }
+  .seg button.on{ border-color:var(--clay); background:var(--clay); color:#fff; box-shadow:0 6px 16px -8px rgba(201,123,78,.55); }
+  .seg button.on small{ color:rgba(255,255,255,.85); }
+
   .stepper{ display:flex; align-items:center; gap:14px; }
-  .stepper button{ width:42px; height:42px; border:1px solid var(--border); background:#fff; border-radius:10px; font-size:20px; cursor:pointer; color:var(--ink); }
-  .stepper .n{ font-size:18px; font-weight:700; min-width:2ch; text-align:center; }
-  .row{ display:flex; justify-content:space-between; margin:6px 0; font-size:15px; }
-  .total{ display:flex; justify-content:space-between; font-weight:700; font-size:18px; border-top:1px solid var(--border); padding-top:10px; margin-top:10px; }
-  .go{ width:100%; padding:15px; background:var(--clay); color:#fff; border:0; border-radius:12px; font-size:16px; font-weight:700; font-family:var(--sans); cursor:pointer; margin-top:12px; }
-  .go:active{ background:var(--clay-hover); }
+  .stepper button{ width:44px; height:44px; border:1.5px solid var(--border); background:#fff; border-radius:11px; font-size:20px; cursor:pointer; color:var(--ink); }
+  .stepper button:active{ background:var(--clay-soft); }
+  .stepper .n{ font-size:19px; font-weight:700; min-width:2ch; text-align:center; }
+  .stepper .note{ color:var(--muted); font-size:13px; }
+
+  .promo-link{ display:inline-block; margin-top:20px; color:var(--clay); font-size:14px; font-weight:600; cursor:pointer; border:0; background:none; padding:0; font-family:var(--sans); }
+  .promo-wrap{ overflow:hidden; max-height:0; transition:max-height .25s ease; }
+  .promo-wrap.open{ max-height:160px; }
+  .trial{ background:#EEF5EE; color:#456B45; border-radius:10px; padding:10px 12px; font-size:13.5px; margin-top:10px; line-height:1.5; }
+
+  .breakdown{ margin-top:22px; padding-top:18px; border-top:1px solid var(--line); }
+  .row{ display:flex; justify-content:space-between; gap:12px; margin:7px 0; font-size:15px; color:var(--ink); }
+  .row span:last-child{ font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .row .muted{ color:var(--muted); }
+  .total{ display:flex; justify-content:space-between; font-weight:700; font-size:19px; border-top:1px solid var(--border); padding-top:12px; margin-top:12px; }
+
+  .go{ width:100%; padding:16px; background:var(--clay); color:#fff; border:0; border-radius:13px; font-size:16px; font-weight:700; font-family:var(--sans); cursor:pointer; margin-top:18px; }
+  .go:hover{ background:var(--clay-hover); }
   .go[disabled]{ opacity:.5; cursor:not-allowed; }
-  .muted{ color:var(--muted); font-size:13px; } .err{ color:#B4452F; font-size:14px; margin-top:8px; }
-  .trial{ background:#EEF5EE; color:#456B45; border-radius:10px; padding:10px 12px; font-size:14px; margin-top:10px; line-height:1.5; }
+  .trust{ text-align:center; color:var(--soft); font-size:12.5px; margin-top:12px; line-height:1.6; }
+  .err{ color:#B4452F; font-size:14px; margin-top:10px; text-align:center; }
+  .muted{ color:var(--muted); }
+
+  /* commitment + reassurance */
+  .commit{ margin-top:26px; padding:24px; background:#FFFDF9; border:1px solid var(--border); border-radius:var(--r); }
+  .commit h3{ font-family:var(--serif); font-size:21px; font-weight:600; margin:0 0 8px; }
+  .commit p{ color:var(--muted); font-size:14.5px; line-height:1.6; margin:0 0 12px; }
+  .commit p:last-child{ margin-bottom:0; }
+  .commit .keep{ color:var(--ink); }
+  .post{ text-align:center; color:var(--muted); font-size:13.5px; margin-top:20px; line-height:1.6; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Choose your plan</h1>
-  <p class="sub">Start your family's North Star. Your plan includes 1 child; add seats for more children or contributing adults.</p>
 
-  <div class="card">
+  <!-- Hero -->
+  <div class="eyebrow">North Star · Family Learning</div>
+  <h1>A different way to raise learners.</h1>
+  <p class="lede">Not another education app — a calm, intentional path built around who your child is becoming. Their interests. Your family's values. The capabilities that matter for a whole life.</p>
+
+  <!-- Beliefs: the emotional hero -->
+  <div class="beliefs">
+    <div class="beliefs-head">North Star is built on a few firm beliefs.</div>
+    <div class="belief"><span class="tick">✓</span><p>Learning shaped around <b>who your child already is</b> — their interests, strengths and readiness.</p></div>
+    <div class="belief"><span class="tick">✓</span><p>Your family's values woven naturally through everyday learning — <b>never bolted on</b>.</p></div>
+    <div class="belief"><span class="tick">✓</span><p>Real-world capability grown <b>alongside</b> literacy and numeracy, not instead of them.</p></div>
+    <div class="belief"><span class="tick">✓</span><p>Projects that raise <b>capable adults</b>, not just successful students.</p></div>
+    <div class="belief"><span class="tick">✓</span><p>Intelligence that <b>understands your family</b> before it suggests a single thing.</p></div>
+    <div class="belief"><span class="tick">✓</span><p>A calm, intentional alternative to <b>one-size-fits-all</b> schooling.</p></div>
+    <div class="belief"><span class="tick">✓</span><p>Built to grow <b>curiosity, confidence, character and agency</b>.</p></div>
+    <div class="belief"><span class="tick">✓</span><p>Designed for the <b>whole arc of childhood</b> — not a single school year.</p></div>
+  </div>
+
+  <p class="turn">If this is the education you've always believed in,<br>here's how your family begins.</p>
+
+  <!-- Calculator: clean + secondary -->
+  <div class="calc">
+    <h2 class="calc-head">Begin your family's North Star</h2>
+    <p class="calc-sub">Your membership includes your first child. Add more children or supporting adults as your family needs.</p>
+
     <label>Your email</label>
     <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
 
-    <label>Billing</label>
-    <div class="seg" id="interval">
-      <button data-int="month" class="on">Monthly</button>
-      <button data-int="year">Annual</button>
-    </div>
+    <label>How you'd like to pay</label>
+    <div class="seg" id="interval"><div class="muted" style="font-size:13px;padding:6px 2px">Loading…</div></div>
 
     <label>How many children?</label>
-    <div class="stepper"><button data-step-child="-1">−</button><span class="n" id="children">1</span><button data-step-child="1">+</button>
-      <span class="muted" id="child-note">includes 1</span></div>
+    <div class="stepper">
+      <button data-step-child="-1" type="button">−</button>
+      <span class="n" id="children">1</span>
+      <button data-step-child="1" type="button">+</button>
+      <span class="note" id="child-note">Your first child is included.</span>
+    </div>
 
-    <label>Contributing adults <span class="muted">(optional)</span></label>
-    <div class="help">Co-parents, tutors or mentors you invite to help — with permission to generate projects &amp; growth reports. Each is a paid seat.</div>
-    <div class="stepper"><button data-step-adult="-1">−</button><span class="n" id="adults">0</span><button data-step-adult="1">+</button></div>
+    <label>Supporting adults <span class="muted" style="font-weight:600">(optional)</span></label>
+    <div class="help">Co-parents, tutors or mentors who help guide the learning — each can create projects and growth reports.</div>
+    <div class="stepper">
+      <button data-step-adult="-1" type="button">−</button>
+      <span class="n" id="adults">0</span>
+      <button data-step-adult="1" type="button">+</button>
+    </div>
 
-    <label>Promo code <span class="muted">(optional)</span></label>
-    <input id="promo" type="text" placeholder="e.g. your beta code" autocomplete="off" />
-    <div class="trial" id="trial" style="display:none"></div>
-  </div>
+    <button class="promo-link" id="promo-toggle" type="button">Have a beta code?</button>
+    <div class="promo-wrap" id="promo-wrap">
+      <input id="promo" type="text" placeholder="Enter your code" autocomplete="off" style="margin-top:10px" />
+      <div class="trial" id="trial" style="display:none"></div>
+    </div>
 
-  <div class="card">
-    <div id="breakdown"><div class="muted">Loading pricing…</div></div>
+    <div class="breakdown" id="breakdown"></div>
+
     <button class="go" id="go" disabled>Continue to checkout →</button>
+    <div class="trust">Secure payment · Your family's data stays yours · Built for years of learning, not months</div>
     <div class="err" id="err"></div>
-    <p class="muted" style="margin-top:12px">After payment you'll create your North Star account with this email, and your subscription links automatically.</p>
   </div>
+
+  <!-- Commitment + reassurance -->
+  <div class="commit">
+    <h3>A 12-month rhythm — and your journey is always yours</h3>
+    <p>Real human development doesn't happen in 30-day cycles. North Star is a <b class="keep">12-month commitment</b> — paid monthly, quarterly or annually — because growing curiosity, character and capability needs room to unfold.</p>
+    <p class="keep">And the work is never lost. Every project, reflection, portfolio and milestone your family creates stays safely stored.</p>
+    <p>If life ever calls you away, step back whenever you need — and if you return, your family's journey simply continues where it left off. We don't erase years of a childhood because a subscription paused.</p>
+  </div>
+
+  <p class="post">After payment you'll create your North Star account with this email — your membership links automatically.</p>
 </div>
 
 <script type="module">
-  // Stands in for the real marketing site. The live pricing page would make the
-  // same two fetch calls to the public-checkout function.
   const SUPABASE_URL = "https://dsioaopybvbfukouljej.supabase.co";
   const PUBLISHABLE_KEY = "sb_publishable_dtIyt5aJ-7ZRUaxMw2Mseg_uG65wyfv";
   const FN = `${SUPABASE_URL}/functions/v1/public-checkout`;
@@ -92,35 +178,67 @@
     return data;
   }
 
+  // Cadence options — rendered only when their prices are configured in Stripe.
+  const CADENCE = [
+    { key: "month",   label: "Monthly",   per: "/mo",  tag: "" },
+    { key: "quarter", label: "Quarterly", per: "/qtr", tag: "" },
+    { key: "year",    label: "Annual",    per: "/yr",  tag: "Best value" },
+  ];
+  const perOf = (k) => (CADENCE.find(c => c.key === k) || {}).per || "";
+
   let interval = "month", children = 1, adults = 0, prices = null;
   const $ = (id) => document.getElementById(id);
-  const money = (amt, cur="usd") => amt == null ? "—" : new Intl.NumberFormat(undefined,{style:"currency",currency:(cur||"usd").toUpperCase()}).format(amt/100);
+  const money = (amt, cur = "usd") => amt == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: (cur || "usd").toUpperCase() }).format(amt / 100);
+
+  function availableCadences() {
+    return CADENCE.filter(c => prices?.[c.key]?.base);
+  }
 
   function render() {
     $("children").textContent = children;
     $("adults").textContent = adults;
     const extraChild = Math.max(0, children - 1);
-    $("child-note").textContent = extraChild ? `includes 1 + ${extraChild} seat${extraChild>1?"s":""}` : "includes 1";
-    document.querySelectorAll("[data-int]").forEach(b => b.classList.toggle("on", b.dataset.int === interval));
+    $("child-note").textContent = extraChild
+      ? `Your first child + ${extraChild} more`
+      : "Your first child is included.";
+
+    // Cadence selector
+    const avail = availableCadences();
+    if (avail.length && !avail.some(c => c.key === interval)) interval = avail[0].key;
+    $("interval").innerHTML = avail.length
+      ? avail.map(c => `<button type="button" data-int="${c.key}" class="${c.key === interval ? "on" : ""}">${c.label}${c.tag ? `<small>${c.tag}</small>` : ""}</button>`).join("")
+      : `<div class="muted" style="font-size:13px;padding:6px 2px">Pricing is being finalised.</div>`;
+    $("interval").querySelectorAll("[data-int]").forEach(b => b.addEventListener("click", () => { interval = b.dataset.int; render(); }));
 
     const set = prices?.[interval] || {};
     const cur = set.base?.currency || "usd";
-    const per = interval === "year" ? "/yr" : "/mo";
+    const per = perOf(interval);
     const baseAmt = set.base?.amount ?? null, seatAmt = set.seat?.amount ?? null, aiAmt = set.aiseat?.amount ?? null;
-    const total = baseAmt == null ? null : baseAmt + extraChild*(seatAmt||0) + adults*(aiAmt||0);
+    const total = baseAmt == null ? null : baseAmt + extraChild * (seatAmt || 0) + adults * (aiAmt || 0);
 
-    if (!prices) { $("breakdown").innerHTML = `<div class="muted">Loading pricing…</div>`; }
-    else $("breakdown").innerHTML = `
-      <div class="row"><span>Base plan (incl. 1 child)</span><span>${money(baseAmt,cur)}${per}</span></div>
-      ${extraChild>0 ? `<div class="row"><span>${extraChild} × child seat</span><span>${money(seatAmt!=null?seatAmt*extraChild:null,cur)}${per}</span></div>`:""}
-      ${adults>0 ? `<div class="row"><span>${adults} × contributing adult</span><span>${money(aiAmt!=null?aiAmt*adults:null,cur)}${per}</span></div>`:""}
-      <div class="total"><span>Total</span><span>${money(total,cur)}${per}</span></div>`;
+    $("breakdown").innerHTML = !prices ? `<div class="muted" style="font-size:14px">Loading pricing…</div>` : `
+      <div class="row"><span>Base membership · your first child</span><span>${money(baseAmt, cur)}${per}</span></div>
+      ${extraChild > 0 ? `<div class="row"><span class="muted">${extraChild} additional ${extraChild === 1 ? "child" : "children"}</span><span>${money(seatAmt != null ? seatAmt * extraChild : null, cur)}${per}</span></div>` : ""}
+      ${adults > 0 ? `<div class="row"><span class="muted">${adults} supporting ${adults === 1 ? "adult" : "adults"}</span><span>${money(aiAmt != null ? aiAmt * adults : null, cur)}${per}</span></div>` : ""}
+      <div class="total"><span>Total</span><span>${money(total, cur)}${per}</span></div>`;
     $("go").disabled = !prices || baseAmt == null;
   }
 
-  document.querySelectorAll("[data-int]").forEach(b => b.addEventListener("click", () => { interval = b.dataset.int; render(); }));
   document.querySelectorAll("[data-step-child]").forEach(b => b.addEventListener("click", () => { children = Math.max(1, children + (+b.dataset.stepChild)); render(); }));
   document.querySelectorAll("[data-step-adult]").forEach(b => b.addEventListener("click", () => { adults = Math.max(0, adults + (+b.dataset.stepAdult)); render(); }));
+
+  // Promo collapse
+  $("promo-toggle").addEventListener("click", () => {
+    const w = $("promo-wrap");
+    const open = w.classList.toggle("open");
+    $("promo-toggle").textContent = open ? "Hide beta code" : "Have a beta code?";
+    if (open) $("promo").focus();
+  });
+  $("promo").addEventListener("input", () => {
+    const v = $("promo").value.trim();
+    $("trial").style.display = v ? "block" : "none";
+    if (v) $("trial").textContent = "If this is a valid beta code, your first 30 days are free — then your chosen plan begins, with your 12-month membership.";
+  });
 
   $("go").addEventListener("click", async () => {
     $("err").textContent = "";
@@ -137,14 +255,6 @@
       $("err").textContent = e.message || "Couldn't start checkout.";
       $("go").disabled = false; $("go").textContent = "Continue to checkout →";
     }
-  });
-
-  // Show a hint when the entered promo unlocks the free trial (purely cosmetic;
-  // the real trial is applied server-side at checkout).
-  $("promo").addEventListener("input", () => {
-    const v = $("promo").value.trim();
-    $("trial").style.display = v ? "block" : "none";
-    if (v) $("trial").textContent = "If this is a valid beta code, you'll get 30 days free — then your selected plan bills automatically unless you cancel.";
   });
 
   try { prices = await call("prices"); } catch (e) { $("err").textContent = e.message; }
