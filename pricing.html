@@ -14,46 +14,80 @@
 <style>
   :root{
     --cream:#FBF6EE; --card:#FFFFFF; --ink:#2D2317; --muted:#7A6F60; --soft:#9C8F7C;
-    --clay:#C97B4E; --clay-hover:#B36A3F; --clay-soft:#FBEFE6; --sage:#7FA68A; --navy:#2C3D5E;
-    --border:#EADFCD; --line:#F0E8DA; --r:16px;
+    --clay:#C97B4E; --clay-hover:#B36A3F; --clay-soft:#FBEFE6;
+    --sage:#7FA68A; --navy:#2C3D5E; --navy-deep:#1B2538; --starlight:#F4E9C5;
+    --border:#EADFCD; --line:#F0E8DA; --r:18px;
     --serif:"Cormorant Garamond",Georgia,serif; --sans:"Mulish",system-ui,-apple-system,"Segoe UI",sans-serif;
   }
   *{ box-sizing:border-box; }
   body{ margin:0; font-family:var(--sans); background:var(--cream); color:var(--ink); -webkit-font-smoothing:antialiased; line-height:1.5; }
-  .wrap{ max-width:640px; margin:0 auto; padding:64px 22px 96px; }
+  .wrap{ max-width:680px; margin:0 auto; padding:72px 22px 110px; }
+  .center{ text-align:center; }
 
   /* ---- Hero ---- */
-  .eyebrow{ font-size:12px; letter-spacing:0.22em; text-transform:uppercase; color:var(--clay); font-weight:700; margin-bottom:18px; }
-  h1{ font-family:var(--serif); font-weight:500; font-size:clamp(34px,8vw,50px); line-height:1.06; letter-spacing:0; margin:0 0 18px; }
-  .lede{ color:var(--muted); margin:0; font-size:clamp(16px,4.4vw,18px); line-height:1.6; max-width:30em; }
+  .eyebrow{ font-size:12px; letter-spacing:0.24em; text-transform:uppercase; color:var(--clay); font-weight:700; margin-bottom:20px; }
+  h1{ font-family:var(--serif); font-weight:500; font-size:clamp(36px,8.4vw,54px); line-height:1.04; letter-spacing:0; margin:0 0 20px; }
+  .lede{ color:var(--muted); margin:0 auto; font-size:clamp(16px,4.4vw,18.5px); line-height:1.62; max-width:32em; }
 
-  /* ---- Beliefs (the emotional hero) ---- */
-  .beliefs{ margin:54px 0 12px; }
-  .beliefs-head{ font-family:var(--serif); font-style:italic; font-size:21px; color:var(--ink); margin-bottom:22px; }
-  .belief{ display:flex; gap:14px; align-items:flex-start; padding:15px 0; border-top:1px solid var(--line); }
+  /* ---- Beliefs ---- */
+  .beliefs{ margin:60px auto 0; max-width:30em; }
+  .beliefs-head{ font-family:var(--serif); font-style:italic; font-size:22px; color:var(--ink); margin-bottom:24px; text-align:center; }
+  .belief{ display:flex; gap:15px; align-items:flex-start; padding:16px 0; border-top:1px solid var(--line); }
   .belief:first-of-type{ border-top:none; padding-top:0; }
-  .tick{ flex:none; width:24px; height:24px; border-radius:50%; background:var(--clay-soft); color:var(--clay);
+  .tick{ flex:none; width:25px; height:25px; border-radius:50%; background:var(--clay-soft); color:var(--clay);
          display:grid; place-items:center; font-size:13px; font-weight:700; margin-top:1px; }
-  .belief p{ margin:0; font-size:16.5px; line-height:1.5; color:var(--ink); }
+  .belief p{ margin:0; font-size:17px; line-height:1.5; color:var(--ink); }
   .belief b{ font-weight:700; }
-  .turn{ margin:40px 0 8px; font-family:var(--serif); font-size:22px; font-style:italic; color:var(--navy); text-align:center; line-height:1.4; }
 
-  /* ---- Calculator (clean, secondary) ---- */
-  .calc{ background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:26px 24px; box-shadow:0 1px 3px rgba(45,35,23,0.05); margin-top:26px; }
-  .calc-head{ font-family:var(--serif); font-size:24px; font-weight:600; margin:0 0 4px; }
-  .calc-sub{ color:var(--muted); font-size:14px; margin:0 0 20px; }
-  label{ display:block; font-weight:700; margin:18px 0 8px; font-size:14px; }
-  .help{ color:var(--muted); font-size:13px; line-height:1.5; margin:-2px 0 10px; }
+  /* ---- Section divider line ---- */
+  .turn{ margin:64px auto 0; font-family:var(--serif); font-size:24px; font-style:italic; color:var(--navy); text-align:center; line-height:1.42; max-width:24em; }
+
+  /* ---- Membership ---- */
+  .members{ margin-top:44px; }
+  .members-eyebrow{ font-size:12px; letter-spacing:0.24em; text-transform:uppercase; color:var(--soft); font-weight:700; text-align:center; margin-bottom:10px; }
+  .members-head{ font-family:var(--serif); font-weight:500; font-size:clamp(28px,6.4vw,38px); text-align:center; margin:0 0 8px; line-height:1.1; }
+  .members-sub{ color:var(--muted); text-align:center; font-size:15.5px; margin:0 auto 34px; max-width:28em; }
+
+  .cards{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  @media (max-width:560px){ .cards{ grid-template-columns:1fr; } }
+  .plan{ position:relative; background:var(--card); border:1.5px solid var(--border); border-radius:var(--r);
+         padding:30px 26px 28px; text-align:center; cursor:pointer; transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+         display:flex; flex-direction:column; }
+  .plan:hover{ transform:translateY(-3px); box-shadow:0 18px 40px -22px rgba(45,35,23,.4); }
+  .plan.selected{ border-color:var(--clay); box-shadow:0 18px 40px -22px rgba(201,123,78,.5); }
+  .plan .star{ font-size:18px; color:var(--clay); margin-bottom:10px; line-height:1; }
+  .plan-name{ font-family:var(--serif); font-size:25px; font-weight:600; margin:0 0 4px; }
+  .plan-price{ font-family:var(--serif); font-size:40px; font-weight:600; line-height:1; margin:14px 0 2px; }
+  .plan-per{ color:var(--muted); font-size:13.5px; margin-bottom:14px; }
+  .plan-desc{ color:var(--muted); font-size:14px; line-height:1.55; margin:0 auto 22px; max-width:22em; flex:1; }
+  .plan-cta{ width:100%; padding:14px; border-radius:12px; border:1.5px solid var(--clay); background:transparent; color:var(--clay);
+             font-family:var(--sans); font-weight:700; font-size:15px; cursor:pointer; transition:all .15s ease; }
+  .plan:hover .plan-cta, .plan.selected .plan-cta{ background:var(--clay); color:#fff; }
+
+  /* featured (Annual) — dark navy */
+  .plan.featured{ background:linear-gradient(160deg,var(--navy) 0%, var(--navy-deep) 100%); border-color:var(--navy-deep); color:#fff; }
+  .plan.featured .plan-name, .plan.featured .plan-price{ color:#fff; }
+  .plan.featured .plan-per, .plan.featured .plan-desc{ color:#C9D2E2; }
+  .plan.featured .star{ color:var(--starlight); }
+  .plan.featured .plan-cta{ border-color:var(--starlight); background:var(--starlight); color:var(--navy-deep); }
+  .plan.featured:hover .plan-cta, .plan.featured.selected .plan-cta{ background:#fff; border-color:#fff; }
+  .plan.featured.selected{ border-color:var(--starlight); box-shadow:0 20px 44px -20px rgba(27,37,56,.6); }
+  .ribbon{ position:absolute; top:16px; right:-1px; background:var(--starlight); color:var(--navy-deep); font-size:11px; font-weight:700;
+           letter-spacing:.08em; text-transform:uppercase; padding:5px 12px; border-radius:8px 0 0 8px; }
+
+  /* ---- Configurator (progressive disclosure) ---- */
+  .config{ overflow:hidden; max-height:0; opacity:0; transition:max-height .4s ease, opacity .3s ease, margin .4s ease; }
+  .config.open{ max-height:1400px; opacity:1; margin-top:26px; }
+  .calc{ background:var(--card); border:1px solid var(--border); border-radius:var(--r); padding:30px 26px; box-shadow:0 1px 3px rgba(45,35,23,0.05); }
+  .calc-head{ font-family:var(--serif); font-size:25px; font-weight:600; margin:0 0 4px; text-align:center; }
+  .calc-sub{ color:var(--muted); font-size:14px; margin:0 auto 8px; text-align:center; max-width:26em; }
+  .chosen{ text-align:center; font-size:13px; color:var(--clay); font-weight:700; margin-bottom:22px; }
+  .chosen button{ background:none; border:0; color:var(--soft); font-family:var(--sans); font-size:12.5px; font-weight:600; cursor:pointer; text-decoration:underline; margin-left:6px; }
+
+  label{ display:block; font-weight:700; margin:20px 0 8px; font-size:14px; }
+  .help{ color:var(--muted); font-size:13px; line-height:1.5; margin:-3px 0 10px; }
   input[type=email], input[type=text]{ width:100%; padding:13px 14px; border:1px solid var(--border); border-radius:11px; font-size:16px; font-family:var(--sans); background:#FFFDF9; }
   input::placeholder{ color:#B6A88F; }
-
-  /* billing cadence — more weight, unmistakable active state */
-  .seg{ display:flex; gap:8px; }
-  .seg button{ flex:1; padding:14px 8px; border:1.5px solid var(--border); background:#fff; border-radius:12px; cursor:pointer;
-               font-family:var(--sans); font-weight:700; color:var(--ink); font-size:15px; line-height:1.2; transition:all .15s ease; position:relative; }
-  .seg button small{ display:block; font-weight:600; font-size:11px; color:var(--soft); margin-top:3px; }
-  .seg button.on{ border-color:var(--clay); background:var(--clay); color:#fff; box-shadow:0 6px 16px -8px rgba(201,123,78,.55); }
-  .seg button.on small{ color:rgba(255,255,255,.85); }
 
   .stepper{ display:flex; align-items:center; gap:14px; }
   .stepper button{ width:44px; height:44px; border:1.5px solid var(--border); background:#fff; border-radius:11px; font-size:20px; cursor:pointer; color:var(--ink); }
@@ -61,42 +95,48 @@
   .stepper .n{ font-size:19px; font-weight:700; min-width:2ch; text-align:center; }
   .stepper .note{ color:var(--muted); font-size:13px; }
 
-  .promo-link{ display:inline-block; margin-top:20px; color:var(--clay); font-size:14px; font-weight:600; cursor:pointer; border:0; background:none; padding:0; font-family:var(--sans); }
+  .promo-link{ display:inline-block; margin-top:22px; color:var(--clay); font-size:14px; font-weight:600; cursor:pointer; border:0; background:none; padding:0; font-family:var(--sans); }
   .promo-wrap{ overflow:hidden; max-height:0; transition:max-height .25s ease; }
-  .promo-wrap.open{ max-height:160px; }
+  .promo-wrap.open{ max-height:180px; }
   .trial{ background:#EEF5EE; color:#456B45; border-radius:10px; padding:10px 12px; font-size:13.5px; margin-top:10px; line-height:1.5; }
 
-  .breakdown{ margin-top:22px; padding-top:18px; border-top:1px solid var(--line); }
+  .breakdown{ margin-top:24px; padding-top:20px; border-top:1px solid var(--line); }
   .row{ display:flex; justify-content:space-between; gap:12px; margin:7px 0; font-size:15px; color:var(--ink); }
   .row span:last-child{ font-variant-numeric:tabular-nums; white-space:nowrap; }
   .row .muted{ color:var(--muted); }
   .total{ display:flex; justify-content:space-between; font-weight:700; font-size:19px; border-top:1px solid var(--border); padding-top:12px; margin-top:12px; }
 
-  .go{ width:100%; padding:16px; background:var(--clay); color:#fff; border:0; border-radius:13px; font-size:16px; font-weight:700; font-family:var(--sans); cursor:pointer; margin-top:18px; }
+  .go{ width:100%; padding:17px; background:var(--clay); color:#fff; border:0; border-radius:13px; font-size:16px; font-weight:700; font-family:var(--sans); cursor:pointer; margin-top:20px; }
   .go:hover{ background:var(--clay-hover); }
   .go[disabled]{ opacity:.5; cursor:not-allowed; }
-  .trust{ text-align:center; color:var(--soft); font-size:12.5px; margin-top:12px; line-height:1.6; }
+  .trust{ text-align:center; color:var(--soft); font-size:12.5px; margin-top:14px; line-height:1.7; }
   .err{ color:#B4452F; font-size:14px; margin-top:10px; text-align:center; }
   .muted{ color:var(--muted); }
 
   /* commitment + reassurance */
-  .commit{ margin-top:26px; padding:24px; background:#FFFDF9; border:1px solid var(--border); border-radius:var(--r); }
-  .commit h3{ font-family:var(--serif); font-size:21px; font-weight:600; margin:0 0 8px; }
-  .commit p{ color:var(--muted); font-size:14.5px; line-height:1.6; margin:0 0 12px; }
+  .commit{ margin-top:44px; padding:30px 28px; background:#FFFDF9; border:1px solid var(--border); border-radius:var(--r); }
+  .commit h3{ font-family:var(--serif); font-size:23px; font-weight:600; margin:0 0 10px; text-align:center; }
+  .commit p{ color:var(--muted); font-size:14.5px; line-height:1.62; margin:0 0 12px; text-align:center; max-width:34em; margin-left:auto; margin-right:auto; }
   .commit p:last-child{ margin-bottom:0; }
   .commit .keep{ color:var(--ink); }
-  .post{ text-align:center; color:var(--muted); font-size:13.5px; margin-top:20px; line-height:1.6; }
+
+  .post{ text-align:center; color:var(--muted); font-size:13.5px; margin-top:24px; line-height:1.6; }
+  .closing{ margin-top:64px; text-align:center; }
+  .closing .q{ font-family:var(--serif); font-style:italic; font-size:clamp(22px,5.6vw,30px); color:var(--navy); line-height:1.32; margin:0; }
+  .closing .lead-in{ font-size:13px; letter-spacing:0.16em; text-transform:uppercase; color:var(--soft); font-weight:700; margin-bottom:14px; }
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <!-- Hero -->
-  <div class="eyebrow">North Star · Family Learning</div>
-  <h1>A different way to raise learners.</h1>
-  <p class="lede">Not another education app — a calm, intentional path built around who your child is becoming. Their interests. Your family's values. The capabilities that matter for a whole life.</p>
+  <div class="center">
+    <div class="eyebrow">North Star · Family Learning</div>
+    <h1>A different way<br>to raise learners.</h1>
+    <p class="lede">Not another education app — a calm, intentional path built around who your child is becoming. Their interests. Your family's values. The capabilities that matter for a whole life.</p>
+  </div>
 
-  <!-- Beliefs: the emotional hero -->
+  <!-- Beliefs -->
   <div class="beliefs">
     <div class="beliefs-head">North Star is built on a few firm beliefs.</div>
     <div class="belief"><span class="tick">✓</span><p>Learning shaped around <b>who your child already is</b> — their interests, strengths and readiness.</p></div>
@@ -104,62 +144,77 @@
     <div class="belief"><span class="tick">✓</span><p>Real-world capability grown <b>alongside</b> literacy and numeracy, not instead of them.</p></div>
     <div class="belief"><span class="tick">✓</span><p>Projects that raise <b>capable adults</b>, not just successful students.</p></div>
     <div class="belief"><span class="tick">✓</span><p>Intelligence that <b>understands your family</b> before it suggests a single thing.</p></div>
-    <div class="belief"><span class="tick">✓</span><p>A calm, intentional alternative to <b>one-size-fits-all</b> schooling.</p></div>
-    <div class="belief"><span class="tick">✓</span><p>Built to grow <b>curiosity, confidence, character and agency</b>.</p></div>
     <div class="belief"><span class="tick">✓</span><p>Designed for the <b>whole arc of childhood</b> — not a single school year.</p></div>
   </div>
 
   <p class="turn">If this is the education you've always believed in,<br>here's how your family begins.</p>
 
-  <!-- Calculator: clean + secondary -->
-  <div class="calc">
-    <h2 class="calc-head">Begin your family's North Star</h2>
-    <p class="calc-sub">Your membership includes your first child. Add more children or supporting adults as your family needs.</p>
+  <!-- Membership -->
+  <div class="members">
+    <div class="members-eyebrow">Join North Star</div>
+    <h2 class="members-head">Choose your membership</h2>
+    <p class="members-sub">Your membership includes your first child. Add more children or supporting adults once you've begun.</p>
 
-    <label>Your email</label>
-    <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
-
-    <label>How you'd like to pay</label>
-    <div class="seg" id="interval"><div class="muted" style="font-size:13px;padding:6px 2px">Loading…</div></div>
-
-    <label>How many children?</label>
-    <div class="stepper">
-      <button data-step-child="-1" type="button">−</button>
-      <span class="n" id="children">1</span>
-      <button data-step-child="1" type="button">+</button>
-      <span class="note" id="child-note">Your first child is included.</span>
+    <div class="cards" id="cards">
+      <div class="muted center" style="grid-column:1/-1;font-size:14px;padding:20px">Loading membership…</div>
     </div>
 
-    <label>Supporting adults <span class="muted" style="font-weight:600">(optional)</span></label>
-    <div class="help">Co-parents, tutors or mentors who help guide the learning — each can create projects and growth reports.</div>
-    <div class="stepper">
-      <button data-step-adult="-1" type="button">−</button>
-      <span class="n" id="adults">0</span>
-      <button data-step-adult="1" type="button">+</button>
+    <!-- Progressive disclosure: appears only once a membership is chosen -->
+    <div class="config" id="config">
+      <div class="calc">
+        <h3 class="calc-head">Begin your family's journey</h3>
+        <p class="calc-sub">A few details and you're ready. You can change everything later.</p>
+        <div class="chosen" id="chosen"></div>
+
+        <label>Your email</label>
+        <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
+
+        <label>How many children?</label>
+        <div class="stepper">
+          <button data-step-child="-1" type="button">−</button>
+          <span class="n" id="children">1</span>
+          <button data-step-child="1" type="button">+</button>
+          <span class="note" id="child-note">Your first child is included.</span>
+        </div>
+
+        <label>Supporting adults <span class="muted" style="font-weight:600">(optional)</span></label>
+        <div class="help">Co-parents, tutors or mentors who help guide the learning — each can create projects and growth reports.</div>
+        <div class="stepper">
+          <button data-step-adult="-1" type="button">−</button>
+          <span class="n" id="adults">0</span>
+          <button data-step-adult="1" type="button">+</button>
+        </div>
+
+        <button class="promo-link" id="promo-toggle" type="button">Have a beta code?</button>
+        <div class="promo-wrap" id="promo-wrap">
+          <input id="promo" type="text" placeholder="Enter your code" autocomplete="off" style="margin-top:10px" />
+          <div class="trial" id="trial" style="display:none"></div>
+        </div>
+
+        <div class="breakdown" id="breakdown"></div>
+
+        <button class="go" id="go" type="button">Continue →</button>
+        <div class="trust">Secure payment · Your family's data stays yours · Built for years of learning, not months</div>
+        <div class="err" id="err"></div>
+      </div>
     </div>
-
-    <button class="promo-link" id="promo-toggle" type="button">Have a beta code?</button>
-    <div class="promo-wrap" id="promo-wrap">
-      <input id="promo" type="text" placeholder="Enter your code" autocomplete="off" style="margin-top:10px" />
-      <div class="trial" id="trial" style="display:none"></div>
-    </div>
-
-    <div class="breakdown" id="breakdown"></div>
-
-    <button class="go" id="go" disabled>Continue to checkout →</button>
-    <div class="trust">Secure payment · Your family's data stays yours · Built for years of learning, not months</div>
-    <div class="err" id="err"></div>
   </div>
 
   <!-- Commitment + reassurance -->
   <div class="commit">
     <h3>A 12-month rhythm — and your journey is always yours</h3>
-    <p>Real human development doesn't happen in 30-day cycles. North Star is a <b class="keep">12-month commitment</b> — paid monthly, quarterly or annually — because growing curiosity, character and capability needs room to unfold.</p>
+    <p>Real human development doesn't happen in 30-day cycles. North Star is a <b class="keep">12-month commitment</b> — because growing curiosity, character and capability needs room to unfold, and because a full year lets North Star truly come to know your family.</p>
     <p class="keep">And the work is never lost. Every project, reflection, portfolio and milestone your family creates stays safely stored.</p>
-    <p>If life ever calls you away, step back whenever you need — and if you return, your family's journey simply continues where it left off. We don't erase years of a childhood because a subscription paused.</p>
+    <p>If life ever calls you away, pause whenever you need — and if you return, your family's journey simply continues where it left off. We don't erase years of a childhood because a subscription paused.</p>
   </div>
 
   <p class="post">After payment you'll create your North Star account with this email — your membership links automatically.</p>
+
+  <!-- Closing -->
+  <div class="closing">
+    <div class="lead-in">Everything we build begins with one question</div>
+    <p class="q">Who is this child becoming?</p>
+  </div>
 </div>
 
 <script type="module">
@@ -178,54 +233,83 @@
     return data;
   }
 
-  // Cadence options — rendered only when their prices are configured in Stripe.
-  const CADENCE = [
-    { key: "month",   label: "Monthly",   per: "/mo",  tag: "" },
-    { key: "quarter", label: "Quarterly", per: "/qtr", tag: "" },
-    { key: "year",    label: "Annual",    per: "/yr",  tag: "Best value" },
+  // Two cadences become two cards. Annual is the featured (navy) card.
+  const PLANS = [
+    { key: "month", name: "Monthly", per: "per month", desc: "A flexible month-to-month rhythm. Stay as long as it serves your family." },
+    { key: "year",  name: "Annual",  per: "per year",  desc: "Our best value — one simple payment for a full year of growth.", featured: true, tag: "Best value" },
   ];
-  const perOf = (k) => (CADENCE.find(c => c.key === k) || {}).per || "";
+  const planOf = (k) => PLANS.find(p => p.key === k) || {};
 
-  let interval = "month", children = 1, adults = 0, prices = null;
+  let interval = null, children = 1, adults = 0, prices = null;
   const $ = (id) => document.getElementById(id);
   const money = (amt, cur = "usd") => amt == null ? "—" : new Intl.NumberFormat(undefined, { style: "currency", currency: (cur || "usd").toUpperCase() }).format(amt / 100);
+  const availablePlans = () => PLANS.filter(p => prices?.[p.key]?.base);
 
-  function availableCadences() {
-    return CADENCE.filter(c => prices?.[c.key]?.base);
+  function renderCards() {
+    const avail = availablePlans();
+    if (!prices) { $("cards").innerHTML = `<div class="muted center" style="grid-column:1/-1;font-size:14px;padding:20px">Loading membership…</div>`; return; }
+    if (!avail.length) { $("cards").innerHTML = `<div class="muted center" style="grid-column:1/-1;font-size:14px;padding:20px">Memberships are being finalised — please check back shortly.</div>`; return; }
+
+    $("cards").innerHTML = avail.map(p => {
+      const set = prices[p.key] || {};
+      const cur = set.base?.currency || "usd";
+      return `
+        <div class="plan ${p.featured ? "featured" : ""} ${interval === p.key ? "selected" : ""}" data-plan="${p.key}">
+          ${p.tag ? `<div class="ribbon">${p.tag}</div>` : ""}
+          <div class="star">✦</div>
+          <div class="plan-name">${p.name}</div>
+          <div class="plan-price">${money(set.base?.amount ?? null, cur)}</div>
+          <div class="plan-per">${p.per} · your first child included</div>
+          <div class="plan-desc">${p.desc}</div>
+          <button class="plan-cta" type="button">${interval === p.key ? "Selected ✓" : "Choose " + p.name}</button>
+        </div>`;
+    }).join("");
+
+    $("cards").querySelectorAll("[data-plan]").forEach(card =>
+      card.addEventListener("click", () => choose(card.dataset.plan)));
   }
 
-  function render() {
-    $("children").textContent = children;
-    $("adults").textContent = adults;
-    const extraChild = Math.max(0, children - 1);
-    $("child-note").textContent = extraChild
-      ? `Your first child + ${extraChild} more`
-      : "Your first child is included.";
+  function choose(key) {
+    interval = key;
+    renderCards();
+    renderConfig();
+    $("config").classList.add("open");
+    // Gently bring the configurator into view.
+    setTimeout(() => $("config").scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+  }
 
-    // Cadence selector
-    const avail = availableCadences();
-    if (avail.length && !avail.some(c => c.key === interval)) interval = avail[0].key;
-    $("interval").innerHTML = avail.length
-      ? avail.map(c => `<button type="button" data-int="${c.key}" class="${c.key === interval ? "on" : ""}">${c.label}${c.tag ? `<small>${c.tag}</small>` : ""}</button>`).join("")
-      : `<div class="muted" style="font-size:13px;padding:6px 2px">Pricing is being finalised.</div>`;
-    $("interval").querySelectorAll("[data-int]").forEach(b => b.addEventListener("click", () => { interval = b.dataset.int; render(); }));
-
+  function renderConfig() {
+    if (!interval) return;
+    const p = planOf(interval);
     const set = prices?.[interval] || {};
     const cur = set.base?.currency || "usd";
-    const per = perOf(interval);
+    const extraChild = Math.max(0, children - 1);
+
+    $("children").textContent = children;
+    $("adults").textContent = adults;
+    $("child-note").textContent = extraChild ? `Your first child + ${extraChild} more` : "Your first child is included.";
+    $("chosen").innerHTML = `${p.name} membership · ${money(set.base?.amount ?? null, cur)} ${p.per}
+      <button type="button" id="change-plan">change</button>`;
+    $("change-plan").addEventListener("click", () => {
+      $("config").classList.remove("open");
+      interval = null; renderCards();
+      document.querySelector(".members-head").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+
     const baseAmt = set.base?.amount ?? null, seatAmt = set.seat?.amount ?? null, aiAmt = set.aiseat?.amount ?? null;
     const total = baseAmt == null ? null : baseAmt + extraChild * (seatAmt || 0) + adults * (aiAmt || 0);
+    const per = p.per === "per year" ? "/yr" : "/mo";
 
-    $("breakdown").innerHTML = !prices ? `<div class="muted" style="font-size:14px">Loading pricing…</div>` : `
+    $("breakdown").innerHTML = `
       <div class="row"><span>Base membership · your first child</span><span>${money(baseAmt, cur)}${per}</span></div>
       ${extraChild > 0 ? `<div class="row"><span class="muted">${extraChild} additional ${extraChild === 1 ? "child" : "children"}</span><span>${money(seatAmt != null ? seatAmt * extraChild : null, cur)}${per}</span></div>` : ""}
       ${adults > 0 ? `<div class="row"><span class="muted">${adults} supporting ${adults === 1 ? "adult" : "adults"}</span><span>${money(aiAmt != null ? aiAmt * adults : null, cur)}${per}</span></div>` : ""}
       <div class="total"><span>Total</span><span>${money(total, cur)}${per}</span></div>`;
-    $("go").disabled = !prices || baseAmt == null;
+    $("go").disabled = baseAmt == null;
   }
 
-  document.querySelectorAll("[data-step-child]").forEach(b => b.addEventListener("click", () => { children = Math.max(1, children + (+b.dataset.stepChild)); render(); }));
-  document.querySelectorAll("[data-step-adult]").forEach(b => b.addEventListener("click", () => { adults = Math.max(0, adults + (+b.dataset.stepAdult)); render(); }));
+  document.querySelectorAll("[data-step-child]").forEach(b => b.addEventListener("click", () => { children = Math.max(1, children + (+b.dataset.stepChild)); renderConfig(); }));
+  document.querySelectorAll("[data-step-adult]").forEach(b => b.addEventListener("click", () => { adults = Math.max(0, adults + (+b.dataset.stepAdult)); renderConfig(); }));
 
   // Promo collapse
   $("promo-toggle").addEventListener("click", () => {
@@ -237,11 +321,12 @@
   $("promo").addEventListener("input", () => {
     const v = $("promo").value.trim();
     $("trial").style.display = v ? "block" : "none";
-    if (v) $("trial").textContent = "If this is a valid beta code, your first 30 days are free — then your chosen plan begins, with your 12-month membership.";
+    if (v) $("trial").textContent = "If this is a valid beta code, your first 30 days are free — then your chosen membership begins. Beta families have no 12-month commitment.";
   });
 
   $("go").addEventListener("click", async () => {
     $("err").textContent = "";
+    if (!interval) { $("err").textContent = "Please choose a membership above."; return; }
     const email = $("email").value.trim();
     if (!email) { $("err").textContent = "Please enter your email."; return; }
     $("go").disabled = true; $("go").textContent = "Redirecting…";
@@ -253,12 +338,12 @@
       window.location.href = url;
     } catch (e) {
       $("err").textContent = e.message || "Couldn't start checkout.";
-      $("go").disabled = false; $("go").textContent = "Continue to checkout →";
+      $("go").disabled = false; $("go").textContent = "Continue →";
     }
   });
 
   try { prices = await call("prices"); } catch (e) { $("err").textContent = e.message; }
-  render();
+  renderCards();
 </script>
 </body>
 </html>
