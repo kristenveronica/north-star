@@ -711,9 +711,16 @@ ${refine
 const REFLECTION_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["reflection", "strengths", "opportunity", "evolutionPrompt"],
+  required: ["reflection", "coreWordLived", "strengths", "opportunity", "evolutionPrompt"],
   properties: {
     reflection: { type: "array", items: { type: "string" } },   // 3–5 narrative observations
+    coreWordLived: {
+      type: "array",
+      items: {
+        type: "object", additionalProperties: false, required: ["letter", "quality", "evidence"],
+        properties: { letter: { type: "string" }, quality: { type: "string" }, evidence: { type: "string" } },
+      },
+    },
     strengths: {
       type: "array",
       items: {
@@ -759,6 +766,12 @@ Return:
   vision — showed up again and again: in the bird study, in the questions logged in reflections…". Tie to
   the family's actual Core Word meanings and Credo wherever the evidence supports it. Honest about what
   was light, never deficit-framed.
+- "coreWordLived": which of the family's CORE WORD qualities (each letter's meaning, listed above) THIS
+  child GENUINELY lived this quarter — its letter, the quality exactly as written, and ONE concrete
+  sentence of evidence naming the specific project/action. SINCERITY RULE: include a quality ONLY with
+  clear, specific evidence; it's far better to return an EMPTY list than to force a connection — families
+  instantly sense an insincere one. The evidence must be a real observed action, never a restatement of
+  the quality. At most 4, strongest only. Empty list is a perfectly good answer.
 - "strengths": 2–4 PATTERNS (not isolated wins) that show the family's vision becoming real, each a
   {title, detail}. Detail cites concrete evidence from the quarter.
 - "opportunity": ONE or TWO meaningful growth areas for next quarter, each {focus, why}. "why" must connect

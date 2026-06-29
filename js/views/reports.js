@@ -319,6 +319,8 @@ export function renderReportDetail(container, params) {
 
       ${section(1, "Your Family Compass", renderFamilyCompass(s.family))}
 
+      ${renderCoreWordLived(report.aiReflection?.coreWordLived, s.family)}
+
       ${section(2, "Reflection Against Your Vision", report.aiReflection?.reflection?.length
         ? renderAiReflection(report.aiReflection, report.sections.visionAlignment, s.family)
         : renderVisionAlignment(report.sections.visionAlignment, s.family))}
@@ -447,6 +449,23 @@ function renderOpportunity(recs, family) {
         </div>`).join("")}
     </div>
     ${family?.coreWord ? `<p class="small text-muted" style="margin-top:12px;font-style:italic">Each of these moves <b>${esc(family.coreWord)}</b> from words on a page toward lived reality.</p>` : ""}`;
+}
+
+/* "How you lived your Core Word this quarter" — only shown when the AI found
+   genuine, specific evidence (it returns an empty list rather than force one). */
+function renderCoreWordLived(lived, family) {
+  if (!lived?.length) return "";
+  return `
+    <div class="card mb-3" style="background:linear-gradient(120deg, #FCEBD8, #FFFCF6);border-color:var(--primary-soft)">
+      <div class="small text-muted" style="letter-spacing:0.1em;text-transform:uppercase;margin-bottom:14px">How you lived ${esc(family?.coreWord || "your Core Word")} this quarter</div>
+      <div class="stack" style="gap:12px">
+        ${lived.map(c => `
+          <div class="row" style="gap:12px;align-items:flex-start">
+            <span class="brand-mark" style="flex-shrink:0;margin-top:1px">${esc(c.letter)}</span>
+            <div><span class="fw-700">${esc(c.quality)}</span> — ${esc(c.evidence)}</div>
+          </div>`).join("")}
+      </div>
+    </div>`;
 }
 
 /* AI narrative reflection against the family's vision, with the heuristic
