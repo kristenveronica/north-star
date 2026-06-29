@@ -266,8 +266,14 @@ async function claimSubscription(familyId: string, userEmail: string, sessionId:
   await stripe.customers.update(customerId, { metadata: { family_id: familyId } });
   const sub = await stripe.subscriptions.retrieve(subId);
   await stripe.subscriptions.update(subId, { metadata: { ...(sub.metadata || {}), family_id: familyId } });
+  await persistSubscription(familyId, customerId, sub);
+  return json({ ok: true, status: sub.status, trialEnd: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null });
+}
 
-  // Write the current shape into family_billing now (trigger sets the child limit).
+/** Write a subscription's current shape into family_billing (trigger sets the
+    child limit). Shared by claim-subscription and claim-by-email. */
+// deno-lint-ignore no-explicit-any
+async function persistSubscription(familyId: string, customerId: string, sub: any) {
   const seatIds = new Set([env("STRIPE_PRICE_SEAT_MONTH"), env("STRIPE_PRICE_SEAT_YEAR")].filter(Boolean));
   let extraSeats = 0;
   let interval: string | null = null;
@@ -279,7 +285,7 @@ async function claimSubscription(familyId: string, userEmail: string, sessionId:
   await admin.from("family_billing").upsert({
     family_id: familyId,
     stripe_customer_id: customerId,
-    stripe_subscription_id: subId,
+    stripe_subscription_id: sub.id,
     base_interval: interval === "year" ? "year" : "month",
     extra_seats: extraSeats,
     status: sub.status,
@@ -290,8 +296,33 @@ async function claimSubscription(familyId: string, userEmail: string, sessionId:
     cancel_at_period_end: commit.cancelAtPeriodEnd,
     updated_at: new Date().toISOString(),
   }, { onConflict: "family_id" });
+}
 
-  return json({ ok: true, status: sub.status, trialEnd: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null });
+/** Fallback claim for a paid user who returns WITHOUT a checkout session (e.g.
+    cleared storage / new device): find a live subscription for their verified
+    JWT email and link it to this family, if not already linked elsewhere. Only
+    acts when this family has no subscription yet, so it's a cheap no-op normally. */
+async function claimByEmail(familyId: string, userEmail: string) {
+  const email = (userEmail || "").toLowerCase().trim();
+  if (!email) return json({ skipped: true, reason: "no_email" });
+
+  const existing = await billingRow(familyId);
+  if (existing?.stripe_subscription_id) return json({ skipped: true, reason: "already_linked" });
+
+  const LIVE = ["active", "trialing", "past_due", "unpaid"];
+  const customers = await stripe.customers.list({ email, limit: 5 });
+  for (const c of customers.data) {
+    const fam = (c as any)?.metadata?.family_id;
+    if (fam && fam !== familyId) continue; // belongs to another family
+    const subs = await stripe.subscriptions.list({ customer: c.id, status: "all", limit: 10 });
+    const sub = subs.data.find((s: any) => LIVE.includes(s.status));
+    if (!sub) continue;
+    await stripe.customers.update(c.id, { metadata: { ...((c as any).metadata || {}), family_id: familyId } });
+    await stripe.subscriptions.update(sub.id, { metadata: { ...(sub.metadata || {}), family_id: familyId } });
+    await persistSubscription(familyId, c.id, sub);
+    return json({ ok: true, status: sub.status });
+  }
+  return json({ skipped: true, reason: "no_active_subscription" });
 }
 
 /** Live subscription state for the in-app management UI: commitment status,
@@ -445,6 +476,7 @@ Deno.serve(async (req) => {
 
     if (action === "get-prices")      return await getPrices();
     if (action === "claim-subscription") return await claimSubscription(familyId, email, (payload?.sessionId || "").toString());
+    if (action === "claim-by-email")     return await claimByEmail(familyId, email);
     if (action === "create-checkout") return await createCheckout(familyId, email, payload?.interval || "month", Math.max(0, Number(payload?.seats) || 0));
     if (action === "add-seat")        return await addSeat(familyId);
     if (action === "sync-ai-seats")   return await syncAiSeats(familyId, user!.id);

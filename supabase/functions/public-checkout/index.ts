@@ -127,13 +127,37 @@ async function createSession(payload: any) {
     payment_method_collection: "always",
     allow_promotion_codes: false, // our beta code is handled here as a trial, not a Stripe coupon
     subscription_data,
-    // Return into the APP so the buyer creates their account and we claim the sub.
-    success_url: `${appUrl}/?checkout_session={CHECKOUT_SESSION_ID}#/welcome`,
-    cancel_url: `${siteUrl}/?checkout=cancelled`,
+    // Return into the APP's SIGN-UP page so the buyer creates their account; the
+    // session id is claimed on first hydrate (links the paid sub to their family).
+    success_url: `${appUrl}/?checkout_session={CHECKOUT_SESSION_ID}#/signup`,
+    cancel_url: `${siteUrl}/?checkout=cancelled#/pricing`,
     metadata: { pending: "1", base_interval: interval, child_seats: String(childSeats), adult_seats: String(adultSeats) },
   });
 
   return json({ url: session.url, trialDays });
+}
+
+/** Gateway helper for the sign-up page: does this email already have a LIVE
+    subscription? Lets the app block account creation by people who haven't
+    subscribed (they're sent to /pricing instead). Safe to run unauthenticated —
+    it only returns a boolean, never any subscription detail. */
+async function checkSubscription(payload: any) {
+  const email = (payload?.email || "").toString().trim().toLowerCase();
+  if (!email) return json({ active: false });
+  const LIVE = ["active", "trialing", "past_due", "unpaid", "incomplete"];
+  try {
+    const customers = await stripe.customers.list({ email, limit: 5 });
+    for (const c of customers.data) {
+      const subs = await stripe.subscriptions.list({ customer: c.id, status: "all", limit: 10 });
+      if (subs.data.some((s: any) => LIVE.includes(s.status))) return json({ active: true });
+    }
+  } catch (e) {
+    // On a lookup error, fail OPEN is unsafe (would let anyone in); fail CLOSED
+    // but signal it so the client can let them try checkout rather than hard-block.
+    console.error("[public-checkout] check-subscription error:", e);
+    return json({ active: false, error: "lookup_failed" });
+  }
+  return json({ active: false });
 }
 
 Deno.serve(async (req) => {
@@ -145,6 +169,7 @@ Deno.serve(async (req) => {
     const { action, payload } = await req.json();
     if (action === "prices") return await getPrices();
     if (action === "create") return await createSession(payload || {});
+    if (action === "check-subscription") return await checkSubscription(payload || {});
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (e) {
     console.error("[public-checkout] error:", e);

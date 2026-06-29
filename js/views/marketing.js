@@ -11,6 +11,25 @@ import { navigate, currentPath } from "../router.js";
 import { hasAccount, isLoggedIn, signup, login, logout, currentUserEmail, requestPasswordReset, updatePassword } from "../auth.js";
 import { logoLockup, logoStacked } from "../components/logo.js";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../lib/supabase.js";
+import { getPendingCheckout } from "../lib/repo.js";
+
+/** Ask the public-checkout function whether an email already has a LIVE
+    subscription. Used to gate sign-up so only subscribers can create an account.
+    Returns { active, error? }. On a lookup error we return active:false + error
+    so the caller can decide how to handle it (we let them proceed to checkout). */
+async function checkActiveSubscription(email) {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/public-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "apikey": SUPABASE_PUBLISHABLE_KEY, "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}` },
+      body: JSON.stringify({ action: "check-subscription", payload: { email } }),
+    });
+    const data = await res.json();
+    return { active: !!data?.active, error: data?.error || (!res.ok ? "request_failed" : null) };
+  } catch (e) {
+    return { active: false, error: e?.message || "request_failed" };
+  }
+}
 
 const NAV_LINKS = [
   { path: "/welcome",      label: "Home" },
@@ -1349,17 +1368,25 @@ export function renderSignup(container) {
     return;
   }
 
+  // Gateway: a North Star account requires a membership. If they arrived straight
+  // from checkout we have a pending session (paid → welcome them). Otherwise we
+  // verify on submit that their email has a live subscription, else → /pricing.
+  const paidViaCheckout = !!getPendingCheckout();
+
   container.innerHTML = `
     <section class="hero" style="grid-template-columns:1fr;padding-top:60px;padding-bottom:30px;text-align:center">
       <div>
-        <span class="hero-eyebrow">Create your account</span>
-        <h1 style="margin:0 auto">Create your account.</h1>
-        <p class="lede" style="margin:14px auto 0">Your secure North Star account — synced across your devices, with every family's data kept private and isolated.</p>
+        <span class="hero-eyebrow">${paidViaCheckout ? "Payment received ✓" : "Create your account"}</span>
+        <h1 style="margin:0 auto">${paidViaCheckout ? "Activate your membership." : "Create your account."}</h1>
+        <p class="lede" style="margin:14px auto 0">${paidViaCheckout
+          ? "Thank you — your payment went through. Create your account below to activate your membership and set up your family."
+          : "Your secure North Star account — synced across your devices, with every family's data kept private and isolated."}</p>
       </div>
     </section>
 
     <section class="section" style="border-top:none;padding-top:0">
       <div class="card" style="max-width:520px;margin:0 auto;padding:32px">
+        ${paidViaCheckout ? `<div class="hint" style="background:var(--sage-soft);color:var(--sage-ink);border-radius:10px;padding:11px 14px;margin-bottom:18px;line-height:1.5">Use the <strong>same email</strong> you paid with so we can link your membership automatically.</div>` : ""}
         <div class="field">
           <label>Your name</label>
           <input class="input" id="su-name" placeholder="e.g. Kristen"/>
@@ -1390,9 +1417,28 @@ export function renderSignup(container) {
     const password = container.querySelector("#su-password").value;
     const confirm = container.querySelector("#su-confirm").value;
     if (!parentName) { toast("Add your name", { type: "warning" }); return; }
+    if (!email) { toast("Add your email", { type: "warning" }); return; }
     if (password !== confirm) { toast("Passwords don't match", { type: "warning" }); return; }
     try {
-      createBtn.disabled = true; createBtn.textContent = "Creating account…";
+      createBtn.disabled = true;
+      // Membership gateway: unless they just paid (pending checkout), require a
+      // live subscription for this email before allowing account creation.
+      if (!paidViaCheckout) {
+        createBtn.textContent = "Checking your membership…";
+        const { active, error } = await checkActiveSubscription(email);
+        if (!active) {
+          createBtn.disabled = false; createBtn.textContent = "Create account & continue →";
+          if (error) {
+            // Couldn't verify — don't hard-block; send them to choose a membership.
+            toast("Let's get your membership set up first.", { type: "warning", duration: 3500 });
+          } else {
+            toast("No active membership found for that email — choose a plan to get started.", { type: "warning", duration: 4000 });
+          }
+          navigate("/pricing");
+          return;
+        }
+      }
+      createBtn.textContent = "Creating account…";
       const res = await signup({ email, password, parentName });
       if (res?.needsConfirmation) {
         const card = container.querySelector(".card");

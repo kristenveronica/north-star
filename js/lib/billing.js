@@ -42,6 +42,13 @@ export function claimSubscription(sessionId) {
   return invokeBilling("claim-subscription", { sessionId });
 }
 
+/** Fallback: link a live subscription to the signed-in family by matching the
+    user's verified email (for a paid user returning without a checkout session).
+    Returns { ok, status } or { skipped, reason }. */
+export function claimSubscriptionByEmail() {
+  return invokeBilling("claim-by-email");
+}
+
 /** Fetch configured prices so the app can show pricing + compute totals.
     Returns { month: { base, seat, aiseat }, year: {...} } where each is
     { amount, currency, interval } or null if that price isn't configured yet. */

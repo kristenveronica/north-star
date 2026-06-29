@@ -159,6 +159,8 @@ export function resetToLoggedOut() {
       const k = localStorage.key(i);
       if (k && k.startsWith("northstar::draft::")) localStorage.removeItem(k);
     }
+    // Allow the next account on this device a fresh email-based subscription link.
+    localStorage.removeItem("northstar::emailClaimDone");
   } catch { /* ignore */ }
   _subs.forEach(cb => cb(_state));
 }

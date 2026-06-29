@@ -18,7 +18,7 @@
 
 import { supabase } from "./supabase.js";
 import { freshState, hydrateState } from "../store.js";
-import { claimSubscription } from "./billing.js";
+import { claimSubscription, claimSubscriptionByEmail } from "./billing.js";
 import { DOMAIN_CATALOG, normalizeDomainId } from "../seed.js";
 
 /** Map an array of (possibly legacy) domain ids to current Capability Domain
@@ -530,26 +530,51 @@ async function acceptPendingInviteIfAny() {
    (stashed below), signs up, and on the next hydrate we link that subscription to
    their new family — verified server-side by matching the paying email. */
 const PENDING_CHECKOUT_KEY = "northstar::pendingCheckout";
+const EMAIL_CLAIM_KEY = "northstar::emailClaimDone";
 export function setPendingCheckout(sessionId) {
-  try { sessionId ? localStorage.setItem(PENDING_CHECKOUT_KEY, sessionId) : localStorage.removeItem(PENDING_CHECKOUT_KEY); } catch { /* ignore */ }
+  try {
+    if (sessionId) {
+      localStorage.setItem(PENDING_CHECKOUT_KEY, sessionId);
+      localStorage.removeItem(EMAIL_CLAIM_KEY); // a fresh payment → allow a fresh link attempt
+    } else {
+      localStorage.removeItem(PENDING_CHECKOUT_KEY);
+    }
+  } catch { /* ignore */ }
+}
+export function getPendingCheckout() {
+  try { return localStorage.getItem(PENDING_CHECKOUT_KEY); } catch { return null; }
 }
 async function claimPendingCheckoutIfAny() {
-  let sid = null;
-  try { sid = localStorage.getItem(PENDING_CHECKOUT_KEY); } catch { /* ignore */ }
-  if (!sid) return;
-  try {
-    const res = await claimSubscription(sid);
-    setPendingCheckout(null);                       // claimed or benignly skipped
-    if (res?.ok) console.log("[repo] subscription claimed:", res.status);
-  } catch (e) {
-    const msg = e?.message || "";
-    // Definitive outcomes → stop retrying; transient (network) → keep for next hydrate.
-    if (/email_mismatch|already linked|not_a_subscription/i.test(msg)) {
-      console.warn("[repo] checkout claim not applied:", msg);
-      setPendingCheckout(null);
-    } else {
-      console.warn("[repo] checkout claim deferred (will retry):", msg);
+  const sid = getPendingCheckout();
+  if (sid) {
+    try {
+      const res = await claimSubscription(sid);
+      setPendingCheckout(null);                       // claimed or benignly skipped
+      if (res?.ok) { console.log("[repo] subscription claimed:", res.status); return; }
+    } catch (e) {
+      const msg = e?.message || "";
+      // Definitive outcomes → stop retrying; transient (network) → keep for next hydrate.
+      if (/email_mismatch|already linked|not_a_subscription/i.test(msg)) {
+        console.warn("[repo] checkout claim not applied:", msg);
+        setPendingCheckout(null);
+      } else {
+        console.warn("[repo] checkout claim deferred (will retry):", msg);
+        return; // keep the session for a retry; skip the email fallback this time
+      }
     }
+  }
+  // Fallback (no session, or session didn't link): try linking a live subscription
+  // by the signed-in email, AT MOST ONCE per device so it costs nothing normally.
+  try {
+    if (localStorage.getItem(EMAIL_CLAIM_KEY)) return;
+  } catch { /* ignore */ }
+  try {
+    const res = await claimSubscriptionByEmail();
+    if (res?.ok) console.log("[repo] subscription linked by email:", res.status);
+  } catch (e) {
+    console.warn("[repo] email claim skipped:", e?.message || e);
+  } finally {
+    try { localStorage.setItem(EMAIL_CLAIM_KEY, "1"); } catch { /* ignore */ }
   }
 }
 
