@@ -488,29 +488,27 @@ export function renderAbout(container) {
       </div>
       <div class="hero-art">
         <div class="about-montage">
-          <span class="about-montage-glow" aria-hidden="true"></span>
           <figure class="about-photo about-photo--family">
             <img src="assets/images/about-family.jpg" alt="Kristen, Mikey, Noah and Jett together on a family ski adventure" loading="lazy" />
           </figure>
           <figure class="about-photo about-photo--couple">
             <img src="assets/images/about-kristen-mikey.jpg" alt="Kristen and Mikey" loading="lazy" />
           </figure>
-          <span class="about-montage-badge">Kristen &amp; Mikey · with Noah &amp; Jett</span>
         </div>
       </div>
     </section>
 
     <!-- ───────────── THE REAL QUESTION ───────────── -->
     <section class="section" style="border-top:none;padding-top:8px">
-      <div class="ns-bigidea-pair">
-        <div class="ns-bigidea-card them">
-          <p class="ns-bigidea-intro">The question was never:</p>
-          <p class="ns-bigidea-q">"What curriculum should we use?"</p>
-        </div>
-        <div class="ns-bigidea-card us">
-          <p class="ns-bigidea-intro">The real question was:</p>
-          <p class="ns-bigidea-q">"How do we help our children become capable, confident, healthy, purpose-driven human beings?"</p>
-        </div>
+      <div class="about-pivot">
+        <p class="about-pivot-row about-pivot-row--quiet">
+          <span class="about-pivot-label">The question was never</span>
+          <span class="about-pivot-q">"What curriculum should we use?"</span>
+        </p>
+        <p class="about-pivot-row about-pivot-row--answer">
+          <span class="about-pivot-label">The real question was</span>
+          <span class="about-pivot-q">"How do we help our children become capable, confident, healthy, purpose-driven human beings?"</span>
+        </p>
       </div>
 
       <p class="ns-bigidea-lead" style="margin-top:38px">We wanted an educational approach that recognised our children as unique individuals.</p>

@@ -2289,35 +2289,30 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 
 /* ───── 2. The Big Idea ───── */
 .ns-bigidea { margin-top: 10px; }
-.ns-bigidea-pair {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
-  margin: 10px 0 40px;
+/* The wrong-question → real-question pivot. Editorial typography, NOT boxes:
+   the discarded question is quiet and italic; the real question is stated
+   plainly and strongly with a small clay accent so emphasis lands on it. */
+.about-pivot { margin: 14px 0 40px; max-width: 40em; }
+.about-pivot-row { margin: 0; display: block; }
+.about-pivot-row + .about-pivot-row { margin-top: 30px; }
+.about-pivot-label {
+  display: block; font-size: 12.5px; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--text-soft); margin-bottom: 10px;
 }
-@media (max-width: 760px) { .ns-bigidea-pair { grid-template-columns: 1fr; } }
-.ns-bigidea-card {
-  border-radius: var(--r-xl);
-  padding: 30px 32px;
-  border: 1px solid var(--border);
+.about-pivot-q {
+  display: block; font-family: var(--font-serif);
+  line-height: 1.3; font-weight: 500; letter-spacing: -0.012em;
 }
-.ns-bigidea-card.them { background: #F4ECDC; border-style: dashed; border-color: var(--border-strong); }
-.ns-bigidea-card.us {
-  background: linear-gradient(140deg, var(--midnight-deep) 0%, var(--midnight) 100%);
-  border-color: transparent;
-  box-shadow: 0 30px 60px -32px rgba(15, 22, 38, 0.5);
+.about-pivot-row--quiet .about-pivot-q {
+  font-size: clamp(19px, 2.1vw, 23px);
+  color: var(--text-muted); font-style: italic;
 }
-.ns-bigidea-intro {
-  font-size: 14.5px; line-height: 1.45; margin: 0 0 14px;
+.about-pivot-row--answer { padding-left: 20px; border-left: 2px solid var(--primary); }
+.about-pivot-row--answer .about-pivot-label { color: var(--primary); }
+.about-pivot-row--answer .about-pivot-q {
+  font-size: clamp(23px, 2.7vw, 31px); color: var(--text);
 }
-.ns-bigidea-card.them .ns-bigidea-intro { color: var(--text-muted); }
-.ns-bigidea-card.us .ns-bigidea-intro { color: rgba(244, 233, 197, 0.7); }
-.ns-bigidea-q {
-  font-family: var(--font-serif);
-  font-size: clamp(20px, 2.3vw, 26px);
-  line-height: 1.3; font-weight: 500;
-  letter-spacing: -0.012em; margin: 0;
-}
-.ns-bigidea-card.them .ns-bigidea-q { color: var(--text-muted); }
-.ns-bigidea-card.us .ns-bigidea-q { color: var(--starlight); }
 
 .ns-bigidea-lead {
   font-family: var(--font-serif);
@@ -3297,16 +3292,11 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 /* ============================================================
    About hero — founder photo montage (replaces the compass).
    Warm, scrapbook overlap: the family shot behind, Kristen & Mikey
-   in front, a soft starlight glow to keep the brand energy.
+   in front.
    ============================================================ */
 .about-montage{
   position:relative; width:100%; max-width:480px; margin-inline:auto;
   aspect-ratio: 1 / 1.02; isolation:isolate;
-}
-.about-montage-glow{
-  position:absolute; inset:4% 2% 8%; z-index:0; border-radius:50%;
-  background:radial-gradient(circle at 52% 42%, rgba(244,233,197,0.55) 0%, rgba(244,233,197,0.18) 42%, rgba(244,233,197,0) 70%);
-  filter:blur(6px);
 }
 .about-photo{
   position:absolute; margin:0; overflow:hidden; background:#fff;
@@ -3327,16 +3317,8 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   z-index:2; bottom:2%; right:3%; width:45%; aspect-ratio: 3 / 4;
   transform:rotate(3.5deg);
 }
-.about-montage-badge{
-  position:absolute; z-index:3; left:50%; bottom:-6px; transform:translateX(-50%);
-  background:var(--midnight); color:var(--starlight);
-  font-family:var(--font-sans); font-size:12px; font-weight:600; letter-spacing:0.02em;
-  padding:7px 16px; border-radius:var(--r-pill); white-space:nowrap;
-  box-shadow:0 8px 20px -10px rgba(27,37,56,0.6);
-}
 @media (max-width:760px){
   .about-montage{ max-width:360px; }
-  .about-montage-badge{ font-size:11px; padding:6px 13px; }
 }
 @media (max-width:430px){
   .about-montage{ max-width:300px; }
