@@ -73,7 +73,7 @@ function publicHeader() {
             ? `<a href="#" id="nav-logout" class="">Logout</a>
                <a href="#/" class="btn btn-sm btn-primary public-nav-cta" style="text-decoration:none">Open my portal →</a>`
             : `<a href="#/login" class="${path === "/login" ? "active" : ""}">Login</a>
-               <a href="#${accountExists ? "/login" : "/signup"}" class="btn btn-sm btn-primary public-nav-cta" style="text-decoration:none">${accountExists ? "Login →" : "Start free"}</a>`}
+               <a href="#${accountExists ? "/login" : "/pricing"}" class="btn btn-sm btn-primary public-nav-cta" style="text-decoration:none">${accountExists ? "Login →" : "Join North Star"}</a>`}
         </nav>
       </div>
     </header>
@@ -104,7 +104,7 @@ function publicFooter() {
               <a href="#/about">Our philosophy</a>
               <a href="#/contact">Contact</a>
               <a href="#/login">Login</a>
-              <a href="#/signup">Start free</a>
+              <a href="#/pricing">Join North Star</a>
             </div>
           </div>
           <div>
@@ -200,7 +200,7 @@ export function renderHome(container) {
           <span class="np-label">A Family Vision Platform</span>
           <h1 class="np-hero-h1">Who do you hope your child becomes?</h1>
           <p class="np-hero-lead">At eighteen. At twenty-five. When they have left home and are building a life of their own.</p>
-          <a class="btn btn-primary btn-lg" href="#/signup">Discover Your North Star</a>
+          <a class="btn btn-primary btn-lg" href="#/pricing">Discover Your North Star</a>
         </div>
         <div class="np-hero-art hero-art">
           <div class="hero-compass">
@@ -303,7 +303,7 @@ export function renderHome(container) {
       <section class="np-cta">
         <h2 class="np-cta-h2">The destination matters.</h2>
         <p class="np-cta-sub">Let's build the path together.</p>
-        <a class="btn btn-primary btn-lg" href="#/signup">Discover Your North Star</a>
+        <a class="btn btn-primary btn-lg" href="#/pricing">Discover Your North Star</a>
       </section>
 
     </div>
@@ -714,7 +714,7 @@ export function renderAbout(container) {
     <div class="cta-strip ns-final-cta">
       <h2>Begin with a destination.</h2>
       <p>Let's build the path together.</p>
-      <a class="btn btn-primary btn-lg" href="#/signup">Discover Your North Star</a>
+      <a class="btn btn-primary btn-lg" href="#/pricing">Discover Your North Star</a>
     </div>
   `;
 }
@@ -821,7 +821,7 @@ export function renderHowItWorks(container) {
 
     <div class="cta-strip">
       <h2>Ten minutes to start. A lifetime to walk.</h2>
-      <a class="btn btn-primary btn-lg" href="#/signup">Start Building Your North Star</a>
+      <a class="btn btn-primary btn-lg" href="#/pricing">Start Building Your North Star</a>
     </div>
   `;
 }
