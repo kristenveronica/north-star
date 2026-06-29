@@ -51,3 +51,9 @@ export function aiTidyText(text) {
 export function aiGenerateProject(family, child, constraints = {}) {
   return invokeAi("generate-project", { family, child, constraints });
 }
+
+/** Reflect on a child's quarter AGAINST the family's own vision (for growth reports).
+    Returns { reflection:[…], strengths:[{title,detail}], opportunity:[{focus,why}] }. */
+export function aiGrowthReflection(family, child, summary) {
+  return invokeAi("growth-reflection", { family, child, summary });
+}

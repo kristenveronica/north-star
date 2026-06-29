@@ -707,6 +707,90 @@ ${refine
   return callClaude(system, userText, PROJECT_SCHEMA, apiKey);
 }
 
+// ---- Action: growth-reflection (quarterly report, framed by the family vision) ----
+const REFLECTION_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["reflection", "strengths", "opportunity", "evolutionPrompt"],
+  properties: {
+    reflection: { type: "array", items: { type: "string" } },   // 3–5 narrative observations
+    strengths: {
+      type: "array",
+      items: {
+        type: "object", additionalProperties: false, required: ["title", "detail"],
+        properties: { title: { type: "string" }, detail: { type: "string" } },
+      },
+    },
+    opportunity: {
+      type: "array",
+      items: {
+        type: "object", additionalProperties: false, required: ["focus", "why"],
+        properties: { focus: { type: "string" }, why: { type: "string" } },
+      },
+    },
+    evolutionPrompt: { type: "string" },   // one gentle line for "Has your vision evolved?"
+  },
+};
+
+async function growthReflection(payload: any, apiKey: string) {
+  const f = payload?.family || {};
+  const c = payload?.child || {};
+  const s = payload?.summary || {};
+  const acronym = Array.isArray(f.acronym) ? f.acronym.map((a: any) => `${a.letter}=${a.meaning}`).join(", ") : "";
+  const projects = Array.isArray(s.projects) ? s.projects : [];
+  const projLines = projects.map((p: any) =>
+    `  • "${p.title}" [${p.status || "active"}]${(p.domains || []).length ? ` — ${(p.domains).join(", ")}` : ""}${p.passion ? `; sparked by ${p.passion}` : ""}`).join("\n") || "  (no projects this period)";
+  const reflectionSnips = Array.isArray(s.reflectionSnippets) && s.reflectionSnippets.length
+    ? s.reflectionSnippets.map((r: string) => `  • "${r}"`).join("\n") : "  (none recorded)";
+  const pn = s.parentNotes || {};
+  const parentNoteLines = ["strengths", "challenges", "growthObserved", "concerns", "goalsNextTerm"]
+    .map(k => pn[k] ? `  • ${k}: ${pn[k]}` : "").filter(Boolean).join("\n") || "  (none)";
+
+  const system = `TASK: Write the heart of a family's QUARTERLY GROWTH REFLECTION for one child. North Star's
+defining principle: we NEVER measure a child against other children, grade levels or generic standards — we
+reflect their growth ONLY against the family THIS family is intentionally becoming (their Family Vision,
+Core Word and its meanings, and Family Credo). Ground every observation in those words and in the child's
+ACTUAL work this quarter (the projects, milestones and reflections below). Warm, specific, honest, never
+flattering or generic. Celebrate WHO the child is becoming, not just what they completed.
+
+Return:
+- "reflection": 3–5 short narrative observations (1–3 sentences each) reflecting the quarter against the
+  family's vision/values. Name the value, then the evidence. E.g. "Curiosity — one of the threads in your
+  vision — showed up again and again: in the bird study, in the questions logged in reflections…". Tie to
+  the family's actual Core Word meanings and Credo wherever the evidence supports it. Honest about what
+  was light, never deficit-framed.
+- "strengths": 2–4 PATTERNS (not isolated wins) that show the family's vision becoming real, each a
+  {title, detail}. Detail cites concrete evidence from the quarter.
+- "opportunity": ONE or TWO meaningful growth areas for next quarter, each {focus, why}. "why" must connect
+  back to the Family Vision, Core Word or Credo — growth in service of who they're becoming, never catch-up.
+- "evolutionPrompt": ONE gentle sentence inviting the family to consider whether their Vision, Core Word or
+  Credo has evolved this quarter — acknowledging healthy families grow, never implying earlier answers were wrong.`;
+
+  const userText = `FAMILY (the lens for everything below)
+- Family Vision (who they are becoming): ${f.mission || "—"}
+- Core Word: ${f.coreWord || "—"}${acronym ? ` (${acronym})` : ""}
+- Family Credo: ${f.motto || "—"}
+- Values (from deeper vision): ${f.vision?.values || "—"}
+
+CHILD
+- Name: ${c.name || "—"}, Age: ${c.age ?? "—"}
+
+THIS QUARTER (${s.periodLabel || "the period"})
+- Projects:
+${projLines}
+- Milestones completed: ${s.milestonesCompleted ?? 0} (${s.onTime ?? 0} on time, ${s.late ?? 0} late)
+- Reflections written: ${s.reflectionCount ?? 0}
+- Reflection snippets:
+${reflectionSnips}
+- Most active capability areas: ${(s.topDomains || []).join(", ") || "—"}
+- Parent's observations:
+${parentNoteLines}
+${s.previousSummary ? `\nLAST REPORT (for continuity): ${s.previousSummary}` : ""}
+
+Write ${c.name || "this child"}'s reflection against THIS family's vision.`;
+  return callClaude(system, userText, REFLECTION_SCHEMA, apiKey);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -722,6 +806,7 @@ Deno.serve(async (req) => {
     else if (action === "tidy-text") result = await tidyText(payload, apiKey);
     else if (action === "suggest-focus") result = await suggestFocus(payload, apiKey);
     else if (action === "generate-project") result = await generateProject(payload, apiKey);
+    else if (action === "growth-reflection") result = await growthReflection(payload, apiKey);
     else return json({ error: `Unknown action: ${action}` }, 400);
 
     console.log(`[ai] ${action} usage:`, JSON.stringify(result.usage));

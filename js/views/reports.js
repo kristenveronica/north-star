@@ -11,6 +11,7 @@ import {
   addProject, addMilestone,
 } from "../store.js";
 import { generateReport, PERIODS, GROWTH_BANDS } from "../ai/growthEngine.js";
+import { aiGrowthReflection } from "../lib/ai.js";
 import { DOMAIN_CATALOG } from "../seed.js";
 import { esc, toast, icon, openModal, confirmDialog, fmtDate, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { navigate } from "../router.js";
@@ -218,10 +219,13 @@ function openGenerateWizard(initialChildId = null) {
   paint();
 }
 
-function runGenerate(draft, modal) {
+async function runGenerate(draft, modal) {
   const s = getState();
   const child = s.children.find(c => c.id === draft.childId);
   if (!child) { toast("Child not found", { type: "warning" }); return; }
+
+  const genBtn = modal.root?.querySelector("#gen");
+  if (genBtn) { genBtn.disabled = true; genBtn.textContent = "Reflecting on the quarter…"; }
 
   // Save observation + self-assessment as their own records
   const hasNotes = Object.values(draft.parentNotes).some(v => v && v.trim());
@@ -251,10 +255,37 @@ function runGenerate(draft, modal) {
   // Pass all child reports so longitudinal can plot them
   ctx._allReports = prevReports;
   const report = generateReport(ctx);
+
+  // The narrative heart — let Claude reflect the quarter against the family's own
+  // vision. Graceful: if it's unavailable, the report still renders heuristically.
+  try {
+    report.aiReflection = await aiGrowthReflection(s.family, child, buildQuarterSummary(ctx, report));
+  } catch (e) {
+    console.warn("[report] AI reflection unavailable — using heuristic:", e?.message);
+  }
+
   saveGrowthReport(report);
   toast("Growth report ready", { type: "success" });
   modal.close();
   navigate(`/reports/${report.id}`);
+}
+
+/* A compact, token-light summary of the child's quarter for the AI reflection. */
+function buildQuarterSummary(ctx, report) {
+  const { periodProjects, periodReflections, parentNotes } = ctx;
+  const snap = report.snapshot || {};
+  return {
+    periodLabel: report.periodLabel,
+    projects: (periodProjects || []).map(p => ({
+      title: p.title, status: p.status, domains: p.domains || [], passion: p.passionConnection || "",
+    })),
+    milestonesCompleted: snap.milestonesCompleted, onTime: snap.milestonesOnTime, late: snap.milestonesLate,
+    reflectionCount: (periodReflections || []).length,
+    reflectionSnippets: (periodReflections || []).slice(0, 5).map(r => (r.response || "").slice(0, 160)),
+    topDomains: (report.sections?.domains || []).filter(d => d.points > 0).sort((a, b) => b.points - a.points).slice(0, 4).map(d => d.short),
+    parentNotes: parentNotes || {},
+    previousSummary: ctx.previousReport?.sections?.executiveSummary?.paragraphs?.[0] || "",
+  };
 }
 
 /* ============================================================
@@ -288,18 +319,24 @@ export function renderReportDetail(container, params) {
 
       ${section(1, "Your Family Compass", renderFamilyCompass(s.family))}
 
-      ${section(2, "Reflection Against Your Vision", renderVisionAlignment(report.sections.visionAlignment, s.family))}
+      ${section(2, "Reflection Against Your Vision", report.aiReflection?.reflection?.length
+        ? renderAiReflection(report.aiReflection, report.sections.visionAlignment, s.family)
+        : renderVisionAlignment(report.sections.visionAlignment, s.family))}
 
-      ${section(3, "Strengths This Quarter", `
+      ${section(3, "Strengths This Quarter", report.aiReflection?.strengths?.length
+        ? renderAiStrengths(report.aiReflection.strengths)
+        : `
         <p class="small text-muted mb-2">Evidence that the family you set out to become is becoming real — patterns, not isolated achievements.</p>
         <div class="stack">
           ${report.sections.strengths.map(strengthBlock).join("")}
         </div>
       `)}
 
-      ${section(4, "Greatest Opportunity Next Quarter", renderOpportunity(report.sections.recommendations, s.family))}
+      ${section(4, "Greatest Opportunity Next Quarter", report.aiReflection?.opportunity?.length
+        ? renderAiOpportunity(report.aiReflection.opportunity, s.family)
+        : renderOpportunity(report.sections.recommendations, s.family))}
 
-      ${section(5, "Has Your Vision Evolved?", renderVisionEvolved(s.family))}
+      ${section(5, "Has Your Vision Evolved?", renderVisionEvolved(s.family, report.aiReflection?.evolutionPrompt))}
 
       <div class="divider" style="margin:36px 0"></div>
       <div class="t-eyebrow no-print" style="margin-bottom:6px">The supporting detail</div>
@@ -412,11 +449,43 @@ function renderOpportunity(recs, family) {
     ${family?.coreWord ? `<p class="small text-muted" style="margin-top:12px;font-style:italic">Each of these moves <b>${esc(family.coreWord)}</b> from words on a page toward lived reality.</p>` : ""}`;
 }
 
+/* AI narrative reflection against the family's vision, with the heuristic
+   alignment bars kept underneath as supporting evidence. */
+function renderAiReflection(ai, v, family) {
+  const narrative = (ai.reflection || []).map(o => `<p class="lead" style="margin:0 0 12px">${esc(o)}</p>`).join("");
+  const evidence = (v && v.items?.length)
+    ? `<div class="divider"></div><p class="small text-muted mb-2">The evidence beneath the reflection — how strongly this quarter's work mirrored each of your values:</p>${renderVisionAlignment(v, family)}`
+    : "";
+  return `${narrative}${evidence}`;
+}
+function renderAiStrengths(strengths) {
+  return `
+    <p class="small text-muted mb-2">Patterns — not isolated wins — that show the family you set out to become is becoming real.</p>
+    <div class="stack">
+      ${strengths.map(st => `
+        <div class="card" style="background:var(--card-elev)">
+          <div class="fw-700">${esc(st.title)}</div>
+          <p class="small" style="margin:4px 0 0">${esc(st.detail)}</p>
+        </div>`).join("")}
+    </div>`;
+}
+function renderAiOpportunity(opps, family) {
+  return `
+    <p class="small text-muted mb-2">One or two meaningful areas to grow next quarter — always in service of who your family is becoming.</p>
+    <div class="stack">
+      ${opps.map(o => `
+        <div class="card" style="background:var(--card-elev)">
+          <div class="fw-700">${esc(o.focus)}</div>
+          <p class="small text-muted" style="margin:4px 0 0">${esc(o.why)}</p>
+        </div>`).join("")}
+    </div>`;
+}
+
 /* A gentle quarterly invitation to refine the family's compass — never a correction. */
-function renderVisionEvolved(family) {
+function renderVisionEvolved(family, aiPrompt) {
   return `
     <div class="card" style="background:var(--card-elev)">
-      <p style="margin:0 0 8px">As your family has grown this quarter, would you like to refine your Family Vision, Core Word or Family Credo?</p>
+      <p style="margin:0 0 8px">${esc(aiPrompt || "As your family has grown this quarter, would you like to refine your Family Vision, Core Word or Family Credo?")}</p>
       <p class="small text-muted" style="margin:0 0 16px">This isn't about correcting earlier answers — healthy families keep evolving, and so does the language that guides them.</p>
       <div class="small text-muted">Vision: <span style="color:var(--text)">${esc(family?.mission || "—")}</span></div>
       <div class="small text-muted" style="margin-top:4px">Core Word: <span style="color:var(--text)">${esc(family?.coreWord || "—")}</span> · Credo: <span style="color:var(--text)">${esc(family?.motto || "—")}</span></div>
