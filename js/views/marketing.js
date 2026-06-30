@@ -214,7 +214,7 @@ export function renderHome(container) {
     <div class="np-home">
 
       <!-- ───────────── 1. HERO (A/B split: cream control vs navy variant) ───────────── -->
-      <section class="np-hero${navyHero ? " np-hero--navy" : ""}">
+      <section class="np-hero${navyHero ? " np-hero--navy" : " np-hero--dawn"}">
         <div class="np-hero-text">
           <span class="np-label${navyHero ? " np-label--gold" : ""}">A Family Vision Platform</span>
           <h1 class="np-hero-h1">Who do you hope your child becomes?</h1>
@@ -229,9 +229,10 @@ export function renderHome(container) {
                       alt="The North Star compass" width="464" height="464" decoding="async" />
                  <span class="hero-compass-core" aria-hidden="true"></span>
                </div>`
-            : `<div class="hero-compass">
+            : `<div class="hero-compass hero-compass--dawn">
                  <span class="hero-compass-halo" aria-hidden="true"></span>
                  ${heroCompassIllustration()}
+                 <span class="hero-compass-sheen" aria-hidden="true"></span>
                </div>`}
         </div>
       </section>

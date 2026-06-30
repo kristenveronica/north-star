@@ -2726,6 +2726,92 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .np-hero--navy .np-hero-h1 { color: #FFFFFF; }
 .np-hero--navy .np-hero-lead { color: var(--cream); opacity: 0.9; }
 
+/* ───── Hero — cinematic dawn (variant A art direction) ─────
+   Depth through LIGHT, not elements. A warm light is implied to fall from an
+   unseen North Star above-right of the frame — we only ever see its soft spill,
+   so it reads as atmosphere/dawn, never as a glow or a gradient. The cream
+   aesthetic is preserved; everything here is a whisper. */
+.np-hero--dawn { position: relative; isolation: isolate; }
+.np-hero--dawn::before {
+  content: "";
+  position: absolute;
+  inset: -22% -14% -32% -14%;   /* bleed past the hero so the source sits off-frame */
+  z-index: 0;
+  pointer-events: none;
+  background:
+    /* dawn spill from the unseen star (upper-right) — its core is off-frame,
+       so only the gentle falloff lands in view */
+    radial-gradient(120% 88% at 80% -24%,
+      rgba(255, 226, 178, 0.66) 0%,
+      rgba(253, 221, 176, 0.34) 28%,
+      rgba(250, 223, 186, 0.12) 52%,
+      transparent 73%),
+    /* warmth washing along the top like sunrise sky */
+    radial-gradient(165% 125% at 50% -16%,
+      rgba(255, 240, 215, 0.32) 0%,
+      transparent 60%),
+    /* pre-dawn ground still in shadow: a cool, subtle deepening toward the base */
+    linear-gradient(180deg, transparent 52%, rgba(34, 50, 80, 0.06) 100%),
+    /* the deepest of that shadow gathers low-left, opposite the light */
+    radial-gradient(95% 85% at 4% 122%,
+      rgba(34, 50, 80, 0.05) 0%,
+      transparent 54%);
+}
+.np-hero--dawn > * { position: relative; z-index: 1; }
+/* the headline catches the light: a hair of top-lit relief, no glow */
+.np-hero--dawn .np-hero-h1 { text-shadow: 0 1px 0 rgba(255, 252, 245, 0.55); }
+
+/* Compass — a crafted object, slightly less dominant, lit by the same dawn. */
+.hero-compass--dawn { max-width: 556px; }           /* ~13% less visual weight */
+.hero-compass--dawn .hero-compass-svg {
+  filter:
+    drop-shadow(0 26px 34px rgba(125, 92, 40, 0.18))  /* warm ambient shadow below */
+    drop-shadow(0 4px 10px rgba(30, 40, 60, 0.06));
+}
+/* soften the old halo into a diffuse reflected-light pool (no visible ring) */
+.hero-compass--dawn .hero-compass-halo {
+  inset: -10%;
+  background: radial-gradient(circle at 50% 44%,
+    rgba(255, 238, 206, 0.30) 0%,
+    rgba(240, 201, 132, 0.09) 38%,
+    transparent 68%);
+}
+
+/* Polished-brass highlight that drifts across the face every ~13s, then rests.
+   Soft-light + warm tone = a crafted sheen, never a glossy spotlight. */
+.hero-compass-sheen {
+  position: absolute;
+  inset: 7%;
+  z-index: 3;
+  border-radius: 50%;
+  overflow: hidden;
+  pointer-events: none;
+  mix-blend-mode: soft-light;
+}
+.hero-compass-sheen::before {
+  content: "";
+  position: absolute;
+  top: -25%; left: -70%;
+  width: 55%; height: 150%;
+  background: linear-gradient(106deg,
+    transparent 0%,
+    rgba(255, 248, 230, 0) 40%,
+    rgba(255, 250, 236, 0.42) 50%,
+    rgba(255, 248, 230, 0) 60%,
+    transparent 100%);
+  transform: translateX(0) rotate(7deg);
+  animation: brassSheen 14s ease-in-out infinite;
+}
+@keyframes brassSheen {
+  0%   { transform: translateX(0) rotate(7deg); opacity: 0; }
+  5%   { opacity: 1; }
+  22%  { transform: translateX(360%) rotate(7deg); opacity: 0; }
+  100% { transform: translateX(360%) rotate(7deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-compass-sheen::before { animation: none !important; opacity: 0 !important; }
+}
+
 /* ───── §2 contrast (editorial, not cards) ───── */
 .np-contrast {
   display: grid; gap: 0;
