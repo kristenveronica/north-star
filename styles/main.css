@@ -1587,6 +1587,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .hero-compass-svg .cmp-rose,
   .hero-compass-svg .cmp-n,
   .hero-compass-svg .cmp-centre-star,
+  .hero-compass--dawn .hero-compass-svg,
   .hero-compass-img,
   .hero-compass-core,
   .hero-compass-halo {
@@ -1594,6 +1595,8 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   }
   .hero-compass-svg .cmp-rose { transform: rotate(0deg) !important; }
   .hero-compass-svg .cmp-n { fill-opacity: 1 !important; }
+  .hero-compass--dawn .hero-compass-svg { transform: none !important; }
+  .hero-compass--dawn .hero-compass-halo { transform: none !important; opacity: 0.9 !important; }
   .hero-compass-img { transform: rotate(0deg) !important; }
   .hero-compass-core { opacity: 0 !important; }
   .hero-compass-halo { opacity: 1 !important; }
@@ -2760,21 +2763,36 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .np-hero--dawn .np-hero-h1 { text-shadow: 0 1px 0 rgba(255, 252, 245, 0.55); }
 
 /* Compass — a crafted object, slightly less dominant, lit by the same dawn. */
-.hero-compass--dawn { max-width: 556px; }           /* ~13% less visual weight */
+.hero-compass--dawn { max-width: 500px; }   /* a further 10% smaller */
 .hero-compass--dawn .hero-compass-svg {
+  transform-origin: 50% 50%;
   filter:
     /* lit from the top-left → ambient shadow falls to the bottom-right */
     drop-shadow(16px 26px 34px rgba(125, 92, 40, 0.18))
     drop-shadow(6px 7px 11px rgba(30, 40, 60, 0.07));
+  /* a slow, gentle breath — calm and barely-there (à la the Soul Therapies
+     emblem: 13s, scale ~1.03) */
+  animation: compassBreath 13s ease-in-out infinite;
 }
-/* soften the old halo into a diffuse reflected-light pool, gathered on the lit
-   (upper-left) side of the compass — no visible ring */
+@keyframes compassBreath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.03); }
+}
+/* the reflected-light pool feathers FAR out so its outer edge dissolves into
+   the cream — no hard circle — and breathes in sync with the compass */
 .hero-compass--dawn .hero-compass-halo {
-  inset: -10%;
-  background: radial-gradient(circle at 37% 33%,
-    rgba(255, 238, 206, 0.32) 0%,
-    rgba(240, 201, 132, 0.10) 40%,
-    transparent 70%);
+  inset: -38%;
+  background: radial-gradient(circle at 42% 38%,
+    rgba(255, 240, 212, 0.34) 0%,
+    rgba(252, 230, 196, 0.15) 32%,
+    rgba(250, 226, 190, 0.05) 56%,
+    transparent 80%);
+  opacity: 1;
+  animation: haloBreath 13s ease-in-out infinite;
+}
+@keyframes haloBreath {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.04); }
 }
 
 /* Polished-brass highlight that drifts across the face every ~13s, then rests.
