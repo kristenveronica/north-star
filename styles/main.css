@@ -1508,6 +1508,42 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   height: auto;
 }
 
+/* ── Rendered (photographic) compass — used in the navy homepage A/B variant,
+   where the gold-on-navy render reads better than on cream. Keeps the same
+   choreography as the SVG: calibrate-and-settle, halo fade-in, one core glow. */
+.hero-compass-img {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: auto;
+  transform-origin: 50% 50%;
+  animation: heroRoseCalibrate 3.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  filter: drop-shadow(0 22px 46px rgba(15, 22, 38, 0.34));
+}
+.hero-compass-core {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  margin: auto;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(circle,
+    rgba(244, 233, 197, 0.9) 0%,
+    rgba(244, 233, 197, 0.4) 38%,
+    rgba(244, 233, 197, 0) 72%);
+  opacity: 0;
+  mix-blend-mode: screen;
+  animation: heroCoreGlow 1.8s ease-out 3.6s forwards;
+}
+@keyframes heroCoreGlow {
+  0%   { opacity: 0;    transform: scale(0.6); }
+  40%  { opacity: 0.95; transform: scale(1.08); }
+  100% { opacity: 0;    transform: scale(1.5); }
+}
+
 /* The outer group is fully locked — no transforms, no animations.
    Rings, ticks, labels, and gold accents never move. */
 
@@ -1551,11 +1587,15 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .hero-compass-svg .cmp-rose,
   .hero-compass-svg .cmp-n,
   .hero-compass-svg .cmp-centre-star,
+  .hero-compass-img,
+  .hero-compass-core,
   .hero-compass-halo {
     animation: none !important;
   }
   .hero-compass-svg .cmp-rose { transform: rotate(0deg) !important; }
   .hero-compass-svg .cmp-n { fill-opacity: 1 !important; }
+  .hero-compass-img { transform: rotate(0deg) !important; }
+  .hero-compass-core { opacity: 0 !important; }
   .hero-compass-halo { opacity: 1 !important; }
 }
 
@@ -2673,6 +2713,19 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   max-width: 480px; margin-bottom: 34px;
 }
 
+/* ───── Hero — navy variant (A/B test B) ─────
+   Only the HERO band goes navy; the header/nav above stays cream. The gold-on-
+   navy rendered compass + flipped text colours make a bolder first impression. */
+.np-hero--navy {
+  background: linear-gradient(158deg, var(--navy) 0%, var(--navy-2) 100%);
+  border-radius: 28px;
+  padding: 64px 56px;
+  margin: 8px 0 4px;
+  box-shadow: 0 36px 80px -40px rgba(15, 22, 38, 0.5);
+}
+.np-hero--navy .np-hero-h1 { color: #FFFFFF; }
+.np-hero--navy .np-hero-lead { color: var(--cream); opacity: 0.9; }
+
 /* ───── §2 contrast (editorial, not cards) ───── */
 .np-contrast {
   display: grid; gap: 0;
@@ -2795,6 +2848,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 /* ───── Homepage responsive ───── */
 @media (max-width: 900px) {
   .np-hero { grid-template-columns: 1fr; gap: 32px; padding: 48px 0; }
+  .np-hero--navy { padding: 40px 26px; } /* keep the navy band off the screen edges on mobile */
   .np-hero-art { max-width: 360px; margin: 0 auto; } /* compass below the hero copy on mobile */
   .np-steps { grid-template-columns: repeat(2, 1fr); gap: 32px 24px; }
   .np-ecosystem { grid-template-columns: repeat(2, 1fr); }

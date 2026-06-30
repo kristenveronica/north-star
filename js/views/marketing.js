@@ -161,6 +161,23 @@ function wireHeader(root) {
    storytelling (.np-section--navy), and the CTA (.np-cta). The
    compass appears only in the hero and as one subtle §4 watermark.
    ============================================================ */
+/* ---- Homepage A/B split test ----
+   A = the current cream hero (control). B = navy hero band with the rendered
+   compass. A visitor is assigned once (50/50) and pinned in localStorage so the
+   page never flips on them. Force/preview either with ?home=a or ?home=b. */
+const HOME_VARIANT_KEY = "northstar::homeVariant";
+function homeVariant() {
+  try {
+    const forced = new URLSearchParams(location.search).get("home");
+    if (forced === "a" || forced === "b") { localStorage.setItem(HOME_VARIANT_KEY, forced); return forced; }
+    const saved = localStorage.getItem(HOME_VARIANT_KEY);
+    if (saved === "a" || saved === "b") return saved;
+    const v = Math.random() < 0.5 ? "a" : "b";
+    localStorage.setItem(HOME_VARIANT_KEY, v);
+    return v;
+  } catch { return "a"; }
+}
+
 export function renderHome(container) {
   // §6 Learning Ecosystem — 12 experiences (symmetric 4×3 grid).
   // No icons: the strict system leans on typography, not decoration.
@@ -191,22 +208,31 @@ export function renderHome(container) {
     ["04", "Live &amp; reflect", "Track growth, capture the moments that matter, and adjust as your children grow."],
   ];
 
+  const navyHero = homeVariant() === "b";
+
   container.innerHTML = `
     <div class="np-home">
 
-      <!-- ───────────── 1. HERO ───────────── -->
-      <section class="np-hero">
+      <!-- ───────────── 1. HERO (A/B split: cream control vs navy variant) ───────────── -->
+      <section class="np-hero${navyHero ? " np-hero--navy" : ""}">
         <div class="np-hero-text">
-          <span class="np-label">A Family Vision Platform</span>
+          <span class="np-label${navyHero ? " np-label--gold" : ""}">A Family Vision Platform</span>
           <h1 class="np-hero-h1">Who do you hope your child becomes?</h1>
           <p class="np-hero-lead">At eighteen. At twenty-five. When they have left home and are building a life of their own.</p>
           <a class="btn btn-primary btn-lg" href="#/pricing">Discover Your North Star</a>
         </div>
         <div class="np-hero-art hero-art">
-          <div class="hero-compass">
-            <span class="hero-compass-halo" aria-hidden="true"></span>
-            ${heroCompassIllustration()}
-          </div>
+          ${navyHero
+            ? `<div class="hero-compass hero-compass--render">
+                 <span class="hero-compass-halo" aria-hidden="true"></span>
+                 <img class="hero-compass-img" src="assets/images/hero-compass-rose.png"
+                      alt="The North Star compass" width="464" height="464" decoding="async" />
+                 <span class="hero-compass-core" aria-hidden="true"></span>
+               </div>`
+            : `<div class="hero-compass">
+                 <span class="hero-compass-halo" aria-hidden="true"></span>
+                 ${heroCompassIllustration()}
+               </div>`}
         </div>
       </section>
 
