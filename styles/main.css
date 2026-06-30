@@ -3142,6 +3142,87 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .ft-life-words span { font-size: 22px; }
 }
 
+/* ═══════════ "Trust Charter" page (tc-) ═══════════
+   A calm, human page: an always-visible opening, then the charter in the
+   same collapsible accordion (.lt-acc) used in the parent portal. */
+.tc-hero { padding-bottom: 24px; }
+.tc-hero .ft-hero-lead em { font-style: italic; color: var(--gold-ink); }
+
+.tc-section { padding-top: 40px; }
+.tc-intro { text-align: center; margin-bottom: 8px; }
+.tc-intro .np-h2 { margin-inline: auto; }
+.tc-intro .np-lg { margin-inline: auto; }
+
+/* Constrain the accordion to a comfortable reading column, centred. */
+.tc-acc { max-width: 760px; margin: 0 auto; }
+.tc-toolbar { max-width: 760px; margin: 24px auto 6px; display: flex; justify-content: flex-end; }
+.tc-acc .lt-acc { margin-bottom: 14px; }
+
+/* Accordion body type — calm, generous, serif accents. */
+.tc-acc .lt-acc__body p {
+  font-size: 17px; line-height: 1.65; color: var(--text); opacity: 0.85; margin: 0 0 14px;
+}
+.tc-acc .lt-acc__body p:last-child { margin-bottom: 0; }
+.tc-quote {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 22px !important; line-height: 1.4 !important;
+  color: var(--navy, #1f355d) !important; opacity: 1 !important;
+  padding-left: 18px; border-left: 2px solid var(--gold);
+}
+
+/* Belief list — clean, gold-marked. */
+.tc-list { list-style: none; margin: 4px 0 0; padding: 0; }
+.tc-list li {
+  position: relative; padding: 11px 0 11px 26px;
+  font-size: 16px; line-height: 1.55; color: var(--text);
+  border-bottom: 1px solid var(--line, rgba(42,34,28,0.1));
+}
+.tc-list li:last-child { border-bottom: none; }
+.tc-list li::before {
+  content: ""; position: absolute; left: 2px; top: 19px;
+  width: 7px; height: 7px; border-radius: 50%; background: var(--gold);
+}
+
+/* Promises — each one a quiet "never we will keep". */
+.tc-promises { list-style: none; margin: 4px 0 0; padding: 0; }
+.tc-promises li {
+  position: relative; padding: 12px 0 12px 34px;
+  font-size: 16.5px; line-height: 1.5; color: var(--text); font-weight: 500;
+}
+.tc-promises li::before {
+  content: "✦"; position: absolute; left: 4px; top: 11px;
+  color: var(--gold-ink); font-size: 15px;
+}
+
+/* The standard — three short refusals. */
+.tc-refusals { list-style: none; margin: 6px 0 0; padding: 0; }
+.tc-refusals li {
+  font-family: var(--font-serif); font-size: 20px; color: var(--navy, #1f355d);
+  padding: 6px 0 6px 22px; position: relative;
+}
+.tc-refusals li::before { content: "—"; position: absolute; left: 0; color: var(--gold-ink); }
+
+/* What families trust us with — the precious five. */
+.tc-precious { list-style: none; margin: 8px 0 16px; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 10px; }
+.tc-precious li {
+  font-family: var(--font-serif); font-size: 18px; color: var(--navy, #1f355d);
+  background: var(--bg-2); border: 1px solid rgba(31,53,93,0.08);
+  padding: 7px 16px; border-radius: 999px;
+}
+
+/* Closing flourish. */
+.tc-close .np-cta-h2 { margin-bottom: 6px; }
+.tc-close-line {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: clamp(26px, 4vw, 38px); color: var(--gold, #C8A15A);
+  margin-bottom: 34px;
+}
+
+@media (max-width: 520px) {
+  .tc-precious li { font-size: 16px; }
+  .tc-refusals li { font-size: 18px; }
+}
+
 /* ───── Hero ───── */
 .np-hero {
   display: grid; grid-template-columns: 1.05fr 1fr;

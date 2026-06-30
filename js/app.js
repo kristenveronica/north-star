@@ -43,7 +43,7 @@ import { renderFamilySettings } from "./views/familySettings.js";
 import { renderReflections } from "./views/reflections.js";
 import {
   renderPublicShell, renderHome, renderAbout, renderHowItWorks,
-  renderFeaturesPublic, renderPricing, renderContact, renderLogin, renderSignup, renderResetPassword,
+  renderFeaturesPublic, renderTrustCharter, renderPricing, renderContact, renderLogin, renderSignup, renderResetPassword,
 } from "./views/marketing.js";
 import { initAuth, isLoggedIn, onAuthChange } from "./auth.js";
 
@@ -202,6 +202,7 @@ registerRoute("/welcome",      withPublicShell(renderHome));
 registerRoute("/about",        withPublicShell(renderAbout));
 registerRoute("/how-it-works", withPublicShell(renderHowItWorks));
 registerRoute("/features",     withPublicShell(renderFeaturesPublic));
+registerRoute("/trust",        withPublicShell(renderTrustCharter));
 registerRoute("/pricing",      withPublicShell(renderPricing));
 registerRoute("/contact",      withPublicShell(renderContact));
 registerRoute("/login",        withPublicShell(renderLogin));

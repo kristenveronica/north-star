@@ -10,6 +10,7 @@ import { childPortalLogin } from "../lib/childPortalCloud.js";
 import { navigate, currentPath } from "../router.js";
 import { hasAccount, isLoggedIn, signup, login, logout, currentUserEmail, requestPasswordReset, updatePassword } from "../auth.js";
 import { logoLockup, logoStacked } from "../components/logo.js";
+import { accSection, accToolbar, wireAccordion } from "../components/accordion.js";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../lib/supabase.js";
 import { getPendingCheckout, getPendingInvite } from "../lib/repo.js";
 
@@ -102,6 +103,7 @@ function publicFooter() {
             <h4>Family</h4>
             <div class="stack mt-1" style="gap:6px">
               <a href="#/about">Our philosophy</a>
+              <a href="#/trust">Trust Charter</a>
               <a href="#/contact">Contact</a>
               <a href="#/login">Login</a>
               <a href="#/pricing">Join North Star</a>
@@ -1219,6 +1221,123 @@ export function renderFeaturesPublic(container) {
 
     </div>
   `;
+}
+
+/* ============================================================
+   TRUST CHARTER PAGE
+   The human-readable Trust Charter, faithful to co-work/North_Star_
+   Trust_Charter_Revised. The opening lives in the hero (always visible);
+   the rest is organised into collapsible sections using the same shared
+   accordion component as the parent portal (accSection / wireAccordion).
+   ============================================================ */
+export function renderTrustCharter(container) {
+  const PAGE = "trustCharter";
+
+  const beliefs = [
+    "Compliance is the floor, not the goal.",
+    "Families own everything. We steward.",
+    "The heart of North Star serves your family, and only your family.",
+    "Your family’s information will never train public AI models.",
+    "We observe. We never label.",
+    "We collect only what genuinely improves a child’s learning experience.",
+    "The safest data is the data we never collect.",
+    "Privacy is designed into North Star from the beginning — not added later.",
+    "Time belongs to childhood, not to our platform. If the best recommendation is to close the laptop and spend the afternoon building, exploring or creating, that’s success.",
+    "We refuse to manipulate children through addictive design, dark patterns or engagement tricks.",
+  ];
+
+  const promises = [
+    "We will never sell or rent your family’s information.",
+    "We will never show advertising to children or families.",
+    "We will never use your family’s content to train public AI models.",
+    "We will never build facial recognition, biometric profiling or emotion detection for children.",
+    "We will never quietly weaken these commitments.",
+  ];
+
+  const sections = [
+    {
+      id: "why", title: "Why North Star exists",
+      blurb: "Where it began — and who it was really built for.",
+      body: `
+        <p>Before it was a company, it was two parents asking a simple question:</p>
+        <p class="tc-quote">“How do we help our children become everything they’re capable of becoming?”</p>
+        <p>Everything North Star is — and everything it will become — grows from that question.</p>
+        <p>Our own children will grow up using this platform. They will trust it with their projects, reflections, photographs, voices and the unfolding story of who they are becoming. Every family who joins North Star is placing that same trust in us.</p>`,
+    },
+    {
+      id: "standard", title: "The standard we hold ourselves to",
+      blurb: "One test every decision must pass.",
+      body: `
+        <p>Every decision we make must first meet the standard we expect for our own children. If it doesn’t, we don’t make it.</p>
+        <ul class="tc-refusals">
+          <li>We don’t build the feature.</li>
+          <li>We don’t collect the data.</li>
+          <li>We don’t compromise the principle.</li>
+        </ul>`,
+    },
+    {
+      id: "trust", title: "What families trust us with",
+      blurb: "Something far more valuable than information.",
+      body: `
+        <p>North Star exists because families trust us with something far more valuable than information.</p>
+        <ul class="tc-precious">
+          <li>Their children.</li>
+          <li>Their hopes.</li>
+          <li>Their values.</li>
+          <li>Their memories.</li>
+          <li>Their learning journey.</li>
+        </ul>
+        <p>We do not aspire to become the biggest family learning platform in the world. We aspire to become the most trusted.</p>`,
+    },
+    {
+      id: "believe", title: "What we believe",
+      blurb: "The convictions that shape every choice.",
+      body: `<ul class="tc-list">${beliefs.map(b => `<li>${b}</li>`).join("")}</ul>`,
+    },
+    {
+      id: "promises", title: "Our promises to your family",
+      blurb: "Lines we will never cross.",
+      body: `<ul class="tc-promises">${promises.map(p => `<li>${p}</li>`).join("")}</ul>`,
+    },
+  ];
+
+  container.innerHTML = `
+    <div class="np-home tc">
+
+      <!-- Opening — always visible -->
+      <section class="np-hero ft-hero tc-hero">
+        <div class="ft-hero-inner">
+          <span class="np-label">Our Trust Charter</span>
+          <h1 class="ft-hero-h1">It wasn’t built for users.<br>It was built for our children.</h1>
+          <p class="ft-hero-lead">Before North Star was a company, it was two parents asking a simple question — <em>how do we help our children become everything they’re capable of becoming?</em> Our own children will grow up using this platform, and every family who joins places that same trust in us. That trust is sacred.</p>
+        </div>
+      </section>
+
+      <!-- The charter, in collapsible sections -->
+      <section class="np-section tc-section">
+        <div class="np-inner">
+          <div class="tc-intro">
+            <h2 class="np-h2">What we promise, in plain words.</h2>
+            <p class="np-lg">Open any section to read it.</p>
+          </div>
+          <div class="tc-toolbar">${accToolbar(PAGE)}</div>
+          <div class="tc-acc">
+            ${sections.map(s => accSection(PAGE, { id: s.id, title: s.title, blurb: s.blurb }, s.body)).join("")}
+          </div>
+        </div>
+      </section>
+
+      <!-- Closing flourish -->
+      <section class="np-cta tc-close">
+        <h2 class="np-cta-h2">We are not simply protecting data.</h2>
+        <p class="tc-close-line">We are protecting childhood.</p>
+        <a class="btn btn-primary btn-lg" href="#/contact">Ask us anything about your family’s privacy</a>
+      </section>
+
+    </div>
+  `;
+
+  wireAccordion(container, PAGE);
 }
 
 /* ============================================================
