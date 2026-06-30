@@ -519,6 +519,20 @@ export async function acceptInvite(token) {
   if (error) throw new Error(error.message || "This invitation could not be accepted.");
   return true;
 }
+
+/* ---- Onboarding parked ----
+   A parent can "park" the Family North Star setup and explore the dashboard
+   first, finishing onboarding later from a resume banner. This flag (device-
+   local) lets the route guard wave a not-yet-onboarded-but-parked parent
+   through to the dashboard. Irrelevant once meta.onboarded is true; cleared on
+   logout (store.resetToLoggedOut) and on completion. */
+const ONBOARDING_PARKED_KEY = "northstar::onboardingParked";
+export function setOnboardingParked(parked) {
+  try { parked ? localStorage.setItem(ONBOARDING_PARKED_KEY, "1") : localStorage.removeItem(ONBOARDING_PARKED_KEY); } catch { /* ignore */ }
+}
+export function isOnboardingParked() {
+  try { return localStorage.getItem(ONBOARDING_PARKED_KEY) === "1"; } catch { return false; }
+}
 async function acceptPendingInviteIfAny() {
   let token = null;
   try { token = localStorage.getItem(PENDING_INVITE_KEY); } catch { /* ignore */ }

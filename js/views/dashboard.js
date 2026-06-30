@@ -16,8 +16,21 @@ export function renderDashboard(container) {
   // Living Core Word: refresh in the background when there's new activity.
   maybeRefreshLiving(s);
   const living = (family.coreWordLiving?.connections) || [];
+  const onboarded = !!s.meta?.onboarded;
 
   container.innerHTML = `
+    ${!onboarded ? `
+      <div class="card mb-3" style="background:linear-gradient(135deg, var(--midnight, #1F355D), #16284A); color:var(--starlight, #F3EBD9); border:none">
+        <div class="row" style="gap:18px; align-items:center; flex-wrap:wrap">
+          <div style="flex:1; min-width:260px">
+            <div class="small" style="letter-spacing:0.12em;text-transform:uppercase;opacity:.8;margin-bottom:4px">Your North Star is waiting</div>
+            <h3 style="font-family:var(--font-serif);font-size:23px;margin:0 0 6px;color:#fff">Finish setting up your family's North Star</h3>
+            <p style="margin:0;opacity:.9;font-size:14px;max-width:46ch">Look around as much as you like — but the magic begins once you've clarified your family's vision. Pick up exactly where you left off; nothing you've entered is lost.</p>
+          </div>
+          <button class="btn btn-primary btn-lg" data-go="/onboarding">Complete setup →</button>
+        </div>
+      </div>
+    ` : ""}
     <div class="topbar">
       <div>
         <h1>Welcome back, ${esc(family.parentName || "Parent")}.</h1>

@@ -12,6 +12,7 @@ import { aiSuggestCoreWord, aiSuggestVision } from "../lib/ai.js";
 import { VISION_QS, autosize, attachTidy } from "./familyVision.js";
 import { REL_OPTIONS } from "./familySettings.js";
 import { saveDraft, loadDraft, clearDraft } from "../lib/drafts.js";
+import { setOnboardingParked } from "../lib/repo.js";
 
 const STEPS = ["welcome", "vision", "core-word", "done"];
 
@@ -125,6 +126,10 @@ function paint(card) {
         <span class="text-muted small">Step 1 of ${STEPS.length}</span>
         <button class="btn btn-primary btn-lg" id="next">Begin →</button>
       </div>
+      <div class="center mt-2">
+        <button class="btn btn-ghost btn-sm" id="park" type="button">I'll set this up later — take me to my dashboard →</button>
+        <p class="text-muted small" style="margin:6px 0 0">Anything you've typed is saved. You can pick up right here whenever you're ready.</p>
+      </div>
     `;
     wireRelList(card);
     card.querySelector("#next").addEventListener("click", () => {
@@ -132,6 +137,12 @@ function paint(card) {
       _draft.familyName = card.querySelector("#familyName").value.trim();
       if (!_draft.familyName) { toast("Give your family a name to begin", { type: "warning" }); return; }
       _step++; paint(card);
+    });
+    card.querySelector("#park").addEventListener("click", () => {
+      captureDraft(card);          // save whatever's on screen (draft persists)
+      setOnboardingParked(true);   // let the guard pass us through to the dashboard
+      toast("No rush — your setup is saved. Finish it anytime from your dashboard.", { type: "success", duration: 3500 });
+      navigate("/");
     });
   }
 
@@ -335,6 +346,7 @@ function paint(card) {
         };
         state.meta.onboarded = true;
       });
+      setOnboardingParked(false);  // fully onboarded now — no resume banner needed
       _step++; paint(card);
     });
   }

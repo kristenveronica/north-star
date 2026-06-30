@@ -161,6 +161,8 @@ export function resetToLoggedOut() {
     }
     // Allow the next account on this device a fresh email-based subscription link.
     localStorage.removeItem("northstar::emailClaimDone");
+    // Don't carry a "parked onboarding" flag across accounts on a shared device.
+    localStorage.removeItem("northstar::onboardingParked");
   } catch { /* ignore */ }
   _subs.forEach(cb => cb(_state));
 }

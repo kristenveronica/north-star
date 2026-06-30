@@ -6,7 +6,7 @@
    ============================================================ */
 
 import { getState, setCloudSync, resetToLoggedOut } from "./store.js";
-import { syncCore, ensureFamilyAndHydrate, setPendingCheckout } from "./lib/repo.js";
+import { syncCore, ensureFamilyAndHydrate, setPendingCheckout, isOnboardingParked } from "./lib/repo.js";
 import { mountRouter, registerRoute, currentPath, navigate } from "./router.js";
 import { renderSidebar } from "./components/sidebar.js";
 import { startCountdownTicker, esc } from "./components/ui.js";
@@ -70,8 +70,11 @@ function withParentShell(container, viewFn, params) {
     location.hash = "#/login";
     return;
   }
-  // Signed in but the family hasn't completed onboarding yet.
-  if (!getState().meta.onboarded) {
+  // Signed in but the family hasn't completed onboarding yet. We still send them
+  // to onboarding on first run — UNLESS they've chosen to "park" it and look
+  // around first, in which case they get the dashboard (with a resume banner)
+  // and can finish onboarding whenever they're ready.
+  if (!getState().meta.onboarded && !isOnboardingParked()) {
     return renderOnboarding(container);
   }
 
