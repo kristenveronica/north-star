@@ -992,75 +992,231 @@ export function renderHowItWorks(container) {
    FEATURES PAGE
    ============================================================ */
 export function renderFeaturesPublic(container) {
-  const featureGroups = [
-    ["Foundations", [
-      ["🧭", "Family Vision Builder", "Family vision, credo, core word, values."],
-      ["✦", "Core Word / Acronym Builder", "Make a single word the lens for everything."],
-      ["📏", "Learning Style Slider", "1–10 from unschooling to traditional academic."],
-      ["✂", "DIY Materials Slider", "Buy ready-made or make at home — tuned to your time + energy."],
-    ]],
-    ["The child", [
-      ["👶", "Child Profiles", "Passions, strengths, areas developing, goals, access codes."],
-      ["🎯", "Personalised Suggestions", "Projects + materials tuned to each child."],
-      ["🎤", "Voice Reflections", "Tap a microphone, speak naturally. Works for kids who don't yet type."],
-      ["🏆", "Stars, Badges, Momentum Points", "Celebrate progress, not just completion."],
-    ]],
-    ["Learning structure", [
-      ["🧠", "Brain Gigs", "Academic + intellectual."],
-      ["🔨", "Build Gigs", "Making, design, invention."],
-      ["💰", "Money Gigs", "Financial literacy + entrepreneurship."],
-      ["🏡", "House Gigs", "Real life skills."],
-      ["🤝", "Community Gigs", "Service + contribution."],
-      ["🏃", "Body Gigs", "Movement, outdoors, capability."],
-      ["✝", "Faith Gigs (optional)", "Parent-toggled, denomination-aware."],
-    ]],
-    ["Doing the work", [
-      ["📦", "Project Builder", "Generate or hand-build projects with full milestones."],
-      ["⏱", "Live Countdown Timers", "Weeks, days, hours, minutes — to milestones + due dates."],
-      ["🌟", "Milestones &amp; Stars", "Tap-to-earn, sparkle animation."],
-      ["📔", "Portfolio", "Completed projects, reflections, badges."],
-      ["🛒", "Suggested Materials + Mock Cart", "Approve, reject, add to cart. Real checkout coming later."],
-    ]],
-    ["Reflection + reporting", [
-      ["📊", "Growth Reports", "Honest, mentor-voiced developmental reviews."],
-      ["🔍", "Child Insights (premium, optional)", "Observations, never labels. Parent-controlled frameworks."],
-      ["🪑", "Family Councils", "Monthly + termly guided gatherings."],
-      ["📔", "Family Legacy Timeline", "The whole journey, archivable + printable."],
-    ]],
-    ["Day-to-day", [
-      ["📅", "Calendar", "Filtered by child + domain."],
-      ["🔔", "Notifications", "In-app reminders; push coming later."],
-      ["🎉", "Rewards &amp; Tolls", "Celebrations + natural consequences, not punishments."],
-      ["🌳", "The Learning Guild (premium, future)", "Quest teams, project showcases, mentorship, councils."],
-    ]],
-  ];
-  container.innerHTML = `
-    <section class="hero" style="grid-template-columns:1fr;padding-top:60px;padding-bottom:30px">
-      <div>
-        <span class="hero-eyebrow">Features</span>
-        <h1>Everything you need. Nothing you don't.</h1>
-        <p class="lede">Each feature exists to serve clarity, growth and connection — not to add screen time or noise.</p>
-      </div>
-    </section>
+  const chips = (arr) => `<div class="nl-chips">${arr.map(c => `<span class="nl-chip">${esc(c)}</span>`).join("")}</div>`;
 
-    ${featureGroups.map(([title, items]) => `
-      <section class="section">
-        <span class="section-eyebrow">${esc(title)}</span>
-        <div class="feature-grid">
-          ${items.map(([em, t, p]) => `
-            <div class="feature-card">
-              <div class="ico">${em}</div>
-              <h3>${t}</h3>
-              <p>${p}</p>
+  // Section 3 — the family's real world, mapped to learning. North Star's
+  // biggest difference: it builds from the life you already have.
+  const WORLD = [
+    ["Where you live", "becomes geography, ecology and belonging"],
+    ["The books already on your shelves", "become the next reading list"],
+    ["Tools and instruments you own", "become a making or music project"],
+    ["A trip you’ve booked", "becomes history, language and culture"],
+    ["A grandparent’s stories", "become living history"],
+    ["A mentor or neighbour nearby", "becomes a real apprenticeship"],
+    ["A hobby or family business", "becomes economics and mastery"],
+    ["The hours and budget you actually have", "keep every suggestion grounded"],
+  ];
+
+  // Section 4 — life as the classroom. Plain, human verbs, not features.
+  const LIFE = [
+    "Building", "Cooking", "Growing food", "Starting a small business",
+    "Helping a neighbour", "Making and mending", "Time in nature",
+    "Reading together", "Service", "Adventure",
+  ];
+
+  // Section 5 — the connected loop. Not isolated cards; one turning system.
+  const LOOP = [
+    ["Today’s mission", "The next real thing to do — chosen for this child."],
+    ["Real-world learning", "It happens away from the screen, out in life."],
+    ["Reflection", "They write or speak what they noticed and made."],
+    ["Progress", "Milestones, portfolio and growth quietly update."],
+    ["Next suggestion", "North Star learns, and offers the next right step."],
+  ];
+
+  // The pieces that hold it together — shown as one system, named plainly.
+  const PIECES = ["Calendar", "Projects", "Milestones", "Countdowns", "Reflections", "Notifications", "Rewards", "Portfolio", "Growth reports"];
+
+  // Section 6 — the legacy timeline. A childhood, accumulating.
+  const TIMELINE = [
+    ["Age 6", "First projects, first photos, first proud moments kept."],
+    ["Age 9", "A portfolio takes shape. Reflections in their own voice."],
+    ["Age 12", "A first small business. Honest growth reports begin."],
+    ["Age 15", "Service, mastery and real responsibility, documented."],
+    ["Age 18", "The whole story — who they became, in their own hands."],
+  ];
+
+  // Compact "Everything included" — the full catalogue, organised, scannable.
+  const EVERYTHING = [
+    ["For your family", ["Family vision", "Core Word & Credo", "Values & character", "Learning-style & DIY sliders", "Family councils"]],
+    ["For each child", ["Child profiles", "Personalised suggestions", "Voice reflections", "Access codes & PINs", "Stars, badges & momentum"]],
+    ["The learning", ["Whole-human capability domains", "Project builder", "Daily missions", "Milestones & countdowns", "Suggested resources & mock cart"]],
+    ["Reflection & growth", ["Reflections — written or spoken", "Portfolio", "Growth reports", "Child insights (optional)", "Family Legacy Timeline"]],
+    ["Day to day", ["Calendar", "Notifications", "Rewards & natural consequences", "Faith track (optional)", "The Learning Guild (coming)"]],
+  ];
+
+  container.innerHTML = `
+    <div class="np-home ft">
+
+      <!-- ───────── Hero — purpose, not software ───────── -->
+      <section class="np-hero ft-hero">
+        <div class="ft-hero-inner">
+          <span class="np-label">Features</span>
+          <h1 class="ft-hero-h1">A platform that grows with your family.</h1>
+          <p class="ft-hero-lead">The more North Star understands your family, the more helpful it becomes. It isn’t a library of lessons to get through — it’s a companion that learns who you are, and grows more personal with every season.</p>
+          <div class="ft-grow">
+            <span class="ft-grow-track">
+              <i class="ft-grow-fill"></i>
+              <b class="ft-grow-dot" style="--p:8%"></b>
+              <b class="ft-grow-dot" style="--p:42%"></b>
+              <b class="ft-grow-dot" style="--p:76%"></b>
+              <b class="ft-grow-dot ft-grow-dot--now" style="--p:96%"></b>
+            </span>
+            <div class="ft-grow-labels">
+              <span>First week</span><span>First season</span><span>First year</span><span>Years on</span>
             </div>
-          `).join("")}
+            <p class="ft-grow-cap">Personalisation deepens the longer you’re together.</p>
+          </div>
         </div>
       </section>
-    `).join("")}
 
-    <div class="cta-strip">
-      <h2>Ready to see it for yourself?</h2>
-      <a class="btn btn-primary btn-lg" href="#/signup">Open the sample family</a>
+      <!-- ───────── 1 · Family's North Star (cream, onboarding mockup) ───────── -->
+      <section class="np-section">
+        <div class="np-inner nl-split">
+          <div class="nl-split-text">
+            <span class="np-label">One · It begins with your family</span>
+            <h2 class="np-h2">It begins with your family’s North Star.</h2>
+            <p class="np-lg">Every family is different. Different values. Different goals. Different definitions of success.</p>
+            <p class="np-body">Before it suggests a single thing, North Star learns what matters to <em>this</em> family — the character you’re nurturing, the capabilities you prize, the kind of childhood you’re trying to build. Everything else flows from that.</p>
+          </div>
+          <div class="nl-split-media">
+            <div class="ft-window">
+              <span class="ft-window-bar"><i></i><i></i><i></i></span>
+              <div class="ft-window-body">
+                <span class="ft-step">Step 2 of 6</span>
+                <h3 class="ft-onb-q">What does your family stand for?</h3>
+                <p class="ft-onb-help">Choose the words that feel most like home.</p>
+                ${chips(["Faith", "Curiosity", "Kindness", "Courage", "Stewardship", "Hard work", "Adventure", "Service"])}
+                <div class="ft-onb-field"><span>Your Core Word</span><b>ALIGN</b></div>
+                <div class="ft-onb-dots"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────── 2 · Each child (navy, two unique children) ───────── -->
+      <section class="np-section--navy">
+        <div class="nl-split nl-split--flip">
+          <div class="nl-split-text">
+            <span class="np-label np-label--gold">Two · It gets to know each child</span>
+            <h2 class="np-h2">It gets to know each child as their own person.</h2>
+            <p class="np-lg">North Star doesn’t compare children. It learns who each one already is.</p>
+            <p class="np-body">Interests and strengths. The areas quietly developing. How they like to learn, the goals they’re reaching for, their growing confidence, their reflections and their dreams. Each child builds their own profile over time — and it shapes everything North Star offers them.</p>
+          </div>
+          <div class="nl-split-media">
+            <div class="ft-kids">
+              <div class="ft-kid">
+                <div class="ft-kid-head"><span class="nl-avatar">N</span><div><b>Noah</b><span>Age 9 · happiest outdoors</span></div></div>
+                ${chips(["Mountain biking", "Animals", "Building"])}
+                <div class="ft-kid-tags"><i>Hands-on</i><i>Developing: writing</i><i class="dream">Dream: ranger</i></div>
+              </div>
+              <div class="ft-kid">
+                <div class="ft-kid-head"><span class="nl-avatar ft-avatar-2">A</span><div><b>Ava</b><span>Age 12 · loves a stage</span></div></div>
+                ${chips(["Music", "Stories", "Helping"])}
+                <div class="ft-kid-tags"><i>Expressive</i><i>Developing: patience</i><i class="dream">Dream: write a book</i></div>
+              </div>
+              <p class="ft-kids-note">Same family. Two completely different journeys.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────── 3 · Your real world (cream, transformation map) ───────── -->
+      <section class="np-section">
+        <div class="np-inner">
+          <span class="np-label">Three · It understands your real world</span>
+          <h2 class="np-h2">It builds learning from the life you already have.</h2>
+          <p class="np-lg" style="max-width:760px">This is what makes North Star different. Instead of generic lesson plans, it understands your actual world — and turns what’s already around you into real learning.</p>
+          <div class="ft-world">
+            ${WORLD.map(([from, to]) => `
+              <div class="ft-world-row">
+                <span class="ft-world-from">${esc(from)}</span>
+                <span class="ft-world-arrow" aria-hidden="true"></span>
+                <span class="ft-world-to">${esc(to)}</span>
+              </div>`).join("")}
+          </div>
+          <p class="ft-world-foot">Where you live, the people around you, your travel, your time, your budget, the opportunities on your doorstep — North Star learns it all, and builds from it.</p>
+        </div>
+      </section>
+
+      <!-- ───────── 4 · Away from the screen (navy, emotional) ───────── -->
+      <section class="np-cta ft-life">
+        <span class="np-label np-label--gold">Four · Where learning really happens</span>
+        <h2 class="np-cta-h2 ft-life-h2">Learning happens away from the screen.</h2>
+        <p class="np-cta-sub">The screen becomes the headquarters. Life becomes the classroom.</p>
+        <div class="ft-life-words">
+          ${LIFE.map(w => `<span>${esc(w)}</span>`).join("<i class=\"ft-life-sep\">·</i>")}
+        </div>
+        <p class="ft-life-body">North Star organises learning. It never replaces it. The real growth happens in kitchens and workshops, gardens and libraries, on trails and in conversations — in the ordinary days that slowly shape who a child becomes.</p>
+      </section>
+
+      <!-- ───────── 5 · Connected system (cream, loop) ───────── -->
+      <section class="np-section">
+        <div class="np-inner">
+          <span class="np-label">Five · One connected system</span>
+          <h2 class="np-h2">Everything works together as one rhythm.</h2>
+          <p class="np-lg" style="max-width:720px">Not a drawer full of separate tools — a single loop that keeps turning, gently carrying your family forward.</p>
+          <ol class="ft-loop">
+            ${LOOP.map(([t, d], i) => `
+              <li class="ft-loop-step">
+                <span class="ft-loop-node">${i + 1}</span>
+                <div><b>${esc(t)}</b><span>${esc(d)}</span></div>
+                ${i < LOOP.length - 1 ? '<span class="ft-loop-arrow" aria-hidden="true"></span>' : '<span class="ft-loop-return" aria-hidden="true">↻</span>'}
+              </li>`).join("")}
+          </ol>
+          <p class="ft-pieces-label">Held together by</p>
+          <div class="ft-pieces">${PIECES.map(p => `<span>${esc(p)}</span>`).join("")}</div>
+        </div>
+      </section>
+
+      <!-- ───────── 6 · A family story that grows (cream, timeline) ───────── -->
+      <section class="np-section ft-legacy-section">
+        <div class="np-inner">
+          <span class="np-label">Six · A story that grows over the years</span>
+          <h2 class="np-h2">A record of a childhood, gathering year by year.</h2>
+          <p class="np-lg" style="max-width:740px">Reflections, projects, photos, portfolios and growth reports don’t disappear when a week ends. They gather — slowly becoming the story of who your child is becoming.</p>
+          <ol class="ft-timeline">
+            ${TIMELINE.map(([age, note]) => `
+              <li class="ft-tl-item">
+                <span class="ft-tl-node"></span>
+                <b class="ft-tl-age">${esc(age)}</b>
+                <span class="ft-tl-note">${esc(note)}</span>
+              </li>`).join("")}
+          </ol>
+          <p class="ft-legacy-punch">Years later, they won’t just remember what they learned.<br><em>They’ll be able to see the story of who they became.</em></p>
+        </div>
+      </section>
+
+      <!-- ───────── The heart of North Star — single, quiet AI mention ───────── -->
+      <section class="np-section ft-engine-section">
+        <div class="np-inner ft-engine">
+          <p class="ft-engine-lead">The heart of North Star quietly learns your family over time — noticing, remembering, connecting the dots, and becoming more helpful with every season.</p>
+          <p class="ft-engine-fine">Powered by an AI learning engine that quietly learns about your family over time, allowing every recommendation to become more personal, more relevant and more helpful.</p>
+        </div>
+      </section>
+
+      <!-- ───────── Everything included — compact, Apple-style ───────── -->
+      <section class="np-section ft-everything-section">
+        <div class="np-inner">
+          <span class="np-label">Everything included</span>
+          <h2 class="np-h2">All of it, in one calm place.</h2>
+          <div class="ft-everything">
+            ${EVERYTHING.map(([title, items]) => `
+              <div class="ft-col">
+                <h3 class="ft-col-title">${esc(title)}</h3>
+                <ul>${items.map(i => `<li>${esc(i)}</li>`).join("")}</ul>
+              </div>`).join("")}
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────── Closing CTA — honest, no fake sample ───────── -->
+      <section class="np-cta">
+        <h2 class="np-cta-h2">This isn’t software trying to manage your education.</h2>
+        <p class="np-cta-sub">It’s something that learns your family — and helps you build the childhood you’ve been hoping to create.</p>
+        <a class="btn btn-primary btn-lg" href="#/signup">Begin with your family’s North Star</a>
+      </section>
+
     </div>
   `;
 }
