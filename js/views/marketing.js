@@ -34,7 +34,7 @@ async function checkActiveSubscription(email) {
 const NAV_LINKS = [
   { path: "/welcome",      label: "Home" },
   { path: "/about",        label: "About" },
-  { path: "/how-it-works", label: "How It Works" },
+  { path: "/how-it-works", label: "How North Star Learns" },
   { path: "/features",     label: "Features" },
   { path: "/pricing",      label: "Pricing" },
   { path: "/contact",      label: "Contact" },
@@ -93,7 +93,7 @@ function publicFooter() {
             <h4>Platform</h4>
             <div class="stack mt-1" style="gap:6px">
               <a href="#/welcome">Home</a>
-              <a href="#/how-it-works">How it works</a>
+              <a href="#/how-it-works">How North Star learns</a>
               <a href="#/features">Features</a>
               <a href="#/pricing">Pricing</a>
             </div>
@@ -752,103 +752,238 @@ export function renderAbout(container) {
    Part 2: the child experience (10 steps)
    ============================================================ */
 export function renderHowItWorks(container) {
-  const parentSteps = [
-    ["Create your Family North Star", "Define what you actually believe — values, family vision, credo, core word, character priorities, capabilities, learning priorities. This becomes the lens for every decision the platform helps you make. Without it, every suggestion feels generic. With it, everything aligns."],
-    ["Create child profiles",          "Passions, strengths, goals, learning preferences, areas developing. Each child is honoured as the unique person they already are. Every suggestion the platform makes downstream is tuned to this child, not the average."],
-    ["Choose a learning style",        "A 1–10 slider, from Explorer (unschooling) to Traditional Academic. There is no right answer — only the one that fits your family right now. The platform meets you where you are."],
-    ["Select learning domains",        "Brain Gigs · Build Gigs · Money Gigs · House Gigs · Community Gigs · Body Gigs (and optionally Faith Gigs). These are the dimensions of a whole-child rhythm — the platform watches the balance for you."],
-    ["Build projects",                 "Parent-created or AI-assisted. Real work tied to real passions. Set a child's first business, a backyard sanctuary, a documented adventure — anything that takes them somewhere meaningful."],
-    ["Create milestones",              "Each project has a small set of milestones — concrete, dateable steps. Each milestone carries Momentum Points and a star. Together they make abstract growth visible."],
-    ["Set rewards & tolls",            "Rewards celebrate honest, finished work. Tolls are natural consequences of unfinished work — not punishments. The child agrees to both at the start."],
-    ["Review growth",                  "Generate Growth Reports at month-end or term-end. Mentor-voiced, evidence-based, encouraging. Honest about strengths and what's still developing."],
-    ["Plan the next term",             "Family Councils + Growth Reports feed the next chapter. The journey compounds — months become years, and years become a family story."],
+  // The seven things North Star quietly learns, in order.
+  const FLOW = [
+    "It learns your family’s direction",
+    "It learns who your child already is",
+    "It learns your real world",
+    "It understands the capabilities you want to build",
+    "It creates the next right learning experience",
+    "It helps your child act, reflect and grow",
+    "It turns growth into a living record",
   ];
 
-  const childSteps = [
-    ["Open my portal",        "A single access code (parent-issued) — no email, no password, optional 4-digit PIN. The child portal opens straight into something theirs."],
-    ["See today's missions",  "Not assignments. Not homework. Missions — the next things alive for them, with countdown timers and Momentum Points attached."],
-    ["Open Project HQ",       "Every project is its own headquarters: why it matters, the milestones ahead, the next step, the reward, the toll."],
-    ["See the next step",     "One small, doable thing. Never \"here is your week\" — just \"here is the next move.\""],
-    ["Do the real-world work","The actual learning happens away from the screen. Building. Reading. Cooking. Selling. Talking. Walking. The portal organises — it never replaces."],
-    ["Return to reflect",     "When the work is done, the child writes — or speaks — what they noticed. Typing isn't required. The reflections become a record of their thinking."],
-    ["Earn Momentum Points",  "Tap the star. A small celebration. Real progress made visible. Points accrue toward the project's reward."],
-    ["Build a portfolio",     "Completed projects, reflections, photos, evidence. Their work, kept. A record they can show, share or simply hold onto."],
-    ["Work toward rewards",   "Each project has a celebration at the end. Something agreed up front. Something the child has earned through finishing well."],
-    ["Create a record of growth", "Over months, the portfolio becomes a story. The Family Legacy timeline turns months of work into a family book."],
+  const DOMAINS = [
+    "Literacy & Communication", "Mathematics & Logical Thinking", "Science & Discovery",
+    "Practical Life", "Entrepreneurship & Financial Capability", "Health & Wellbeing",
+    "Relationships & Emotional Intelligence", "Leadership & Contribution",
+    "Nature & Environmental Stewardship", "Creativity", "Sport & Physical Capability",
+    "Digital Capability",
   ];
+
+  const chips = (arr) => `<div class="nl-chips">${arr.map(c => `<span class="nl-chip">${esc(c)}</span>`).join("")}</div>`;
 
   container.innerHTML = `
-    <section class="hero" style="grid-template-columns:1fr;padding-top:80px;padding-bottom:30px">
-      <div>
-        <span class="hero-eyebrow">${nsIcon("compass", { size: 14 })} How North Star works</span>
-        <h1>Two experiences. One shared journey.</h1>
-        <p class="lede">North Star has two portals — one for the parent who plans, observes and reflects, and one for the child who works, reflects and grows. They mirror each other. Together they keep a family aligned.</p>
-      </div>
-    </section>
+    <div class="np-home nl">
 
-    <div class="journey-divider">
-      <span>Part one</span>
-      <hr>
-    </div>
-
-    <section class="section" style="border-top:none;padding-top:0">
-      <div class="row" style="gap:14px;margin-bottom:12px">
-        <span class="ns-icon-wrap midnight">${nsIcon("compass", { size: 22 })}</span>
-        <div>
-          <h2 style="font-size:30px;margin:0">The parent experience</h2>
-          <p class="lede" style="margin:6px 0 0">Nine steps. Set once. Refined over time.</p>
+      <!-- ───────── Opening ───────── -->
+      <section class="np-hero nl-open">
+        <div class="nl-open-inner">
+          <span class="np-label">How North Star Learns</span>
+          <h1 class="nl-open-h1">The more North Star understands your family, the more personal every learning experience becomes.</h1>
+          <div class="nl-open-body">
+            <p>It doesn’t begin with curriculum.</p>
+            <p>It begins by understanding who your child is, what matters to your family, and the life you’re hoping to build together.</p>
+            <p>From there, North Star quietly creates projects, experiences, conversations and opportunities that become more personalised over time.</p>
+          </div>
         </div>
-      </div>
-      <div class="journey-list">
-        ${parentSteps.map(([t, p], i) => `
-          <div class="journey-item">
-            <div class="journey-num">${String(i + 1).padStart(2, "0")}</div>
-            <div class="journey-body">
-              <h3>${esc(t)}</h3>
-              <p>${esc(p)}</p>
+      </section>
+
+      <!-- ───────── The shape of how it learns (flow) ───────── -->
+      <section class="np-section nl-flow-section">
+        <div class="np-inner">
+          <span class="np-label">The shape of it</span>
+          <h2 class="np-h2">North Star learns your family — then turns that understanding into meaningful learning.</h2>
+          <ol class="nl-flow">
+            ${FLOW.map((t, i) => `
+              <li class="nl-flow-item">
+                <span class="nl-flow-node">${String(i + 1).padStart(2, "0")}</span>
+                <span class="nl-flow-label">${esc(t)}</span>
+              </li>`).join("")}
+          </ol>
+        </div>
+      </section>
+
+      <!-- ───────── 1 · Family direction (cream) ───────── -->
+      <section class="np-section">
+        <div class="np-inner nl-split">
+          <div class="nl-split-text">
+            <span class="np-label">One · Your family’s direction</span>
+            <h2 class="np-h2">It learns what your family stands for.</h2>
+            <p class="np-lg">Every family teaches values, whether intentionally or accidentally. North Star helps make that culture conscious.</p>
+            <p class="np-body">Before it suggests projects, resources or rhythms, it first learns what matters most to you — your family vision, your Core Word and Credo, the values and character you’re nurturing, the capabilities you prize, and the kind of learning culture you want to build.</p>
+          </div>
+          <div class="nl-split-media">
+            <div class="nl-panel nl-corecard">
+              <span class="nl-panel-tag">Family North Star</span>
+              <div class="nl-core-word">ALIGN</div>
+              <div class="nl-core-acro">
+                <span><b>A</b>uthenticity</span><span><b>L</b>ove</span><span><b>I</b>ntegrity</span><span><b>G</b>rowth</span><span><b>N</b>ature</span>
+              </div>
+              <p class="nl-core-credo">“We learn by doing, we lead by serving, and we grow by staying true.”</p>
+              ${chips(["Courage", "Curiosity", "Kindness", "Stewardship"])}
             </div>
           </div>
-        `).join("")}
-      </div>
-    </section>
-
-    <div class="journey-divider">
-      <span>Part two</span>
-      <hr>
-    </div>
-
-    <section class="section" style="border-top:none;padding-top:0">
-      <div class="row" style="gap:14px;margin-bottom:12px">
-        <span class="ns-icon-wrap warm">${nsIcon("child", { size: 22 })}</span>
-        <div>
-          <h2 style="font-size:30px;margin:0">The child experience</h2>
-          <p class="lede" style="margin:6px 0 0">Where learning is organised, reflected on, celebrated and remembered. The learning itself happens in the real world.</p>
         </div>
-      </div>
-      <div class="journey-list">
-        ${childSteps.map(([t, p], i) => `
-          <div class="journey-item">
-            <div class="journey-num">${String(i + 1).padStart(2, "0")}</div>
-            <div class="journey-body">
-              <h3>${esc(t)}</h3>
-              <p>${esc(p)}</p>
+      </section>
+
+      <!-- ───────── 2 · The child (navy) ───────── -->
+      <section class="np-section--navy">
+        <div class="nl-split nl-split--flip">
+          <div class="nl-split-text">
+            <span class="np-label np-label--gold">Two · Who your child already is</span>
+            <h2 class="np-h2">It learns the child standing in front of it.</h2>
+            <p class="np-lg">Not the average child. Not a grade level. This child.</p>
+            <p class="np-body">Passions and strengths. The areas ready for growth. How they learn best, and the goals they’re reaching for. Your notes as their parent. Their reading, writing, maths and practical-life levels — and any learning differences or support needs. North Star holds all of it gently, and lets it shape everything downstream.</p>
+          </div>
+          <div class="nl-split-media">
+            <div class="nl-panel nl-profile">
+              <div class="nl-profile-head">
+                <span class="nl-avatar">N</span>
+                <div><div class="nl-profile-name">Noah</div><div class="nl-profile-sub">Age 9 · happiest outdoors</div></div>
+              </div>
+              <div class="nl-profile-row"><span>Passions</span>${chips(["Mountain biking", "Animals", "Building"])}</div>
+              <div class="nl-profile-row"><span>Strengths</span>${chips(["Hands-on", "Persistent"])}</div>
+              <div class="nl-profile-row"><span>Ready to grow</span>${chips(["Writing", "Patience"])}</div>
+              <div class="nl-levels">
+                ${[["Reading", 72], ["Writing", 48], ["Maths", 64], ["Practical life", 82]].map(([l, v]) =>
+                  `<div class="nl-level"><span>${l}</span><i style="--v:${v}%"></i></div>`).join("")}
+              </div>
             </div>
           </div>
-        `).join("")}
-      </div>
-    </section>
+        </div>
+      </section>
 
-    <section class="section">
-      <div class="section-philosophy">
-        <span class="section-eyebrow">A reminder</span>
-        <h2 style="max-width:760px">The platform is the hub. The learning is the life.</h2>
-        <p class="philosophy-line muted">North Star is not a device-dependent educational pathway. It helps families plan, organise, reflect and celebrate. The actual learning happens through books, projects, conversations, community, nature, life skills, creativity, exploration and service.</p>
-      </div>
-    </section>
+      <!-- ───────── 3 · Real world (cream) ───────── -->
+      <section class="np-section">
+        <div class="np-inner nl-split">
+          <div class="nl-split-text">
+            <span class="np-label">Three · Your real world</span>
+            <h2 class="np-h2">It learns the world your child already lives in.</h2>
+            <p class="np-lg">North Star doesn’t start by asking what you should buy. It learns what already exists in your world.</p>
+            <p class="np-body">Where you live. Whether you travel or worldschool. Your faith and your family rhythm. The people around your child, and the things already on your shelves — the books, the tools, the instruments, the garden, the pets. The library down the road, the museum across town, the mountain on the horizon. Your real life becomes the learning environment.</p>
+          </div>
+          <div class="nl-split-media">
+            <div class="nl-panel nl-context">
+              <span class="nl-panel-tag">Already in your world</span>
+              <ul class="nl-context-list">
+                ${["A microscope", "A garden", "A bike", "A grandparent", "A library", "A mountain", "A piano", "A dog", "A local museum"]
+                  .map(x => `<li>${x}</li>`).join("")}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
 
-    <div class="cta-strip">
-      <h2>Ten minutes to start. A lifetime to walk.</h2>
-      <a class="btn btn-primary btn-lg" href="#/pricing">Start Building Your North Star</a>
+      <!-- ───────── 4 · Capability (navy, full grid) ───────── -->
+      <section class="np-section--navy nl-domains-section">
+        <span class="np-label np-label--gold">Four · Whole-human capability</span>
+        <h2 class="np-h2">It builds capability — not just content.</h2>
+        <p class="np-lg" style="max-width:720px">Reading matters. Maths matters. Science matters. But so do responsibility, financial capability, emotional intelligence, creativity, leadership, physical capability and service. Every project is an opportunity to build the whole human.</p>
+        <div class="nl-domains">
+          ${DOMAINS.map(d => `<div class="nl-domain">${esc(d)}</div>`).join("")}
+        </div>
+      </section>
+
+      <!-- ───────── 5 · Projects (cream) ───────── -->
+      <section class="np-section">
+        <div class="np-inner nl-split">
+          <div class="nl-split-text">
+            <span class="np-label">Five · The next right experience</span>
+            <h2 class="np-h2">Only then does it create a project.</h2>
+            <p class="np-lg">Projects are the output, not the product. Once North Star understands your family, child, context and capability goals, it can create a project that actually fits.</p>
+            <p class="np-body">A project about cooking becomes maths, independence, practical life and generosity. Mountain biking becomes physics, mapping, resilience, writing and risk assessment. Travel becomes culture, history, language, photography, budgeting and reflection — complete with milestones, daily missions, reflection prompts, suggested resources and a printable journal, all open to your refinement.</p>
+          </div>
+          <div class="nl-split-media">
+            <div class="nl-panel nl-project">
+              <span class="nl-panel-tag">A generated project</span>
+              <h3 class="nl-project-title">Build &amp; run a weekend bike-repair stand</h3>
+              ${chips(["Physics", "Money", "Practical life", "Writing", "Resilience"])}
+              <ul class="nl-project-miles">
+                <li>Learn how gears and brakes actually work</li>
+                <li>Price a service list and make a sign</li>
+                <li>Run the stand for two Saturdays</li>
+                <li>Reflect: what worked, what you’d change</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────── 6 · Child portal (cream) ───────── -->
+      <section class="np-section nl-portal-section">
+        <div class="np-inner">
+          <span class="np-label">Six · The child portal</span>
+          <h2 class="np-h2">The portal isn’t where the learning happens.</h2>
+          <p class="np-lg" style="max-width:720px">It’s where learning is organised, reflected on, celebrated and remembered. The real learning happens in life.</p>
+          <ol class="nl-portal">
+            <li><b>Open their portal</b><span>One access code, optional PIN.</span></li>
+            <li><b>See today’s mission</b><span>The next real thing — not a worksheet.</span></li>
+            <li><b>Do the real-world work</b><span>Away from the screen.</span></li>
+            <li><b>Return to reflect</b><span>Write or speak what they noticed.</span></li>
+            <li><b>Build a portfolio</b><span>Their work, kept and celebrated.</span></li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- ───────── 7 · Living record (navy) ───────── -->
+      <section class="np-section--navy">
+        <div class="nl-split">
+          <div class="nl-split-text">
+            <span class="np-label np-label--gold">Seven · A living record</span>
+            <h2 class="np-h2">Growth becomes a record of who your child is becoming.</h2>
+            <p class="np-lg">Over time, North Star becomes more than a planner. Reflections, portfolio, Growth Reports and quarterly reflections gather into one longitudinal family story — capability growth made visible, with real evidence of learning.</p>
+            <p class="np-body">The family’s journey begins to compound.</p>
+          </div>
+          <div class="nl-split-media">
+            <div class="nl-panel nl-record">
+              <span class="nl-panel-tag">The journey compounds</span>
+              <div class="nl-record-row"><b>Projects</b><span>become evidence</span></div>
+              <div class="nl-record-row"><b>Reflections</b><span>become memory</span></div>
+              <div class="nl-record-row"><b>Reports</b><span>become mirrors</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ───────── Why every family differs (cream) ───────── -->
+      <section class="np-section">
+        <div class="np-inner">
+          <span class="np-label">The same platform, lived differently</span>
+          <h2 class="np-h2">Why every family’s North Star looks different.</h2>
+          <div class="nl-families">
+            <div class="nl-family">
+              <span class="nl-panel-tag">Family A</span>
+              <ul class="nl-family-ctx">
+                <li>Lives on acreage</li><li>Loves animals</li><li>Values entrepreneurship</li>
+                <li>Has three children</li><li>Owns tools and a vegetable garden</li>
+              </ul>
+              <div class="nl-family-arrow">North Star might suggest</div>
+              ${chips(["Animal care", "Food growing", "Farm budgeting", "Market stall", "Biology", "Practical maths", "Business writing"])}
+            </div>
+            <div class="nl-family">
+              <span class="nl-panel-tag">Family B</span>
+              <ul class="nl-family-ctx">
+                <li>Lives in an apartment</li><li>Travels often</li><li>Loves music</li>
+                <li>Values service</li><li>Has museums and transit nearby</li>
+              </ul>
+              <div class="nl-family-arrow">North Star might suggest</div>
+              ${chips(["Travel journals", "Museum quests", "Music history", "Street photography", "Language learning", "Service projects", "Cultural mapping"])}
+            </div>
+          </div>
+          <p class="nl-families-punch">Same platform. Completely different education.</p>
+        </div>
+      </section>
+
+      <!-- ───────── Closing (navy) ───────── -->
+      <section class="np-cta nl-close">
+        <h2 class="np-cta-h2">North Star was never built to replace parents, teachers or mentors.</h2>
+        <p class="np-cta-sub">It exists to help families become more intentional — to notice more, encourage more, explore more, and celebrate more.</p>
+        <p class="nl-close-body">The software quietly works in the background. The real learning happens in kitchens, workshops, gardens, libraries, forests, businesses, communities, conversations and the ordinary days that slowly shape who a child becomes.</p>
+        <p class="nl-close-body nl-close-final">North Star helps families create the conditions in which children discover who they are capable of becoming.</p>
+        <a class="btn btn-primary btn-lg" href="#/pricing">Discover Your North Star</a>
+      </section>
+
     </div>
   `;
 }
