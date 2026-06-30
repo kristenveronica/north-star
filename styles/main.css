@@ -2739,23 +2739,21 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   z-index: 0;
   pointer-events: none;
   background:
-    /* dawn spill from the unseen star (upper-right) — its core is off-frame,
-       so only the gentle falloff lands in view */
-    radial-gradient(120% 88% at 80% -24%,
-      rgba(255, 226, 178, 0.66) 0%,
-      rgba(253, 221, 176, 0.34) 28%,
-      rgba(250, 223, 186, 0.12) 52%,
-      transparent 73%),
-    /* warmth washing along the top like sunrise sky */
-    radial-gradient(165% 125% at 50% -16%,
-      rgba(255, 240, 215, 0.32) 0%,
-      transparent 60%),
-    /* pre-dawn ground still in shadow: a cool, subtle deepening toward the base */
-    linear-gradient(180deg, transparent 52%, rgba(34, 50, 80, 0.06) 100%),
-    /* the deepest of that shadow gathers low-left, opposite the light */
-    radial-gradient(95% 85% at 4% 122%,
-      rgba(34, 50, 80, 0.05) 0%,
-      transparent 54%);
+    /* PRIMARY light source — a warm dawn glow blooming in from the top-left
+       corner. Its core sits just off-frame so the glow feels like it spills
+       into the scene from an unseen North Star. */
+    radial-gradient(64% 60% at 1% -3%,
+      rgba(255, 218, 158, 0.78) 0%,
+      rgba(255, 216, 160, 0.46) 20%,
+      rgba(254, 219, 172, 0.20) 40%,
+      rgba(252, 223, 184, 0.07) 58%,
+      transparent 72%),
+    /* the light's soft spread across the upper field */
+    radial-gradient(135% 100% at 16% -14%,
+      rgba(255, 236, 208, 0.28) 0%,
+      transparent 62%),
+    /* a quiet cool base opposite the source — depth, not a vignette */
+    linear-gradient(158deg, transparent 46%, rgba(32, 48, 78, 0.065) 100%);
 }
 .np-hero--dawn > * { position: relative; z-index: 1; }
 /* the headline catches the light: a hair of top-lit relief, no glow */
@@ -2765,16 +2763,18 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .hero-compass--dawn { max-width: 556px; }           /* ~13% less visual weight */
 .hero-compass--dawn .hero-compass-svg {
   filter:
-    drop-shadow(0 26px 34px rgba(125, 92, 40, 0.18))  /* warm ambient shadow below */
-    drop-shadow(0 4px 10px rgba(30, 40, 60, 0.06));
+    /* lit from the top-left → ambient shadow falls to the bottom-right */
+    drop-shadow(16px 26px 34px rgba(125, 92, 40, 0.18))
+    drop-shadow(6px 7px 11px rgba(30, 40, 60, 0.07));
 }
-/* soften the old halo into a diffuse reflected-light pool (no visible ring) */
+/* soften the old halo into a diffuse reflected-light pool, gathered on the lit
+   (upper-left) side of the compass — no visible ring */
 .hero-compass--dawn .hero-compass-halo {
   inset: -10%;
-  background: radial-gradient(circle at 50% 44%,
-    rgba(255, 238, 206, 0.30) 0%,
-    rgba(240, 201, 132, 0.09) 38%,
-    transparent 68%);
+  background: radial-gradient(circle at 37% 33%,
+    rgba(255, 238, 206, 0.32) 0%,
+    rgba(240, 201, 132, 0.10) 40%,
+    transparent 70%);
 }
 
 /* Polished-brass highlight that drifts across the face every ~13s, then rests.
