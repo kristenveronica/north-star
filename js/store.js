@@ -43,6 +43,10 @@ const DEFAULT_STATE = {
   familyMembers: [],     // [{ id, user_id, role, is_primary, display_name, status, permissions[] }]
   memberChildAccess: [], // [{ id, member_id, child_id, access_level, permissions[] }]
 
+  // Learning Apps hub (see js/lib/appsHub.js) — per-child enablement, daily time
+  // limits and reported session progress for satellite apps (Polaris Math, …).
+  childApps: [],         // [{ id, childId, appId, enabled, dailyLimitMin, minutesByDay{}, sessions[], lastSummary }]
+
   // Layer 15 — Learning Guild + Family Councils + Family Legacy
   guildConfig: {
     premiumEnabled: false,

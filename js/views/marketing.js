@@ -180,34 +180,40 @@ function homeVariant() {
 }
 
 export function renderHome(container) {
-  // §6 Learning Ecosystem — 12 experiences (symmetric 4×3 grid).
-  // No icons: the strict system leans on typography, not decoration.
-  const EXPERIENCES = [
-    "Projects", "Books", "Businesses", "Apprenticeships",
-    "Mentorships", "Adventures", "Travel", "Service",
-    "Creative Pursuits", "Life Skills", "Community", "Real-World Challenges",
+  // §6 Learning Ecosystem — 12 capabilities, each a hover-expand card.
+  // [key, title, description]. Icons are minimal line-SVGs (see CAP_ICONS).
+  const CAPS = [
+    ["building", "Building", "Hands-on projects, engineering challenges, construction, design, tools, repairs, prototypes and practical problem-solving."],
+    ["creating", "Creating", "Art, music, writing, filmmaking, design, storytelling, product creation and original creative expression."],
+    ["exploring", "Exploring", "Nature study, science investigations, field trips, geography, history, cultural discovery and curiosity-led learning."],
+    ["serving", "Serving", "Community contribution, volunteering, environmental care, kindness projects and learning through meaningful service."],
+    ["leading", "Leading", "Team projects, communication, initiative, responsibility, public speaking, confidence and learning to positively influence others."],
+    ["earning", "Earning", "Entrepreneurship, financial literacy, business creation, budgeting, investing, selling and creating real value."],
+    ["solving", "Solving", "Real-world problems, design thinking, innovation, strategy, logic and critical thinking."],
+    ["making", "Making", "Cooking, gardening, woodworking, sewing, crafting, repairing and developing practical life competence."],
+    ["investigating", "Investigating", "Research, reading, experiments, observation, interviewing, questioning and evidence-based thinking."],
+    ["connecting", "Connecting", "Mentorships, apprenticeships, collaboration, community, intergenerational learning and building meaningful relationships."],
+    ["teaching", "Teaching", "Presentations, tutoring, explaining ideas, creating guides and deepening understanding by helping others learn."],
+    ["adventuring", "Adventuring", "Outdoor education, expeditions, travel, resilience, physical challenges and learning through lived experience."],
   ];
 
-  // §3 — the rhythmic "They know how to…" litany. Each line verbatim;
-  // the final line carries the most weight.
-  const KNOWS = [
-    "They know how to learn.",
-    "They know how to work.",
-    "They know how to earn.",
-    "They know how to communicate.",
-    "They know how to contribute.",
-    "They know how to navigate challenges.",
-    "They know how to create value.",
-    "They know how to build, grow, adapt, and stay steady in a changing world.",
-  ];
-
-  // §5 — how it works: a four-step path from vision to everyday life.
+  // §5 — how it works: a four-step path from vision to everyday life (retained).
   const STEPS = [
     ["01", "Define your North Star", "Clarify the values, capabilities, and vision for the adult each child is becoming."],
     ["02", "Understand each child", "Capture their strengths, interests, and the way they learn best."],
     ["03", "Design the journey", "Reverse-engineer a personalised plan of projects and real-world experiences."],
     ["04", "Live &amp; reflect", "Track growth, capture the moments that matter, and adjust as your children grow."],
   ];
+
+  // Small helpers to keep the long narrative readable.
+  const paras = (arr) => arr.map(p => `<p class="np-body">${p}</p>`).join("");
+  const litany = (arr) => `<ul class="np-litany">${arr.map(l => `<li>${l}</li>`).join("")}</ul>`;
+  const cap = ([key, title, desc]) => `
+    <div class="np-cap" tabindex="0">
+      <span class="np-cap-ico">${capIcon(key)}</span>
+      <h3 class="np-cap-title">${title}</h3>
+      <div class="np-cap-desc"><span>${desc}</span></div>
+    </div>`;
 
   const navyHero = homeVariant() === "b";
 
@@ -238,48 +244,104 @@ export function renderHome(container) {
         </div>
       </section>
 
-      <!-- ───────────── 2. START WITH THE DESTINATION ───────────── -->
+      <!-- ───────────── 2. THE NORTH STAR PHILOSOPHY (cream) ───────────── -->
       <section class="np-section">
         <div class="np-inner">
-          <span class="np-label">The Philosophy</span>
-          <h2 class="np-h2">Education should begin with a destination — not a curriculum.</h2>
+          <span class="np-label">The North Star Philosophy</span>
+          <h2 class="np-h2">A different way to think about education.</h2>
           <div class="np-contrast">
-            <p class="np-contrast-them">Most planning starts by asking, <em>“What should my child learn this year?”</em></p>
-            <p class="np-contrast-us">North Star starts by asking, <em>“Who are we helping this child become?”</em></p>
+            <p class="np-contrast-them">Traditional education asks, <em>“What should this child learn next?”</em></p>
+            <p class="np-contrast-us">North Star asks, <em>“Who are we helping this child become?”</em></p>
           </div>
-          <p class="np-lg">We help families define their North Star, then reverse-engineer a personalised learning journey around each child — nurturing the capabilities, character, confidence, and real-world skills to bring that vision to life.</p>
+          ${paras([
+            "Families begin by defining their North Star: the values they want to live by, the qualities they hope to nurture, the experiences they want their children to have, and their own definition of a meaningful life.",
+            "From there, the heart of North Star — our AI infrastructure — gets to know your family. It learns your child’s strengths, interests, learning style, pace and aspirations, along with the unique opportunities that already exist within your home, your community and your world.",
+            "Powered by AI, it continually adapts — creating deeply personalised projects, experiences and learning pathways that help each child develop the knowledge, capabilities, character and confidence to build a life that’s true to who they are.",
+          ])}
         </div>
       </section>
 
-      <!-- ───────────── 3. IMAGINE YOUR CHILD AT 18 ───────────── -->
+      <!-- ───────────── 3. THE DIRECTION (navy) ───────────── -->
+      <section class="np-section np-section--navy">
+        <div class="np-inner">
+          <span class="np-label np-label--gold">The Direction</span>
+          <h2 class="np-h2">Every family is different. So is every child.</h2>
+          <p class="np-lg">No two families share the same values, priorities or vision for the future. No two children share the same strengths, interests, challenges or dreams. So why should they all follow the same educational path?</p>
+          ${paras([
+            "Every ship begins by choosing its destination. Storms come. Detours happen. The course may change. But the destination continues to guide every decision. Families are no different.",
+            "North Star helps families define that destination first. Together, we uncover the values you want to live by, the qualities you hope to nurture, and your family’s vision of a meaningful, successful life.",
+          ])}
+          <p class="np-pull">From there, everything changes.</p>
+          ${paras([
+            "North Star’s AI gets to know your family deeply. It learns how each child thinks, what sparks their curiosity, how they learn best, and the opportunities already surrounding your family. As your children grow and change, North Star grows with them — continually adapting their learning journey through personalised projects, real-world experiences and academic pathways designed to develop both capability and character.",
+            "Because children don’t simply inherit what we say. They inherit the culture we create.",
+          ])}
+          ${litany([
+            "The values we model.",
+            "The conversations we have.",
+            "The expectations we set.",
+            "The opportunities we provide.",
+          ])}
+          <p class="np-body">North Star helps families build that culture intentionally — so that long after specific lessons have been forgotten, your children carry something far more enduring: an internal compass that guides the choices they make for the rest of their lives.</p>
+        </div>
+      </section>
+
+      <!-- ───────────── 4. THE FUTURE (cream) ───────────── -->
+      <section class="np-section">
+        <div class="np-inner">
+          <span class="np-label">The Future</span>
+          <h2 class="np-h2">Preparing children for a world that won’t stand still.</h2>
+          <p class="np-lg">Children are growing up in a future no curriculum can fully predict. By the time a curriculum is written, the world has already changed.</p>
+          ${paras([
+            "New technologies emerge. Entire industries evolve. Careers appear that didn’t exist just a few years earlier, while others quietly disappear.",
+            "The goal is no longer to prepare children for a predictable future. It’s to help them thrive in an unpredictable one.",
+          ])}
+          ${litany([
+            "Curiosity alongside knowledge.",
+            "Adaptability alongside confidence.",
+            "Character alongside capability.",
+          ])}
+          ${paras([
+            "Increasingly, researchers and business leaders are pointing to Adaptability Intelligence (AQ) as one of the defining predictors of long-term success in a rapidly changing world. We believe children who know how to learn, think critically, solve problems, create value and adapt with confidence will always be better prepared than those who have simply memorised yesterday’s answers.",
+          ])}
+          <p class="np-pull">Traditional curricula are updated every few years. North Star learns every day.</p>
+          <p class="np-body">Powered by AI, North Star continually learns alongside your family — adapting as your child grows, their interests evolve and the world changes around them. Every project, learning experience and challenge becomes increasingly personalised, helping your child develop the knowledge, character and real-world capabilities they’ll need for the future they’re actually stepping into.</p>
+          <p class="np-pull">Most educational systems are designed to keep pace with the past. North Star is designed to keep pace with the future.</p>
+          <p class="np-body">The goal isn’t to predict the future. It’s to help raise children who can confidently create it.</p>
+        </div>
+      </section>
+
+      <!-- ───────────── 5. IMAGINE LOOKING BACK (navy) ───────────── -->
       <section class="np-section np-section--navy">
         <div class="np-inner">
           <span class="np-label np-label--gold">Imagine Looking Back</span>
-          <h2 class="np-h2">Imagine your child at eighteen.</h2>
-          <p class="np-lg">They have spent their childhood developing the skills, habits, experiences, and character that matter most to your family.</p>
+          <h2 class="np-h2">One day, your child will be eighteen.</h2>
+          <p class="np-lg">You’ll look back on thousands of ordinary days that quietly shaped the person standing in front of you.</p>
           <ul class="np-knows">
-            ${KNOWS.map((line, i) => `<li${i === KNOWS.length - 1 ? ' class="np-knows-final"' : ""}>${line}</li>`).join("")}
+            <li>A young adult who knows who they are.</li>
+            <li>Who can think for themselves.</li>
+            <li>Who has learned how to learn, create, contribute and adapt.</li>
+            <li>Who approaches life with confidence, curiosity and character.</li>
+            <li class="np-knows-final">Who defines success on their own terms — while remaining grounded in the values that shaped them.</li>
           </ul>
+          ${paras([
+            "As parents, we don’t get to choose the future our children will inherit. But we do get to help shape the people they’ll become.",
+            "Because childhood doesn’t simply prepare children for school. It lays the foundations for the rest of their lives.",
+          ])}
+          ${litany([
+            "One day, the toys will be packed away.",
+            "The bedrooms will become quiet.",
+            "The school years will be over.",
+          ])}
+          <p class="np-body">What remains are the values they carry. The habits they formed. The confidence they built. The character they developed. And the direction that continues to guide them long after they’ve left home.</p>
           <div class="np-imagine-close">
-            <p class="np-close-strong">They know who they are.</p>
-            <p>And they are excited about the life ahead of them.</p>
+            <p class="np-close-strong">Every ordinary day is shaping the adult they’re becoming.</p>
+            <p>That’s the opportunity. That’s the responsibility. That’s why North Star exists.</p>
           </div>
         </div>
       </section>
 
-      <!-- ───────────── 4. EVERY FAMILY HAS A NORTH STAR ───────────── -->
-      <section class="np-section np-section--navy np-coordinates">
-        <div class="np-watermark" aria-hidden="true">${heroCompassIllustration()}</div>
-        <div class="np-inner">
-          <span class="np-label np-label--gold">Direction Changes Everything</span>
-          <h2 class="np-h2">Every family has a North Star.</h2>
-          <p class="np-lg">A direction. A vision. A set of values that shape how you live, and how you raise your children.</p>
-          <p class="np-body">Every ship that sets sail first locks in its destination. Storms come. Detours happen. But the coordinates always guide it back onto the path to where it is heading.</p>
-          <p class="np-body">North Star helps families move beyond simply educating their children, and begin intentionally shaping the culture, experiences, and opportunities that influence who they become.</p>
-        </div>
-      </section>
-
-      <!-- ───────────── 5. HOW NORTH STAR WORKS ───────────── -->
+      <!-- ───────────── 6. HOW IT WORKS (cream, retained) ───────────── -->
       <section class="np-section">
         <div class="np-inner">
           <span class="np-label">How It Works</span>
@@ -296,46 +358,79 @@ export function renderHome(container) {
         </div>
       </section>
 
-      <!-- ───────────── 6. LEARNING ECOSYSTEM ───────────── -->
-      <section class="np-section">
-        <div class="np-inner">
-          <span class="np-label">The Learning Ecosystem</span>
-          <h2 class="np-h2">Learning happens through real-world experience.</h2>
-          <div class="np-ecosystem">
-            ${EXPERIENCES.map((label, i) => `
-              <div class="np-eco-item">
-                <span class="np-eco-index">${String(i + 1).padStart(2, "0")}</span>
-                <span class="np-eco-label">${label}</span>
-              </div>
-            `).join("")}
-          </div>
-          <p class="np-eco-foot">Each one is intentionally chosen for the role it can play in helping your child grow into the person you hope they become.</p>
-        </div>
-      </section>
-
-      <!-- ───────────── 7. FAMILY OPERATING SYSTEM ───────────── -->
+      <!-- ───────────── 7. THE LEARNING ECOSYSTEM (navy, interactive cards) ───────────── -->
       <section class="np-section np-section--navy">
         <div class="np-inner">
-          <span class="np-label np-label--gold">More Than A Curriculum</span>
-          <h2 class="np-h2">Part learning platform. Part family operating system.</h2>
-          <p class="np-lg">North Star brings together your family's values, vision, goals, rhythms, projects, learning plans, and reflections — into one place.</p>
-          <p class="np-body">Because when a family shares a vision and is anchored in its core values, children grow up with a strong sense of identity and purpose.</p>
-          <div class="np-os-close">
-            <p>Learning becomes more meaningful.</p>
-            <p>And children gain a deeper understanding of who they are, and where they are heading.</p>
+          <span class="np-label np-label--gold">The Learning Ecosystem</span>
+          <h2 class="np-h2">Learning happens through real-world experience.</h2>
+          <p class="np-lg">North Star develops capable children through meaningful experiences that adapt to each child’s interests, strengths and stage of development.</p>
+          <div class="np-caps">
+            ${CAPS.map(cap).join("")}
           </div>
+          <p class="np-caps-foot">Each one is intentionally chosen for the role it can play in helping your child grow into the person you hope they become.</p>
         </div>
       </section>
 
-      <!-- ───────────── 8. FINAL CTA ───────────── -->
-      <section class="np-cta">
-        <h2 class="np-cta-h2">The destination matters.</h2>
-        <p class="np-cta-sub">Let's build the path together.</p>
-        <a class="btn btn-primary btn-lg" href="#/pricing">Discover Your North Star</a>
+      <!-- ───────────── 8. MORE THAN A CURRICULUM (cream) ───────────── -->
+      <section class="np-section">
+        <div class="np-inner">
+          <span class="np-label">More Than A Curriculum</span>
+          <h2 class="np-h2">North Star isn’t simply a place where children learn. It’s a place where families grow.</h2>
+          ${paras([
+            "It brings together your family’s values, vision, goals, projects, rhythms and learning journey into one living system that grows and evolves alongside you.",
+            "Because education isn’t just about preparing children for the next test. It’s about preparing them for life.",
+            "One day, your children will make decisions without you.",
+          ])}
+          ${litany([
+            "They’ll build relationships.",
+            "Raise families.",
+            "Solve problems.",
+            "Contribute to their communities.",
+            "Create opportunities.",
+            "And navigate a world that will look very different from today’s.",
+          ])}
+          <p class="np-body">Our hope is that when they do, they won’t simply remember what they learned.</p>
+          ${litany([
+            "They’ll know who they are.",
+            "What they stand for.",
+            "How to think.",
+            "How to adapt.",
+            "How to contribute.",
+          ])}
+          <p class="np-body">And they’ll carry a North Star that guides them for the rest of their lives.</p>
+          <p class="np-pull">Because the most important thing a child leaves school with isn’t a transcript. It’s a compass.</p>
+        </div>
+      </section>
+
+      <!-- ───────────── 9. FINAL CTA (navy) ───────────── -->
+      <section class="np-cta np-cta--journey">
+        <h2 class="np-cta-h2">Every extraordinary journey begins with a destination.</h2>
+        <p class="np-cta-sub">Discover your family’s North Star and start building an education as unique as the child you’re raising.</p>
+        <a class="btn btn-primary btn-lg" href="#/pricing">Start Your Family’s Journey</a>
       </section>
 
     </div>
   `;
+}
+
+/* Minimal line icons for the Learning Ecosystem capability cards.
+   24×24, stroke = currentColor so they inherit the card's gold accent. */
+const CAP_ICONS = {
+  building: `<rect x="8" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/>`,
+  creating: `<path d="M18.5 3.5a2.1 2.1 0 0 1 3 3L9 19l-4.5 1.5L6 16z"/><path d="M15 6l3 3"/>`,
+  exploring: `<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>`,
+  serving: `<path d="M12 20s-7-4.6-7-9.5A3.5 3.5 0 0 1 12 7a3.5 3.5 0 0 1 7 3.5C19 15.4 12 20 12 20z"/>`,
+  leading: `<path d="M6 21V4"/><path d="M6 5h11l-2 3 2 3H6"/>`,
+  earning: `<circle cx="12" cy="12" r="8"/><path d="M12 7v10"/><path d="M14.5 9.2A2.7 2.7 0 0 0 12 8c-1.3 0-2.5.7-2.5 2s1.2 1.6 2.5 1.9 2.5.9 2.5 2.1-1.2 2-2.5 2a2.7 2.7 0 0 1-2.5-1.2"/>`,
+  solving: `<path d="M9 18h6"/><path d="M10 21h4"/><path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.5h6c0-1.1.4-1.9 1-2.5A6 6 0 0 0 12 3z"/>`,
+  making: `<circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><path d="M8 7.5 20 16M8 16.5 20 8"/>`,
+  investigating: `<circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/>`,
+  connecting: `<circle cx="9" cy="8" r="3"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path d="M16 5.5a3 3 0 0 1 0 5.6M17 20a5.5 5.5 0 0 0-3-4.9"/>`,
+  teaching: `<rect x="3" y="4" width="18" height="12" rx="1"/><path d="M12 16v4M8 20h8"/><path d="M7 11l3-3 2 2 4-4"/>`,
+  adventuring: `<path d="M3 20h18L14 8l-3 5-2-3z"/><circle cx="17.5" cy="6" r="1.8"/>`,
+};
+function capIcon(key) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${CAP_ICONS[key] || ""}</svg>`;
 }
 
 /* ============================================================

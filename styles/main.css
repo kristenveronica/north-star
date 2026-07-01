@@ -3475,6 +3475,88 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   margin: 8px 0; letter-spacing: -0.012em;
 }
 
+/* ───── Narrative litany — short serif stanzas ("X. Y. Z.") ───── */
+.np-litany { list-style: none; margin: 22px 0; padding: 0; }
+.np-litany li {
+  font-family: var(--font-serif);
+  font-size: clamp(20px, 2.2vw, 26px);
+  font-weight: 500; letter-spacing: -0.01em; line-height: 1.32;
+  color: var(--navy); padding: 5px 0 5px 22px; position: relative;
+}
+.np-litany li::before {
+  content: ""; position: absolute; left: 0; top: 0.85em;
+  width: 8px; height: 1.5px; background: var(--gold);
+}
+.np-section--navy .np-litany li { color: #FFFFFF; }
+
+/* ───── Pull line — a quiet full-weight statement between paragraphs ───── */
+.np-pull {
+  font-family: var(--font-serif);
+  font-size: clamp(23px, 2.8vw, 32px);
+  font-weight: 500; line-height: 1.28; letter-spacing: -0.015em;
+  color: var(--navy); margin: 30px 0; max-width: 800px;
+}
+.np-section--navy .np-pull { color: #FFFFFF; }
+
+/* ───── §6 Learning ecosystem — 12 hover-expand capability cards ───── */
+.np-caps {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 16px; margin-top: 44px;
+}
+.np-cap {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(243, 235, 217, 0.14);
+  border-radius: 18px; padding: 26px 22px;
+  transition: background 0.3s ease, border-color 0.3s ease,
+              box-shadow 0.3s ease, transform 0.3s ease;
+  outline: none;
+}
+.np-cap:hover, .np-cap:focus-visible {
+  background: rgba(255, 255, 255, 0.11);
+  border-color: rgba(200, 161, 90, 0.55);
+  box-shadow: 0 22px 44px -22px rgba(0, 0, 0, 0.55);
+  transform: translateY(-3px);
+}
+.np-cap:focus-visible { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(200,161,90,0.35); }
+.np-cap-ico {
+  display: block; color: var(--gold);
+  transition: transform 0.3s ease;
+}
+.np-cap-ico svg { width: 30px; height: 30px; }
+.np-cap:hover .np-cap-ico, .np-cap:focus-visible .np-cap-ico { transform: translateY(-3px) scale(1.08); }
+.np-cap-title {
+  font-family: var(--font-serif);
+  font-size: 22px; font-weight: 500; letter-spacing: -0.01em;
+  color: #FFFFFF; margin: 16px 0 0;
+}
+.np-cap-desc {
+  display: grid; grid-template-rows: 0fr; opacity: 0; margin-top: 0;
+  transition: grid-template-rows 0.32s ease, opacity 0.32s ease, margin-top 0.32s ease;
+}
+.np-cap-desc > span {
+  overflow: hidden;
+  font-size: 14px; line-height: 1.55; color: var(--cream); opacity: 0.85;
+}
+.np-cap:hover .np-cap-desc, .np-cap:focus-visible .np-cap-desc {
+  grid-template-rows: 1fr; opacity: 1; margin-top: 12px;
+}
+.np-caps-foot {
+  font-size: 18px; line-height: 1.6; color: var(--cream); opacity: 0.82;
+  max-width: 680px; margin: 32px 0 0;
+}
+/* Touch devices have no hover — reveal descriptions so nothing is hidden. */
+@media (hover: none) {
+  .np-cap-desc { grid-template-rows: 1fr; opacity: 1; margin-top: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .np-cap, .np-cap-ico, .np-cap-desc { transition: none; }
+}
+
+/* ───── §9 Final CTA — the "journey" close, a touch more breathing room ───── */
+.np-cta--journey { padding: 116px 48px; }
+.np-cta--journey .np-cta-h2 { max-width: 20ch; margin-inline: auto; }
+.np-cta--journey .np-cta-sub { max-width: 30ch; margin-inline: auto; font-style: normal; font-size: 20px; }
+
 /* ───── Homepage responsive ───── */
 @media (max-width: 900px) {
   .np-hero { grid-template-columns: 1fr; gap: 32px; padding: 48px 0; }
@@ -3482,16 +3564,19 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .np-hero-art { max-width: 360px; margin: 0 auto; } /* compass below the hero copy on mobile */
   .np-steps { grid-template-columns: repeat(2, 1fr); gap: 32px 24px; }
   .np-ecosystem { grid-template-columns: repeat(2, 1fr); }
+  .np-caps { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 760px) {
   .np-section { padding: 60px 0; }
   .np-section--navy { padding: 56px 28px; }
   .np-cta { padding: 64px 28px; }
+  .np-cta--journey { padding: 76px 28px; }
   .np-watermark { display: none; }
 }
 @media (max-width: 560px) {
   .np-steps { grid-template-columns: 1fr; }
   .np-ecosystem { grid-template-columns: 1fr; }
+  .np-caps { grid-template-columns: 1fr; }
   .np-hero-lead, .np-lg { font-size: 19px; }
 }
 

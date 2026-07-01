@@ -26,6 +26,7 @@ const GROUPS = [
       { label: "Family Inventory", path: "/inventory", icon: "inventory" },
       { label: "Learning Resources", path: "/materials", icon: "materials" },
       { label: "Projects", path: "/projects", icon: "projects" },
+      { label: "Learning Apps", path: "/apps", icon: "insights" },
       { label: "Term Planner", path: "/planner", icon: "plan" },
       { label: "Calendar", path: "/calendar", icon: "calendar" },
       { label: "Rewards & Tolls", path: "/rewards", icon: "reward" },
