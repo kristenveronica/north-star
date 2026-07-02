@@ -133,6 +133,7 @@ function openGeneratorModal() {
 
   let childId = s.children[0].id;
   let intent = "";            // the parent's free-text "spark"
+  let size = "auto";          // quest length: auto | small | medium | large
   let refinementsLeft = 3;    // 3 AI refinements before accepting
   let current = null;         // the proposed project being reviewed
 
@@ -158,6 +159,7 @@ function openGeneratorModal() {
   function genConstraints(extra = {}) {
     return {
       intent,
+      size,
       recentDomains: recentDomains(),
       avoidTitles: existingTitles(),
       preferences: summarizePreferences(getState(), childId),
@@ -196,6 +198,19 @@ function openGeneratorModal() {
       <div class="stack-tight mt-1" id="examples">
         ${PROMPT_EXAMPLES.map((ex, i) => `<button type="button" class="ns-example-btn" data-ex="${i}" style="text-align:left;width:100%;border:1px dashed var(--border);background:var(--card-elev);border-radius:var(--r-md);padding:8px 10px;cursor:pointer;color:var(--text-muted);font-size:13px;line-height:1.4">"${esc(ex)}"</button>`).join("")}
       </div>
+
+      <div class="small text-muted fw-700 mt-3" style="text-transform:uppercase;letter-spacing:.1em">How long should it be?</div>
+      <div class="chip-group mb-1" id="size">
+        ${[
+          ["auto", "Best fit", "North Star chooses"],
+          ["small", "Short", "1–2 weeks"],
+          ["medium", "Medium", "~1 month"],
+          ["large", "Long", "~a term"],
+        ].map(([v, label, hint]) => `
+          <button class="chip${v === size ? " selected" : ""}" data-size="${v}" title="${esc(hint)}">
+            ${esc(label)} <span class="text-muted" style="font-size:11px">· ${esc(hint)}</span>
+          </button>`).join("")}
+      </div>
     `;
     foot.innerHTML = `<button class="btn" data-close>Cancel</button><button class="btn btn-primary" id="go">✨ Generate Project</button>`;
 
@@ -207,6 +222,10 @@ function openGeneratorModal() {
     body.querySelectorAll("[data-ex]").forEach(b => b.addEventListener("click", () => {
       body.querySelector("#intent").value = PROMPT_EXAMPLES[+b.dataset.ex];
       body.querySelector("#intent").focus();
+    }));
+    body.querySelectorAll("[data-size]").forEach(b => b.addEventListener("click", () => {
+      size = b.dataset.size;
+      body.querySelectorAll("[data-size]").forEach(x => x.classList.toggle("selected", x === b));
     }));
     foot.querySelector("#go").addEventListener("click", doGenerate);
   }

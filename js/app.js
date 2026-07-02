@@ -47,7 +47,7 @@ import {
   renderPublicShell, renderHome, renderAbout, renderHowItWorks,
   renderFeaturesPublic, renderTrustCharter, renderPricing, renderContact, renderLogin, renderSignup, renderResetPassword,
 } from "./views/marketing.js";
-import { initAuth, isLoggedIn, onAuthChange } from "./auth.js";
+import { initAuth, isLoggedIn, onAuthChange, currentUserId } from "./auth.js";
 
 /* ---------- Layout shells ---------- */
 // The sidebar is rebuilt on every navigation/rerender, which would reset its
@@ -271,10 +271,17 @@ setCloudSync(syncCore);
   } catch { /* ignore */ }
 })();
 
+// Which user id the local store is currently hydrated for. Guards against
+// re-hydrating on every auth event — Supabase fires onAuthStateChange for
+// TOKEN_REFRESHED / INITIAL_SESSION / USER_UPDATED too, and a blind re-hydrate
+// on those would overwrite the local store from the cloud, wiping any change
+// (e.g. a just-generated project) that hasn't finished its debounced sync yet.
+let _hydratedUid = null;
+
 (async () => {
   await initAuth();
   if (isLoggedIn()) {
-    try { await ensureFamilyAndHydrate(); }
+    try { await ensureFamilyAndHydrate(); _hydratedUid = currentUserId(); }
     catch (e) { console.error("[boot] hydrate failed", e); }
   }
   mountRouter(app);
@@ -283,12 +290,20 @@ setCloudSync(syncCore);
 
   // React to login/logout happening from anywhere in the app.
   onAuthChange(async (session) => {
-    if (session) {
-      try { await ensureFamilyAndHydrate(); }
-      catch (e) { console.error("[auth] hydrate failed", e); }
-    } else {
+    const uid = session?.user?.id || null;
+    if (!uid) {
+      // Signed out.
+      _hydratedUid = null;
       resetToLoggedOut();
+      rerender();
+      return;
     }
+    // Same user as we're already hydrated for (token refresh, tab focus, etc.) —
+    // do NOT re-hydrate: it would clobber unsynced local changes. Nothing to do.
+    if (uid === _hydratedUid) return;
+    // A genuine sign-in / account switch → hydrate that user's data.
+    try { await ensureFamilyAndHydrate(); _hydratedUid = uid; }
+    catch (e) { console.error("[auth] hydrate failed", e); }
     rerender();
   });
 })();
