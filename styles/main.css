@@ -2649,13 +2649,13 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .np-label--gold { color: var(--gold); }
 .np-lg {
   font-size: 22px; line-height: 1.5;
-  max-width: 760px; margin: 24px 0 0;
+  max-width: 900px; margin: 24px 0 0;
   color: var(--ink); opacity: 0.85;
 }
 .np-section--navy .np-lg { color: var(--cream); opacity: 0.9; }
 .np-body {
   font-size: 18px; line-height: 1.62;
-  max-width: 680px; margin: 18px 0 0;
+  max-width: 840px; margin: 18px 0 0;
   color: var(--ink); opacity: 0.8;
 }
 .np-section--navy .np-body { color: var(--cream); opacity: 0.82; }
@@ -3554,8 +3554,8 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 
 /* ───── §9 Final CTA — the "journey" close, a touch more breathing room ───── */
 .np-cta--journey { padding: 116px 48px; }
-.np-cta--journey .np-cta-h2 { max-width: 20ch; margin-inline: auto; }
-.np-cta--journey .np-cta-sub { max-width: 30ch; margin-inline: auto; font-style: normal; font-size: 20px; }
+.np-cta--journey .np-cta-h2 { max-width: 30ch; margin-inline: auto; }
+.np-cta--journey .np-cta-sub { max-width: 48ch; margin-inline: auto; font-style: normal; font-size: 20px; }
 
 /* ───── Homepage responsive ───── */
 @media (max-width: 900px) {

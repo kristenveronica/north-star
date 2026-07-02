@@ -33,6 +33,7 @@ async function checkActiveSubscription(email) {
 }
 
 const NAV_LINKS = [
+  { path: "/welcome",      label: "Home" },
   { path: "/about",        label: "About" },
   { path: "/how-it-works", label: "How North Star Learns" },
   { path: "/features",     label: "Features" },
