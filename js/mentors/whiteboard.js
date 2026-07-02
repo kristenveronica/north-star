@@ -132,12 +132,17 @@ export function stopSpeaking() { synth?.cancel(); }
 function pickVoice() {
   const voices = synth?.getVoices?.() || [];
   if (!voices.length) return null;
-  const pref = ["Samantha", "Google UK English Female", "Google US English", "Karen", "Moira", "Female"];
-  for (const name of pref) {
+  // A warm, natural MALE voice — laid-back "surfer" vibe. Prefer natural US/AU
+  // males first, then any male, avoiding the novelty/robotic macOS voices.
+  const prefer = ["Aaron", "Tom", "Alex", "Google UK English Male", "Rocko", "Reed",
+    "Eddy", "Daniel", "Nathan", "Matthew", "Rishi", "Google US English"];
+  for (const name of prefer) {
     const v = voices.find((x) => x.name.includes(name));
     if (v) return v;
   }
-  return voices.find((v) => /^en(-|_)/i.test(v.lang)) || voices[0];
+  const NOVELTY = /(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Fred|Good News|Jester|Organ|Superstar|Trinoids|Whisper|Wobble|Zarvox|Ralph|Junior)/i;
+  const en = voices.filter((v) => /^en(-|_)/i.test(v.lang) && !NOVELTY.test(v.name));
+  return en.find((v) => /male|Aaron|Tom|Alex|Daniel|Rishi|Arthur/i.test(v.name)) || en[0] || voices[0];
 }
 
 // Make maths read naturally aloud, and drop emoji/markdown noise.
@@ -160,7 +165,7 @@ export function speak(text, opts = {}) {
   try {
     synth.cancel();
     const u = new SpeechSynthesisUtterance(forSpeech(text));
-    u.rate = 0.98; u.pitch = 1.12;
+    u.rate = 0.9; u.pitch = 0.9; // slower + lower = relaxed, laid-back delivery
     const v = pickVoice();
     if (v) { u.voice = v; u.lang = v.lang; }
     u.onend = done;
