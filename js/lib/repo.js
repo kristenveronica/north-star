@@ -267,6 +267,24 @@ const statusFromDb = (s) => (s || "active").replace(/_/g, "-");
 // so they persist without a schema migration.
 const DB_PROJECT_STATUSES = new Set(["active", "ready_for_reflection", "completed", "paused"]);
 const toDbStatus = (s) => { const d = statusToDb(s); return DB_PROJECT_STATUSES.has(d) ? d : "active"; };
+// The DB project_pathway enum uses lowercase/underscore ids. The app + AI emit
+// human forms ("Self-Reliance", "SelfReliance", "Arts"). Normalise every form to
+// the enum, and fall back to null for anything unknown (pathway is optional) so a
+// single stray value can NEVER reject the whole project insert and lose the work.
+const DB_PATHWAYS = new Set([
+  "adventure", "arts", "community", "enterprise", "faith", "family", "health",
+  "history", "mentorship", "science", "self_reliance", "service", "technology",
+]);
+const toDbPathway = (p) => {
+  if (!p) return null;
+  const k = String(p).trim()
+    .replace(/([a-z])([A-Z])/g, "$1_$2") // camelCase -> camel_Case
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");            // spaces/hyphens -> underscore
+  return DB_PATHWAYS.has(k) ? k : null;
+};
+const fromDbPathway = (p) =>
+  (p || "").replace(/_/g, "-").replace(/\b\w/g, (c) => c.toUpperCase()); // self_reliance -> Self-Reliance
 function toProjectRow(p, familyId) {
   return {
     id: p.id,
@@ -275,7 +293,7 @@ function toProjectRow(p, familyId) {
     title: p.title || "",
     description: orNull(p.description),
     purpose: orNull(p.purpose),
-    pathway: orNull(p.pathway),
+    pathway: toDbPathway(p.pathway),
     quest_role: orNull(p.questRole),
     capabilities_developed: arr(p.capabilitiesDeveloped),
     foundational_literacies: arr(p.foundationalLiteracies),
@@ -327,7 +345,7 @@ export function fromProjectRow(r) {
     title: r.title || "",
     description: r.description || "",
     purpose: r.purpose || "",
-    pathway: r.pathway || "",
+    pathway: fromDbPathway(r.pathway),
     questRole: r.quest_role || "",
     capabilitiesDeveloped: arr(r.capabilities_developed),
     foundationalLiteracies: arr(r.foundational_literacies),
