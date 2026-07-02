@@ -151,15 +151,40 @@ function forSpeech(text) {
     .trim();
 }
 
-/** Speak a mentor reply aloud (no-op when muted or unsupported). */
-export function speak(text) {
-  if (_muted || !synth || !text) return;
+/** Speak a mentor reply aloud. opts.onend fires when speech finishes (or is
+    skipped because muted/unsupported), so a live voice loop knows when to
+    re-open the mic. */
+export function speak(text, opts = {}) {
+  const done = () => { try { opts.onend?.(); } catch { /* ignore */ } };
+  if (_muted || !synth || !text) { done(); return; }
   try {
     synth.cancel();
     const u = new SpeechSynthesisUtterance(forSpeech(text));
     u.rate = 0.98; u.pitch = 1.12;
     const v = pickVoice();
     if (v) { u.voice = v; u.lang = v.lang; }
+    u.onend = done;
+    u.onerror = done;
     synth.speak(u);
-  } catch { /* ignore */ }
+  } catch { done(); }
+}
+
+/* ---------- Speech-to-text (browser SpeechRecognition) ---------- */
+
+export function speechInputSupported() {
+  return typeof window !== "undefined" &&
+    !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+/** A fresh single-utterance recognizer (caller wires onresult/onend/onerror). */
+export function newRecognition() {
+  const SR = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+  if (!SR) return null;
+  const r = new SR();
+  const lang = (typeof navigator !== "undefined" && /^en/i.test(navigator.language || "")) ? navigator.language : "en-US";
+  r.lang = lang;
+  r.interimResults = true;
+  r.continuous = false;
+  r.maxAlternatives = 1;
+  return r;
 }
