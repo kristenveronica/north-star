@@ -63,3 +63,9 @@ export function aiGrowthReflection(family, child, summary) {
 export function aiCoreWordLiving(family, summary) {
   return invokeAi("coreword-living", { family, summary });
 }
+
+/** One conversational turn with an AI mentor (e.g. Polaris).
+    history = [{ role:"child"|"mentor", text }]; returns { reply, suggestions[] }. */
+export function aiMentorTurn({ mentor, child, history, message }) {
+  return invokeAi("mentor-turn", { mentor, child, history, message });
+}

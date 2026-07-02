@@ -99,6 +99,38 @@ async function callClaude(system: string, userText: string, schema: object, apiK
   return { parsed, usage: data.usage };
 }
 
+// Multi-turn variant: pass a full messages array (for conversational mentors).
+async function callClaudeChat(system: string, messages: any[], schema: object, apiKey: string) {
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1200,
+      system: [
+        { type: "text", text: SOUL, cache_control: { type: "ephemeral" } },
+        { type: "text", text: system },
+      ],
+      output_config: { format: { type: "json_schema", schema } },
+      messages,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.error?.message || `Claude API error ${res.status}`);
+  }
+  if (data.stop_reason === "refusal") {
+    throw new Error("Polaris couldn't answer that one. Try asking a different way.");
+  }
+  const textBlock = (data.content || []).find((b: any) => b.type === "text");
+  const parsed = JSON.parse(textBlock?.text || "{}");
+  return { parsed, usage: data.usage };
+}
+
 // Shared: format a family's "deeper vision" answers (new 6-question set, with
 // back-compat fallbacks to the old keys).
 function visionLines(v: any): string {
@@ -857,6 +889,58 @@ Which Core Word qualities were genuinely brought to life — and only those?`;
   return callClaude(system, userText, COREWORD_LIVING_SCHEMA, apiKey);
 }
 
+// ---- Action: mentor-turn (a conversational turn with an AI mentor) ----------
+// One turn of a child ↔ mentor conversation. The mentor persona + pedagogy come
+// from the client's mentor registry; the child context personalises it. This is
+// the Phase-1 proof of the "one world, many mentors" pattern (Polaris / maths).
+const MENTOR_REPLY_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["reply", "suggestions"],
+  properties: {
+    reply: { type: "string" },                              // the mentor's short, in-character message
+    suggestions: { type: "array", items: { type: "string" } }, // 0–3 short things the child could tap to say next
+  },
+};
+
+async function mentorTurn(payload: any, apiKey: string) {
+  const m = payload?.mentor || {};
+  const c = payload?.child || {};
+  const history = Array.isArray(payload?.history) ? payload.history : [];
+  const message = (payload?.message || "").toString().trim();
+  if (!message) throw new Error("No message to respond to.");
+
+  const interests = (c.passions || []).join(", ") || "not sure yet";
+  const system = `${m.persona || "You are a warm, patient mentor inside North Star."}
+
+You are speaking for the Capability Domain(s): ${(m.domains || []).join(", ") || "—"}.
+
+${m.pedagogy || ""}
+
+THE CHILD you are talking with:
+- Name: ${c.name || "the child"}
+- Age: ${c.age ?? "unknown"}
+- Loves / is interested in: ${interests}
+- Learning style (1 = open-ended & child-led, 10 = structured & academic): ${c.learningStyle ?? 5}
+
+OUTPUT: Return JSON with:
+- "reply": your next message to ${c.name || "the child"} — in character, short (2–4 sentences), warm.
+- "suggestions": 0 to 3 VERY short things the child might tap to reply (a few words each), or an empty list. Write them in the CHILD's voice (e.g. "I'm stuck", "Show me an example").
+
+Stay in character. Never break the fourth wall or mention that you are an AI, a model, or JSON.`;
+
+  // Build the running conversation. history items: { role: "child"|"mentor", text }
+  const messages = history
+    .filter((t: any) => t && t.text)
+    .map((t: any) => ({
+      role: t.role === "mentor" ? "assistant" : "user",
+      content: t.role === "mentor" ? JSON.stringify({ reply: t.text, suggestions: [] }) : t.text,
+    }));
+  messages.push({ role: "user", content: message });
+
+  return callClaudeChat(system, messages, MENTOR_REPLY_SCHEMA, apiKey);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -874,6 +958,7 @@ Deno.serve(async (req) => {
     else if (action === "generate-project") result = await generateProject(payload, apiKey);
     else if (action === "growth-reflection") result = await growthReflection(payload, apiKey);
     else if (action === "coreword-living") result = await coreWordLiving(payload, apiKey);
+    else if (action === "mentor-turn") result = await mentorTurn(payload, apiKey);
     else return json({ error: `Unknown action: ${action}` }, 400);
 
     console.log(`[ai] ${action} usage:`, JSON.stringify(result.usage));

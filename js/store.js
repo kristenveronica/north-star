@@ -47,6 +47,10 @@ const DEFAULT_STATE = {
   // limits and reported session progress for satellite apps (Polaris Math, …).
   childApps: [],         // [{ id, childId, appId, enabled, dailyLimitMin, minutesByDay{}, sessions[], lastSummary }]
 
+  // AI mentors (Phase 1: Polaris/maths). One conversation per child per mentor.
+  // Local-only for now; the shared cross-mentor memory layer is Phase 2.
+  mentorConversations: [], // [{ id, childId, mentorId, turns:[{ role:"child"|"mentor", text, suggestions?, at }], createdAt, updatedAt }]
+
   // Layer 15 — Learning Guild + Family Councils + Family Legacy
   guildConfig: {
     premiumEnabled: false,
@@ -683,6 +687,50 @@ export function addReflection(r) {
 }
 export function getReflectionsForProject(projectId) {
   return _state.reflections.filter(r => r.projectId === projectId);
+}
+
+/* ---------------- AI Mentor conversations (Phase 1: Polaris) ----------------
+   One conversation per child per mentor. Persisted locally so a child can
+   resume where they left off. Cloud sync + shared memory arrive in Phase 2. */
+export function getMentorConversation(childId, mentorId) {
+  return (_state.mentorConversations || []).find(
+    c => c.childId === childId && c.mentorId === mentorId
+  ) || null;
+}
+export function getOrCreateMentorConversation(childId, mentorId) {
+  let convo = getMentorConversation(childId, mentorId);
+  if (convo) return convo;
+  convo = {
+    id: uid("mentor"),
+    childId,
+    mentorId,
+    turns: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  update(s => { s.mentorConversations.push(convo); });
+  return convo;
+}
+/** Append one turn. role = "child" | "mentor". */
+export function addMentorTurn(conversationId, turn) {
+  update(s => {
+    const c = s.mentorConversations.find(x => x.id === conversationId);
+    if (!c) return;
+    c.turns.push({
+      role: turn.role || "child",
+      text: turn.text || "",
+      suggestions: turn.suggestions || [],
+      at: new Date().toISOString(),
+    });
+    c.updatedAt = new Date().toISOString();
+  });
+}
+/** Clear a conversation's history (start fresh). */
+export function resetMentorConversation(conversationId) {
+  update(s => {
+    const c = s.mentorConversations.find(x => x.id === conversationId);
+    if (c) { c.turns = []; c.updatedAt = new Date().toISOString(); }
+  });
 }
 
 /* ---------------- Materials + Cart ---------------- */

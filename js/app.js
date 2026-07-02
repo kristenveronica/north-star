@@ -34,6 +34,7 @@ import { renderProgress } from "./views/progress.js";
 import { renderPortfolio } from "./views/portfolio.js";
 import { renderSettings } from "./views/settings.js";
 import { renderChildPortal, renderChildLogin, renderChildProjectHQ } from "./views/childPortal.js";
+import { renderPolaris } from "./views/polaris.js";
 import { renderReports, renderReportDetail } from "./views/reports.js";
 import { renderInsights, renderInsightsReports, renderInsightReportDetail } from "./views/insights.js";
 import { renderGuild, renderGuildSettings } from "./views/guild.js";
@@ -248,6 +249,7 @@ registerRoute("/settings",  (c, p) => withParentShell(c, renderSettings, p));
 registerRoute("/kid",          (c)    => withChildShell(c, renderChildLogin));
 registerRoute("/kid/:code",    (c, p) => withChildShell(c, renderChildPortal, p));
 registerRoute("/kid/:code/project/:projectId", (c, p) => withChildShell(c, renderChildProjectHQ, p));
+registerRoute("/kid/:code/mentor/:mentorId", (c, p) => withChildShell(c, renderPolaris, p));
 
 /* ---------- Boot ---------- */
 const app = document.getElementById("app");

@@ -301,6 +301,17 @@ export function renderChildPortal(container, params) {
 
       ${appTilesHTML(child)}
 
+      <button class="mentor-invite" data-open-mentor="polaris">
+        <span class="mentor-invite-mark">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 6.6L20 10l-6.1 1.4L12 18l-1.9-6.6L4 10l6.1-1.4z"/></svg>
+        </span>
+        <span class="mentor-invite-text">
+          <span class="mentor-invite-name">Chat with Polaris</span>
+          <span class="mentor-invite-sub">Your maths mentor. Stuck on something? Let's think it through together.</span>
+        </span>
+        <span class="mentor-invite-go">→</span>
+      </button>
+
       <h2 class="mb-2">${missionsHeading}</h2>
       ${homeMissions.length === 0
         ? `<div class="empty">${activeProjects.length ? "All missions done — open a project below to review or write a reflection." : "No missions yet. Ask a parent to set up your first project."}</div>`
@@ -366,6 +377,9 @@ export function renderChildPortal(container, params) {
   });
   container.querySelectorAll("[data-open-hq]").forEach(b => {
     b.addEventListener("click", () => navigate(`/kid/${child.accessCode}/project/${b.dataset.openHq}`));
+  });
+  container.querySelectorAll("[data-open-mentor]").forEach(b => {
+    b.addEventListener("click", () => navigate(`/kid/${child.accessCode}/mentor/${b.dataset.openMentor}`));
   });
   container.querySelector("#open-self-assess")?.addEventListener("click", () => openSelfAssessment(child));
 }

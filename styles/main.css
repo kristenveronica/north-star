@@ -4145,3 +4145,125 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 @media (max-width:430px){
   .about-montage{ max-width:300px; }
 }
+
+/* ═══════════════ AI Mentor — Polaris chat (Phase 1) ═══════════════ */
+
+/* Entry card on the child portal */
+.mentor-invite {
+  display: flex; align-items: center; gap: 16px; width: 100%;
+  text-align: left; cursor: pointer;
+  margin: 0 0 22px; padding: 18px 20px;
+  border: 1px solid var(--border); border-radius: 18px;
+  background: linear-gradient(135deg, var(--midnight) 0%, var(--midnight-deep) 100%);
+  color: var(--starlight);
+  box-shadow: 0 18px 40px -26px rgba(15,22,38,0.6);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.mentor-invite:hover { transform: translateY(-2px); box-shadow: 0 24px 50px -26px rgba(15,22,38,0.7); }
+.mentor-invite-mark {
+  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--gold);
+  background: rgba(232,181,71,0.12); border: 1px solid rgba(232,181,71,0.35);
+}
+.mentor-invite-mark svg { width: 24px; height: 24px; }
+.mentor-invite-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.mentor-invite-name { font-family: var(--font-serif); font-size: 21px; font-weight: 600; color: #fff; }
+.mentor-invite-sub { font-size: 13px; opacity: 0.8; line-height: 1.5; }
+.mentor-invite-go { flex: 0 0 auto; font-size: 22px; color: var(--gold); opacity: 0.9; }
+
+/* Full chat surface */
+.mentor-page {
+  display: flex; flex-direction: column;
+  min-height: 100vh; max-width: 760px; margin: 0 auto;
+  background: var(--bg);
+}
+.mentor-bar {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, var(--midnight) 0%, var(--midnight-deep) 100%);
+  color: var(--starlight);
+}
+.mentor-back {
+  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
+  color: #fff; font-size: 18px; cursor: pointer; line-height: 1;
+}
+.mentor-back:hover { background: rgba(255,255,255,0.14); }
+.mentor-mark { display: grid; place-items: center; color: var(--gold); }
+.mentor-mark svg { width: 30px; height: 30px; }
+.mentor-mark.sm { flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+  background: rgba(232,181,71,0.12); border: 1px solid rgba(232,181,71,0.3); }
+.mentor-mark.sm svg { width: 17px; height: 17px; }
+.mentor-id { flex: 1; }
+.mentor-name { font-family: var(--font-serif); font-size: 22px; font-weight: 600; color: #fff; line-height: 1.1; }
+.mentor-role { font-size: 12px; opacity: 0.72; }
+.mentor-reset {
+  flex: 0 0 auto; font-size: 12px; padding: 7px 12px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.2); background: transparent; color: var(--starlight);
+  cursor: pointer; opacity: 0.85;
+}
+.mentor-reset:hover { opacity: 1; background: rgba(255,255,255,0.08); }
+
+.mentor-thread {
+  flex: 1; overflow-y: auto; padding: 22px 18px 8px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.mbubble { display: flex; gap: 10px; align-items: flex-end; max-width: 84%; }
+.mbubble--mentor { align-self: flex-start; }
+.mbubble--child { align-self: flex-end; flex-direction: row-reverse; }
+.mbubble-text {
+  font-size: 15.5px; line-height: 1.55; padding: 12px 15px; border-radius: 18px;
+}
+.mbubble--mentor .mbubble-text {
+  background: var(--card); color: var(--ink, #2A221C);
+  border: 1px solid var(--border); border-bottom-left-radius: 6px;
+}
+.mbubble--child .mbubble-text {
+  background: linear-gradient(135deg, var(--midnight) 0%, var(--midnight-deep) 100%);
+  color: #fff; border-bottom-right-radius: 6px;
+}
+.mentor-childav {
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff;
+}
+
+/* Suggestion chips */
+.mentor-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 18px 0; }
+.mentor-chip {
+  font-size: 13.5px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--gold); background: var(--gold-soft); color: var(--primary-ink);
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.mentor-chip:hover { background: #F7DE9A; }
+.mentor-chip:disabled { opacity: 0.5; cursor: default; }
+
+/* Compose bar */
+.mentor-compose {
+  position: sticky; bottom: 0; display: flex; gap: 10px; align-items: flex-end;
+  padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+  background: var(--bg); border-top: 1px solid var(--border);
+}
+.mentor-input {
+  flex: 1; resize: none; font-family: inherit; font-size: 15.5px; line-height: 1.5;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: 16px;
+  background: var(--card); color: var(--ink, #2A221C); max-height: 140px;
+}
+.mentor-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-soft); }
+.mentor-send {
+  flex: 0 0 auto; padding: 12px 20px; border-radius: 16px; border: none; cursor: pointer;
+  font-weight: 600; color: #fff;
+  background: linear-gradient(135deg, var(--midnight) 0%, var(--midnight-deep) 100%);
+}
+.mentor-send:disabled { opacity: 0.5; cursor: default; }
+
+/* Typing indicator */
+.mentor-typing { display: inline-flex; gap: 4px; align-items: center; height: 10px; }
+.mentor-typing i {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted);
+  display: inline-block; animation: mentorBlink 1.2s infinite ease-in-out;
+}
+.mentor-typing i:nth-child(2) { animation-delay: 0.2s; }
+.mentor-typing i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes mentorBlink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .mentor-typing i { animation: none; } }
