@@ -17,7 +17,9 @@ export const APP_CATALOG = [
     status: "live",
     // Dev default; override per device via localStorage key below (e.g. a
     // deployed URL). Becomes a per-org setting when apps move to Supabase.
-    launchUrl: localStorage.getItem("ns::appUrl::polaris-math") || "http://localhost:8081",
+    // Runs on 8082 so it doesn't collide with the Daily Oracle Expo app on 8081
+    // (both are Expo apps, which default to 8081).
+    launchUrl: localStorage.getItem("ns::appUrl::polaris-math") || "http://localhost:8082",
     defaultLimitMin: 15,
   },
   {
