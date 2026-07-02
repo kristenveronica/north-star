@@ -1682,6 +1682,10 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .section.section-dark .lede { opacity: 0.82; }
 .section.section-dark .section-eyebrow { color: var(--starlight); opacity: 0.65; }
 .section.section-dark .section-eyebrow::before { background: var(--starlight); }
+.section.section-dark .philosophy-line,
+.section.section-dark .ns-operating-line,
+.section.section-dark .np-body { color: var(--starlight); opacity: 0.9; }
+.section.section-dark .about-aside { color: var(--starlight); opacity: 0.62; }
 
 /* Quote / core statement */
 .core-quote {

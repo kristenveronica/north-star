@@ -640,11 +640,10 @@ export function renderAbout(container) {
         <h1>We Built The Platform We Couldn't Find.</h1>
         <div class="about-intro">
           <p>Hi, we're Kristen and Mikey.</p>
-          <p>We're the parents of two boys, Noah and Jett.</p>
-          <p>Like many families, we've spent years exploring different approaches to education.</p>
-          <p>Noah has experienced Montessori education, Steiner education, traditional classroom environments, and homeschooling.</p>
-          <p>Jett's learning journey has looked different again.</p>
-          <p>Along the way, we discovered something important.</p>
+          <p>More importantly, we're Noah and Jett's mum and dad.</p>
+          <p>Like every parent, we've spent countless hours thinking about the kind of people we hope our children become. Kind. Capable. Curious. Resilient. Healthy. Confident enough to think for themselves, yet grounded enough to stay true to who they are.</p>
+          <p>When we started looking for the right education, we thought we were searching for a curriculum.</p>
+          <p>It turned out we were searching for something much bigger.</p>
         </div>
       </div>
       <div class="hero-art">
@@ -659,179 +658,135 @@ export function renderAbout(container) {
       </div>
     </section>
 
-    <!-- ───────────── THE REAL QUESTION ───────────── -->
+    <!-- ───────────── THE MOMENT EVERYTHING CHANGED ───────────── -->
     <section class="section" style="border-top:none;padding-top:8px">
-      <div class="about-pivot">
+      <span class="section-eyebrow">The Moment Everything Changed</span>
+      <h2>There came a point when we realised we'd been asking the wrong question.</h2>
+
+      <div class="about-pivot" style="margin-top:26px">
         <p class="about-pivot-row about-pivot-row--quiet">
-          <span class="about-pivot-label">The question was never</span>
-          <span class="about-pivot-q">"What curriculum should we use?"</span>
+          <span class="about-pivot-label">Not</span>
+          <span class="about-pivot-q">"Which curriculum should we choose?"</span>
         </p>
         <p class="about-pivot-row about-pivot-row--answer">
-          <span class="about-pivot-label">The real question was</span>
-          <span class="about-pivot-q">"How do we help our children become capable, confident, healthy, purpose-driven human beings?"</span>
+          <span class="about-pivot-label">But</span>
+          <span class="about-pivot-q">"What kind of life are we preparing our children to live?"</span>
         </p>
       </div>
 
-      <p class="ns-bigidea-lead" style="margin-top:38px">We wanted an educational approach that recognised our children as unique individuals.</p>
-      <ul class="ns-future-list cols-2">
-        ${[
-          "One that honoured their strengths.",
-          "Supported their challenges.",
-          "Encouraged their curiosity.",
-          "Developed real-world capabilities.",
-          "And helped them build a genuine love of learning.",
-        ].map(t => `<li>${t}</li>`).join("")}
-      </ul>
+      <p class="ns-turn-accent" style="text-align:left;margin-top:32px">That single question changed everything.</p>
+      <p class="about-aside">Once we asked it, curriculum stopped being the starting point. It became one piece of a much bigger picture.</p>
     </section>
 
-    <!-- ───────────── EVERY OPTION SOLVED PART OF THE PUZZLE ───────────── -->
+    <!-- ───────────── THE MISSING PIECE ───────────── -->
     <section class="section">
-      <h2>What we found was that every option seemed to solve part of the puzzle.</h2>
-      <div class="about-puzzle">
+      <span class="section-eyebrow">The Missing Piece</span>
+      <h2>Like many parents, we explored everything we could find.</h2>
+      <div class="about-puzzle" style="margin-top:22px">
         ${[
-          "Some offered structure.",
-          "Some offered freedom.",
-          "Some developed creativity.",
-          "Some developed academics.",
-          "Some focused on life skills.",
-          "Some focused on personal growth.",
+          "Montessori.",
+          "Steiner.",
+          "Traditional schooling.",
+          "Homeschooling.",
+          "Project-based learning.",
+          "Alternative education.",
         ].map(t => `<span class="about-puzzle-piece">${t}</span>`).join("")}
       </div>
-      <p class="ns-bigidea-close" style="margin-top:26px">But we couldn't find a framework that brought everything together in one place.</p>
-      <p class="ns-turn-accent" style="text-align:left">So we started building it.</p>
+
+      <p class="np-body" style="margin-top:26px">We found something to admire in every approach. Some built strong academic foundations. Others nurtured creativity, independence or practical life skills. None of them were wrong. In fact, many were exceptional.</p>
+      <p class="about-aside">But each felt like one piece of a much larger puzzle.</p>
+
+      <p class="ns-bigidea-close" style="margin-top:26px">We realised we weren't looking for one philosophy instead of another.</p>
+      <p class="np-body">We were looking for a way to bring the very best ideas together around the one thing that mattered most.</p>
+      <p class="ns-turn-accent" style="text-align:left">Our children.</p>
     </section>
 
-    <!-- ───────────── MORE THAN EDUCATION ───────────── -->
+    <!-- ───────────── WHAT WE COULDN'T FIND ───────────── -->
     <section class="section">
-      <span class="section-eyebrow">More Than Education</span>
-      <h2>As homeschooling parents ourselves, we also became aware of another challenge.</h2>
-      <p class="philosophy-line" style="margin:14px 0 6px">Homeschooling can sometimes feel lonely.</p>
-      <p class="about-aside">For children. For parents.</p>
+      <span class="section-eyebrow">What We Couldn't Find</span>
+      <h2>What surprised us wasn't what existed. It was what didn't.</h2>
+      <p class="ns-bigidea-lead" style="margin-top:18px">We couldn't find an educational approach that truly began with the family.</p>
+      <p class="about-aside">One that first asked:</p>
 
-      <div class="about-cols">
-        <div class="about-col-card">
-          <span class="ns-icon-wrap" style="margin-bottom:14px">${nsIcon("child", { size: 22 })}</span>
-          <h3>Children need</h3>
-          ${[
-            "Children need meaningful friendships.",
-            "They need collaboration.",
-            "They need opportunities to build things together.",
-            "To create together.",
-            "To solve problems together.",
-            "To learn from one another.",
-          ].map(t => `<p>${t}</p>`).join("")}
-        </div>
-        <div class="about-col-card">
-          <span class="ns-icon-wrap warm" style="margin-bottom:14px">${nsIcon("family", { size: 22 })}</span>
-          <h3>Parents need</h3>
-          ${[
-            "Parents need community too.",
-            "They need support.",
-            "Ideas.",
-            "Encouragement.",
-            "Connection.",
-          ].map(t => `<p>${t}</p>`).join("")}
-        </div>
-      </div>
-
-      <p class="ns-destination-foot" style="margin-top:30px">That became one of the driving forces behind North Star's community features.</p>
-      <p class="about-aside">Not simply another online community.</p>
-      <p class="ns-operating-line">A place where children can connect around shared interests, shared projects, shared businesses, shared adventures, and meaningful friendships.</p>
-    </section>
-
-    <!-- ───────────── BUILT AROUND REAL CHILDREN ───────────── -->
-    <section class="section">
-      <span class="section-eyebrow">Built Around Real Children</span>
-      <figure class="destination-callout">
-        <span class="destination-callout-star" aria-hidden="true">${nsIcon("compass", { size: 18 })}</span>
-        <blockquote>
-          <span class="muted">Everything inside North Star begins with a simple question:</span>
-          <span class="lead">Would we want this for Noah and Jett?</span>
-        </blockquote>
-        <p class="destination-callout-foot">If the answer is no, it doesn't belong.</p>
-      </figure>
-
-      <ul class="ns-future-list cols-2" style="margin-top:34px">
+      <ul class="ns-future-list cols-2" style="margin-top:14px">
         ${[
-          "The projects.",
-          "The mentorships.",
-          "The family economy tools.",
-          "The capability frameworks.",
-          "The life skills.",
-          "The entrepreneurship pathways.",
-          "The community.",
-          "The travel learning.",
-          "The reflections.",
-          "The family vision work.",
+          "Who are these parents?",
+          "What do they believe?",
+          "What kind of human are they hoping to raise?",
+          "How does this child naturally learn?",
+          "What lights them up?",
+          "What challenges them?",
+          "What opportunities already exist around them?",
         ].map(t => `<li>${t}</li>`).join("")}
       </ul>
 
-      <p class="ns-destination-foot">It all exists because these are the things we want our own children to experience.</p>
+      <p class="ns-bigidea-close" style="margin-top:30px">Everything seemed to begin with the curriculum.</p>
+      <p class="ns-turn-accent" style="text-align:left">We believed it should begin with the child.</p>
+      <p class="about-aside">And with the family raising them.</p>
     </section>
 
-    <!-- ───────────── EDUCATION DESIGNED AROUND THE CHILD ───────────── -->
+    <!-- ───────────── WHY WE BUILT NORTH STAR ───────────── -->
     <section class="section">
-      <span class="section-eyebrow">Education Designed Around The Child</span>
-      <h2>We believe children learn best when learning feels meaningful.</h2>
-      <p class="about-aside">When it connects to their interests. Their strengths. Their passions. Their questions. Their natural curiosity.</p>
-
-      <div class="about-examples">
-        <div class="about-example-card">
-          <span class="ns-icon-wrap" style="margin-bottom:14px">${nsIcon("pulse", { size: 22 })}</span>
-          <p>A child who loves skiing should be able to learn mathematics, communication, business, leadership, science, and problem solving through projects connected to skiing.</p>
-        </div>
-        <div class="about-example-card">
-          <span class="ns-icon-wrap sage" style="margin-bottom:14px">${nsIcon("leaf", { size: 22 })}</span>
-          <p>A child who loves animals should be able to build their educational journey around animals.</p>
-        </div>
-        <div class="about-example-card">
-          <span class="ns-icon-wrap gold" style="margin-bottom:14px">${nsIcon("spark", { size: 22 })}</span>
-          <p>A child who loves music should be able to learn through music.</p>
-        </div>
+      <span class="section-eyebrow">Why We Built North Star</span>
+      <div class="about-pivot">
+        <p class="about-pivot-row about-pivot-row--quiet">
+          <span class="about-pivot-q">So we stopped searching.</span>
+        </p>
+        <p class="about-pivot-row about-pivot-row--answer">
+          <span class="about-pivot-q">And we started building.</span>
+        </p>
       </div>
 
-      <div class="about-goal">
-        <p class="muted">The goal isn't to make children fit a curriculum.</p>
-        <p class="lead">The goal is to build a pathway that helps the child flourish.</p>
+      <p class="about-aside" style="margin-top:26px">Not another curriculum. Not another homeschool platform.</p>
+      <p class="np-body">We set out to build something that learns alongside each family. A platform that understands your values, your vision and your children, then continually adapts as they grow, as the world changes, and as new opportunities emerge.</p>
+
+      <div class="about-goal" style="margin-top:30px">
+        <p class="muted">Our goal wasn't simply to personalise education.</p>
+        <p class="lead">It was to help families intentionally raise capable humans.</p>
       </div>
+      <p class="about-aside" style="margin-top:20px">Because that's what we had been searching for. And it didn't exist.</p>
     </section>
 
-    <!-- ───────────── THE PLATFORM WE WISH WE HAD ───────────── -->
-    <section class="section">
-      <div class="section-philosophy ns-operating">
-        <span class="section-eyebrow">The Platform We Wish We Had</span>
-        <h2 style="max-width:740px">North Star is our attempt to bring together everything we've loved about:</h2>
-        <ul class="ns-prompts" style="justify-content:flex-start;margin:8px 0 28px">
-          ${[
-            "Montessori.", "Steiner.", "Homeschooling.", "Unschooling.",
-            "Project-based learning.", "Entrepreneurship.", "Mentorship.",
-            "Life skills.", "Family culture.", "Community.",
-          ].map(t => `<li><span>${t}</span></li>`).join("")}
-        </ul>
-        <p class="ns-operating-line">And combine it into a single framework that families can make entirely their own.</p>
-        <div class="ns-operating-outcomes">
-          <p>Because no two children are the same.</p>
-          <p>No two families are the same.</p>
-          <p>And education should reflect that.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- ───────────── OUR HOPE ───────────── -->
+    <!-- ───────────── THE BIGGER PICTURE ───────────── -->
     <section class="section section-dark ns-imagine about-hope">
-      <span class="section-eyebrow">Our Hope</span>
-      <h2>Our hope is simple.</h2>
-      <ul class="knows-list">
+      <span class="section-eyebrow">The Bigger Picture</span>
+      <h2>North Star isn't really about homeschooling.</h2>
+      <p class="philosophy-line" style="margin:14px 0 6px">Homeschooling is simply where we're beginning.</p>
+      <p class="about-aside">Our mission is much bigger than that.</p>
+      <p class="ns-operating-line" style="margin-top:22px">We believe childhood is one of the greatest opportunities we'll ever have to shape the future. Every conversation, every project, every challenge, every adventure, every act of service, every book, every mentor, every business, every success and every mistake quietly shape the adults our children will one day become.</p>
+      <p class="about-welcome" style="font-size:inherit">We simply wanted a better way to do that intentionally.</p>
+    </section>
+
+    <!-- ───────────── OUR BELIEF ───────────── -->
+    <section class="section">
+      <span class="section-eyebrow">Our Belief</span>
+      <div class="about-puzzle" style="margin-top:6px">
         ${[
-          "That North Star helps families become more intentional.",
-          "That children grow up knowing who they are and build strong relationships with peers who are on an aligned path.",
-          "That learning becomes meaningful.",
-          "That families feel more connected.",
-          "That children develop the capabilities needed to thrive in an ever-changing world.",
-          "And that more families get to experience the kind of educational journey we wished existed when we started looking for it ourselves.",
-        ].map(t => `<li><span class="knows-star" aria-hidden="true">${nsIcon("star", { size: 13 })}</span><span>${t}</span></li>`).join("")}
-      </ul>
-      <p class="about-welcome">Welcome to North Star.</p>
+          "Curriculum matters.",
+          "Knowledge matters.",
+          "Academic excellence matters.",
+        ].map(t => `<span class="about-puzzle-piece">${t}</span>`).join("")}
+      </div>
+
+      <p class="ns-bigidea-close" style="margin-top:26px">But none of them are the destination.</p>
+      <p class="ns-turn-accent" style="text-align:left">They're the vehicle.</p>
+
+      <p class="np-body" style="margin-top:22px">The destination is helping children become capable, confident, adaptable human beings who know who they are, know how to think, and are equipped to contribute meaningfully to the world around them.</p>
+
+      <div class="about-goal" style="margin-top:30px">
+        <p class="lead">That's the future we're building.</p>
+        <p class="muted">For Noah and Jett.</p>
+        <p class="muted">And for every family who chooses to join us.</p>
+      </div>
+
+      <div class="about-pivot" style="margin-top:36px">
+        <p class="about-pivot-row about-pivot-row--quiet">
+          <span class="about-pivot-q">Curriculum shapes what children know.</span>
+        </p>
+        <p class="about-pivot-row about-pivot-row--answer">
+          <span class="about-pivot-q">Direction shapes who they become.</span>
+        </p>
+      </div>
     </section>
 
     <!-- ───────────── CTA ───────────── -->
