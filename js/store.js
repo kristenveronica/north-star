@@ -720,6 +720,7 @@ export function addMentorTurn(conversationId, turn) {
       role: turn.role || "child",
       text: turn.text || "",
       suggestions: turn.suggestions || [],
+      whiteboard: turn.whiteboard || null,
       at: new Date().toISOString(),
     });
     c.updatedAt = new Date().toISOString();

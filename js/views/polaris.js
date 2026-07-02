@@ -12,6 +12,7 @@ import {
   getOrCreateMentorConversation, addMentorTurn, resetMentorConversation,
 } from "../store.js";
 import { getMentor } from "../mentors/registry.js";
+import { renderWhiteboard, speak, stopSpeaking, isMuted, toggleMute } from "../mentors/whiteboard.js";
 import { aiMentorTurn } from "../lib/ai.js";
 import { esc, toast } from "../components/ui.js";
 import { navigate } from "../router.js";
@@ -58,6 +59,7 @@ export function renderPolaris(container, params) {
           <div class="mentor-name">${esc(mentor.name)}</div>
           <div class="mentor-role">${esc(mentor.role)}</div>
         </div>
+        <button class="mentor-mute" id="m-mute" title="Voice on/off" aria-label="Voice on/off">${isMuted() ? "🔇" : "🔊"}</button>
         <button class="mentor-reset" id="m-reset" title="Start over">Start over</button>
       </div>
 
@@ -82,18 +84,29 @@ export function renderPolaris(container, params) {
 
   const scrollDown = () => { threadEl.scrollTop = threadEl.scrollHeight; };
 
-  function bubble(turn) {
+  // One conversation turn → a row (text bubble + optional animated whiteboard).
+  function turnEl(turn) {
     const who = turn.role === "mentor" ? "mentor" : "child";
-    const avatar = turn.role === "mentor"
+    const avatar = who === "mentor"
       ? `<span class="mentor-mark sm">${POLARIS_MARK}</span>`
       : `<span class="mentor-childav avatar-${child.avatarIndex}">${initials(child.name)}</span>`;
-    return `<div class="mbubble mbubble--${who}">${avatar}<div class="mbubble-text">${esc(turn.text)}</div></div>`;
+    const row = document.createElement("div");
+    row.className = `mrow mrow--${who}`;
+    row.innerHTML = `<div class="mbubble mbubble--${who}">${avatar}<div class="mbubble-text">${esc(turn.text)}</div></div>`;
+    if (who === "mentor" && turn.whiteboard) {
+      const wb = renderWhiteboard(turn.whiteboard);
+      if (wb) row.appendChild(wb);
+    }
+    return row;
   }
 
+  // Incremental append — only new turns render, so past whiteboards don't re-animate.
+  let shown = 0;
   function paintThread() {
-    threadEl.innerHTML = convo.turns.map(bubble).join("");
+    for (; shown < convo.turns.length; shown++) threadEl.appendChild(turnEl(convo.turns[shown]));
     scrollDown();
   }
+  function resetThread() { threadEl.innerHTML = ""; shown = 0; paintThread(); }
 
   function paintChips() {
     const last = convo.turns[convo.turns.length - 1];
@@ -147,13 +160,16 @@ export function renderPolaris(container, params) {
         message,
       });
       clearTyping();
+      const reply = (res?.reply || "Hmm, let me think about that one differently — can you say a bit more?").trim();
       addMentorTurn(convo.id, {
         role: "mentor",
-        text: (res?.reply || "Hmm, let me think about that one differently — can you say a bit more?").trim(),
+        text: reply,
         suggestions: Array.isArray(res?.suggestions) ? res.suggestions : [],
+        whiteboard: res?.whiteboard || null,
       });
       paintThread();
       paintChips();
+      speak(reply); // reads aloud unless muted (allowed: follows the send gesture)
     } catch (e) {
       clearTyping();
       toast(e.message || "Polaris couldn't reply just now. Try again in a moment.", { type: "warning" });
@@ -170,11 +186,14 @@ export function renderPolaris(container, params) {
   }
 
   /* wiring */
-  container.querySelector("#m-back").addEventListener("click", () => navigate(`/kid/${child.accessCode}`));
+  container.querySelector("#m-back").addEventListener("click", () => { stopSpeaking(); navigate(`/kid/${child.accessCode}`); });
+  const muteBtn = container.querySelector("#m-mute");
+  muteBtn.addEventListener("click", () => { muteBtn.textContent = toggleMute() ? "🔇" : "🔊"; });
   container.querySelector("#m-reset").addEventListener("click", () => {
+    stopSpeaking();
     resetMentorConversation(convo.id);
     addMentorTurn(convo.id, { role: "mentor", text: mentor.greeting(child), suggestions: mentor.starters(child) });
-    paintThread(); paintChips();
+    resetThread(); paintChips();
   });
   formEl.addEventListener("submit", (e) => { e.preventDefault(); send(); });
   inputEl.addEventListener("input", autoGrow);

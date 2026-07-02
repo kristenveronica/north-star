@@ -4267,3 +4267,37 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .mentor-typing i:nth-child(3) { animation-delay: 0.4s; }
 @keyframes mentorBlink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .mentor-typing i { animation: none; } }
+
+/* ── Polaris whiteboard + voice (Phase-1 prototype) ── */
+.mentor-mute {
+  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.2); background: transparent;
+  color: #fff; font-size: 16px; cursor: pointer; line-height: 1;
+}
+.mentor-mute:hover { background: rgba(255,255,255,0.08); }
+
+.mrow { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.mrow--mentor { align-items: flex-start; }
+.mrow--child { align-items: flex-end; }
+
+.mentor-wb {
+  align-self: flex-start;
+  max-width: min(420px, 92%);
+  margin-left: 40px; /* line up under the mentor bubble, past the avatar */
+  background: #fff; border: 1px solid var(--border); border-radius: 16px;
+  padding: 14px 16px 12px;
+  box-shadow: 0 12px 32px -22px rgba(15,22,38,0.45);
+}
+.mentor-wb-canvas { display: flex; justify-content: center; }
+.mentor-wb-canvas svg { width: 100%; max-width: 300px; height: auto; }
+.mentor-wb-cap {
+  margin-top: 10px; font-size: 13.5px; line-height: 1.45;
+  color: var(--text-muted); text-align: center;
+}
+
+/* Staggered "drawing in" — each shape carries an inline animation-delay. */
+.wb-pop { opacity: 0; animation: wbFade 0.45s ease forwards; }
+@keyframes wbFade { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .wb-pop { opacity: 1; animation: none; } }
+
+@media (max-width: 560px) { .mentor-wb { margin-left: 34px; } }

@@ -896,10 +896,39 @@ Which Core Word qualities were genuinely brought to life — and only those?`;
 const MENTOR_REPLY_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["reply", "suggestions"],
+  required: ["reply", "suggestions", "whiteboard"],
   properties: {
     reply: { type: "string" },                              // the mentor's short, in-character message
     suggestions: { type: "array", items: { type: "string" } }, // 0–3 short things the child could tap to say next
+    // An OPTIONAL visual the app animates on a whiteboard so the child SEES the idea.
+    // type "none" = no picture this turn. All fields always present (unused ones
+    // are 0 / "none" / []). The frontend reads only the fields for the chosen type.
+    whiteboard: {
+      type: "object",
+      additionalProperties: false,
+      required: ["type", "caption", "shape", "parts", "shaded", "rows", "cols", "groups", "perGroup", "from", "to", "jumps"],
+      properties: {
+        type: { type: "string", enum: ["none", "fraction", "numberline", "array", "groups"] },
+        caption: { type: "string" },                        // one short sentence describing the picture
+        shape: { type: "string", enum: ["circle", "bar", "none"] }, // fraction only
+        parts: { type: "integer" },                         // fraction: total parts
+        shaded: { type: "integer" },                        // fraction: highlighted parts
+        rows: { type: "integer" },                          // array: rows
+        cols: { type: "integer" },                          // array: columns
+        groups: { type: "integer" },                        // groups: number of groups
+        perGroup: { type: "integer" },                      // groups: items per group
+        from: { type: "integer" },                          // numberline: start
+        to: { type: "integer" },                            // numberline: end
+        jumps: {                                            // numberline: hops to draw
+          type: "array",
+          items: {
+            type: "object", additionalProperties: false,
+            required: ["start", "end", "label"],
+            properties: { start: { type: "integer" }, end: { type: "integer" }, label: { type: "string" } },
+          },
+        },
+      },
+    },
   },
 };
 
@@ -926,6 +955,12 @@ THE CHILD you are talking with:
 OUTPUT: Return JSON with:
 - "reply": your next message to ${c.name || "the child"} — in character, short (2–4 sentences), warm.
 - "suggestions": 0 to 3 VERY short things the child might tap to reply (a few words each), or an empty list. Write them in the CHILD's voice (e.g. "I'm stuck", "Show me an example").
+- "whiteboard": an OPTIONAL picture the app draws so the child can SEE the idea. Set "type" to "none" when no picture helps this turn. Otherwise pick the ONE that fits:
+  • "fraction" — parts of a whole. Set "shape" ("circle" like a pizza, or "bar"), "parts" (total, ≤ 12) and "shaded" (how many are highlighted). Example: two-eighths → shape "circle", parts 8, shaded 2.
+  • "numberline" — counting, adding, subtracting or skip-counting. Set "from" and "to" (keep the span ≤ 20) and "jumps": [{start, end, label}] (label like "+2" or "×3").
+  • "array" — multiplication as a grid of dots. Set "rows" and "cols" (each ≤ 10).
+  • "groups" — sharing / division. Set "groups" and "perGroup" (each ≤ 10).
+  ALWAYS include every field — put 0 / "none" / [] in the ones your chosen type doesn't use. Keep "caption" to ONE short sentence describing the picture. Reach for a whiteboard whenever seeing it would genuinely help (fractions, times tables, sharing, number sense); otherwise "none". When you DO show a picture, let your "reply" refer to it ("Look at the pizza below…").
 
 Stay in character. Never break the fourth wall or mention that you are an AI, a model, or JSON.`;
 
