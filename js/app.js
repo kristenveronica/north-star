@@ -112,7 +112,20 @@ export function withParentShell(container, viewFn, params) {
   navToggle?.addEventListener("click", () => shell.classList.contains("nav-open") ? closeNav() : openNav());
   navScrim?.addEventListener("click", closeNav);
   // Any sidebar link/action closes the drawer (navigation also rebuilds the shell).
-  shell.querySelectorAll(".sidebar a, .sidebar [data-view-as], .sidebar button").forEach(el => el.addEventListener("click", closeNav));
+  // The collapsible-section toggle is excluded — expanding "Set up" shouldn't
+  // close the drawer out from under the user.
+  shell.querySelectorAll(".sidebar a, .sidebar [data-view-as], .sidebar button:not([data-nav-toggle])").forEach(el => el.addEventListener("click", closeNav));
+
+  // Collapsible "Set up your family" nav section — toggle open/closed and
+  // remember the choice (so it stays put across navigation / re-renders).
+  shell.querySelectorAll("[data-nav-toggle]").forEach(btn => btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const section = btn.closest(".nav-section");
+    if (!section) return;
+    const collapsed = section.classList.toggle("collapsed");
+    btn.setAttribute("aria-expanded", collapsed ? "false" : "true");
+    try { localStorage.setItem("ns::nav::setup", collapsed ? "closed" : "open"); } catch { /* ignore */ }
+  }));
 
   // Owner-only "View as" — preview any member's portal. Set/clear is session-only.
   shell.querySelectorAll("[data-view-as]").forEach(a => a.addEventListener("click", (e) => {

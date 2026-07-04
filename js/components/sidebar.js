@@ -16,7 +16,12 @@ const GROUPS = [
     ],
   },
   {
-    label: "Plan",
+    // The "set up your family" tabs — configured during onboarding and revisited
+    // only occasionally. Collapsed into a single expandable header once onboarding
+    // is complete, so the daily-use pages below sit at the top of the nav.
+    label: "Set up your family",
+    key: "setup",
+    collapsible: true,
     items: [
       { label: "Family North Star", path: "/vision", icon: "vision" },
       { label: "Family Settings", path: "/family-settings", icon: "familySettings" },
@@ -25,6 +30,11 @@ const GROUPS = [
       { label: "Capability Domains", path: "/domains", icon: "domains" },
       { label: "Family Inventory", path: "/inventory", icon: "inventory" },
       { label: "Learning Resources", path: "/materials", icon: "materials" },
+    ],
+  },
+  {
+    label: "Plan",
+    items: [
       { label: "Projects", path: "/projects", icon: "projects" },
       { label: "Term Planner", path: "/planner", icon: "plan" },
       { label: "Calendar", path: "/calendar", icon: "calendar" },
@@ -70,6 +80,14 @@ export function renderSidebar() {
   const groups = GROUPS
     .map(g => ({ ...g, items: g.items.filter(item => canAccessPath(member, item.path)) }))
     .filter(g => g.items.length);
+
+  // Collapsible "Set up your family" section: collapsed by default once the
+  // family has finished onboarding (so daily pages sit at the top), expanded
+  // while they're still setting up. An explicit user toggle is remembered.
+  const onboarded = !!s.meta?.onboarded;
+  let setupPref = null;
+  try { setupPref = localStorage.getItem("ns::nav::setup"); } catch { /* ignore */ }
+  const setupOpenByDefault = setupPref ? setupPref === "open" : !onboarded;
   const canSeeChildPortals = canAccessPath(member, "/children");
   const previewable = !viewing ? (s.family?.relationships || []).filter(r => r.name && r.id) : [];
 
@@ -80,19 +98,35 @@ export function renderSidebar() {
         <div class="sidebar-family-name">${escapeHtml(s.family?.familyName || "Your Family Journey")}</div>
       </div>
 
-      ${groups.map(g => `
-        <div class="nav-section">
-          <div class="nav-label">${g.label}</div>
-          ${g.items.map(item => `
+      ${groups.map(g => {
+        const itemsHtml = g.items.map(item => `
             <a class="nav-item ${path === item.path || (item.path !== "/" && path.startsWith(item.path)) ? "active" : ""}" href="#${item.path}">
               <span class="ico">${icon(item.icon)}</span>
               <span>${item.label}</span>
               ${item.path === "/materials" && cartCount ? `<span class="badge">${cartCount}</span>` : ""}
               ${item.premium ? `<span class="badge" style="background:var(--gold-soft);color:var(--gold-ink)">Premium</span>` : ""}
             </a>
-          `).join("")}
-        </div>
-      `).join("")}
+          `).join("");
+        if (!g.collapsible) {
+          return `
+        <div class="nav-section">
+          <div class="nav-label">${g.label}</div>
+          ${itemsHtml}
+        </div>`;
+        }
+        // Collapsible group: keep it open if the user is currently ON one of its
+        // pages (so the active tab is always visible), else honour the default.
+        const onOwnPage = g.items.some(i => path === i.path || (i.path !== "/" && path.startsWith(i.path)));
+        const open = setupOpenByDefault || onOwnPage;
+        return `
+        <div class="nav-section nav-section--collapsible ${open ? "" : "collapsed"}">
+          <button class="nav-label nav-label--toggle" data-nav-toggle="${g.key}" aria-expanded="${open ? "true" : "false"}">
+            <span>${g.label}</span>
+            <svg class="nav-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="nav-section-items">${itemsHtml}</div>
+        </div>`;
+      }).join("")}
 
       ${canSeeChildPortals && (s.children || []).length ? `
         <div class="nav-section">

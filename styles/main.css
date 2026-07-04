@@ -164,6 +164,20 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
   color: var(--text-soft); padding: 0 10px 6px;
 }
+/* Collapsible nav section ("Set up your family") — a tappable header with a
+   chevron that hides its items when collapsed. */
+.nav-label--toggle {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; background: none; border: 0; cursor: pointer;
+  font: inherit; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-soft); padding: 4px 10px 6px; text-align: left;
+  border-radius: var(--r-md); transition: color 0.15s ease, background 0.15s ease;
+}
+.nav-label--toggle:hover { color: var(--text); background: rgba(255,255,255,0.4); }
+.nav-label--toggle .nav-chevron { flex: none; transition: transform 0.2s ease; opacity: 0.7; }
+.nav-section--collapsible.collapsed .nav-chevron { transform: rotate(-90deg); }
+.nav-section-items { overflow: hidden; }
+.nav-section--collapsible.collapsed .nav-section-items { display: none; }
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   padding: 9px 12px; border-radius: var(--r-md);
