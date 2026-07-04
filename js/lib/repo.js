@@ -637,6 +637,86 @@ async function claimPendingCheckoutIfAny() {
   }
 }
 
+// PARENT OBSERVATIONS  (state.parentObservations  <->  parent_observations)
+function toObservationRow(o, familyId) {
+  return {
+    id: o.id,
+    family_id: familyId,
+    child_id: o.childId,
+    author_user_id: o.authorUserId || null,
+    strengths: orNull(o.strengths),
+    challenges: orNull(o.challenges),
+    growth_observed: orNull(o.growthObserved),
+    concerns: orNull(o.concerns),
+    goals_next_term: orNull(o.goalsNextTerm),
+    created_at: o.createdAt || new Date().toISOString(),
+  };
+}
+function fromObservationRow(r) {
+  return {
+    id: r.id,
+    childId: r.child_id,
+    authorUserId: r.author_user_id || null,
+    strengths: r.strengths || "",
+    challenges: r.challenges || "",
+    growthObserved: r.growth_observed || "",
+    concerns: r.concerns || "",
+    goalsNextTerm: r.goals_next_term || "",
+    createdAt: r.created_at,
+  };
+}
+
+// CHILD SELF-ASSESSMENTS  (note app `wantToGetBetterAt` -> db `want_to_improve`)
+function toSelfAssessmentRow(a, familyId) {
+  return {
+    id: a.id,
+    family_id: familyId,
+    child_id: a.childId,
+    proud_of: orNull(a.proudOf),
+    hard_thing: orNull(a.hardThing),
+    want_to_improve: orNull(a.wantToGetBetterAt),
+    favourite_project: orNull(a.favouriteProject),
+    want_to_learn_next: orNull(a.wantToLearnNext),
+    created_at: a.createdAt || new Date().toISOString(),
+  };
+}
+function fromSelfAssessmentRow(r) {
+  return {
+    id: r.id,
+    childId: r.child_id,
+    proudOf: r.proud_of || "",
+    hardThing: r.hard_thing || "",
+    wantToGetBetterAt: r.want_to_improve || "",
+    favouriteProject: r.favourite_project || "",
+    wantToLearnNext: r.want_to_learn_next || "",
+    createdAt: r.created_at,
+  };
+}
+
+// GROWTH REPORTS — the report is a rich AI-generated object; store the whole
+// thing in the `content` jsonb and lift id/child/period/generated_at to columns.
+function toGrowthReportRow(r, familyId) {
+  return {
+    id: r.id,
+    family_id: familyId,
+    child_id: r.childId,
+    period_key: orNull(r.periodKey),
+    content: (r && typeof r === "object" && !Array.isArray(r)) ? r : {},
+    generated_at: r.generatedAt || r.createdAt || new Date().toISOString(),
+  };
+}
+function fromGrowthReportRow(r) {
+  const content = (r.content && typeof r.content === "object" && !Array.isArray(r.content)) ? r.content : {};
+  // Columns are authoritative; content carries every narrative field.
+  return {
+    ...content,
+    id: r.id,
+    childId: r.child_id,
+    periodKey: r.period_key || content.periodKey || null,
+    generatedAt: r.generated_at || content.generatedAt || null,
+  };
+}
+
 let _hydrateInFlight = null;
 export function ensureFamilyAndHydrate() {
   if (_hydrateInFlight) return _hydrateInFlight;
@@ -687,7 +767,7 @@ async function _doEnsureFamilyAndHydrate() {
   // Load everything for this family in parallel.
   const [fam, prof, children, projects, milestones, reflections, materials,
          reflectionReports, mediaAssets, calendarEvents, preferenceSignals, inventory,
-         allMembers, memberAccess] =
+         allMembers, memberAccess, observations, selfAssessments, growthReports] =
     await Promise.all([
       supabase.from("families").select("*").eq("id", familyId).single(),
       supabase.from("family_profiles").select("*").eq("family_id", familyId).single(),
@@ -706,6 +786,11 @@ async function _doEnsureFamilyAndHydrate() {
       // Membership & permissions (migration 0019).
       supabase.from("family_members").select("*").eq("family_id", familyId),
       supabase.from("member_child_access").select("*").eq("family_id", familyId),
+      // Understand-the-child record: parent notes, the child's own check-ins, and
+      // the (paid-compute) growth reports. Previously local-only — now cross-device.
+      supabase.from("parent_observations").select("*").eq("family_id", familyId),
+      supabase.from("child_self_assessments").select("*").eq("family_id", familyId),
+      supabase.from("growth_reports").select("*").eq("family_id", familyId),
     ]);
 
   const state = freshState();
@@ -723,6 +808,9 @@ async function _doEnsureFamilyAndHydrate() {
   state.inventory = (inventory.data || []).map(fromInventoryItemRow);
   state.familyMembers = (allMembers.data || []).map(fromMemberRow);
   state.memberChildAccess = (memberAccess.data || []).map(fromMemberChildAccessRow);
+  state.parentObservations = (observations.data || []).map(fromObservationRow);
+  state.childSelfAssessments = (selfAssessments.data || []).map(fromSelfAssessmentRow);
+  state.growthReports = (growthReports.data || []).map(fromGrowthReportRow);
   state.meta.onboarded = !!prof.data?.onboarded;
   state.meta.activeChildId = state.children[0]?.id || null;
 
@@ -769,6 +857,11 @@ export async function syncCore(state) {
       ["preference_signals", (state.preferenceSignals || []).map((s) => toPreferenceSignalRow(s, familyId))],
       // Living Family Inventory (migration 0018).
       ["inventory_items", (state.inventory || []).map((i) => toInventoryItemRow(i, familyId))],
+      // Understand-the-child record (child_id is NOT NULL, so drop any stray
+      // child-less rows rather than let them fail every sync).
+      ["parent_observations", (state.parentObservations || []).filter((o) => o.childId).map((o) => toObservationRow(o, familyId))],
+      ["child_self_assessments", (state.childSelfAssessments || []).filter((a) => a.childId).map((a) => toSelfAssessmentRow(a, familyId))],
+      ["growth_reports", (state.growthReports || []).filter((r) => r.childId).map((r) => toGrowthReportRow(r, familyId))],
     ];
     for (const [table, rows] of upserts) {
       if (!rows.length) continue;
