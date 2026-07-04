@@ -37,6 +37,15 @@
   status = 404
   force = true
 
+# Learning-apps + AI-mentor code lives in /dev while it's still being built.
+# It stays version-controlled but is NEVER served on the live MVP site — no
+# live module imports it, and this makes doubly sure it can't be reached.
+[[redirects]]
+  from = "/dev/*"
+  to = "/404.html"
+  status = 404
+  force = true
+
 [[redirects]]
   from = "/assets/web-copy/*"
   to = "/404.html"

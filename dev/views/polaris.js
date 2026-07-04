@@ -10,15 +10,15 @@
 import {
   getChildByCode,
   getOrCreateMentorConversation, addMentorTurn, resetMentorConversation,
-} from "../store.js";
+} from "../../js/store.js";
 import { getMentor } from "../mentors/registry.js";
 import {
   renderWhiteboard, speak, stopSpeaking, isMuted, toggleMute,
   speechInputSupported, newRecognition,
 } from "../mentors/whiteboard.js";
-import { aiMentorTurn } from "../lib/ai.js";
-import { esc, toast } from "../components/ui.js";
-import { navigate } from "../router.js";
+import { aiMentorTurn } from "../../js/lib/ai.js";
+import { esc, toast } from "../../js/components/ui.js";
+import { navigate } from "../../js/router.js";
 
 const initials = (name) =>
   (name || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase();

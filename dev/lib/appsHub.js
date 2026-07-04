@@ -15,7 +15,7 @@
             attempts, correct, mastered[], workingOn{title,pct} }
    ============================================================ */
 
-import { getState, update, ageOf } from "../store.js";
+import { getState, update, ageOf } from "../../js/store.js";
 import { getApp } from "../appsCatalog.js";
 
 const todayKey = () => new Date().toISOString().slice(0, 10);

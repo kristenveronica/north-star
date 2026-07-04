@@ -5,14 +5,14 @@
    enabled apps from their portal.
    ============================================================ */
 
-import { getState } from "../store.js";
+import { getState } from "../../js/store.js";
 import { APP_CATALOG } from "../appsCatalog.js";
 import {
   getChildApp, setAppEnabled, setAppLimit,
   minutesUsedToday, appWeekStats,
 } from "../lib/appsHub.js";
-import { esc, toast } from "../components/ui.js";
-import { rerender } from "../app.js";
+import { esc, toast } from "../../js/components/ui.js";
+import { rerender } from "../../js/app.js";
 
 const LIMIT_OPTIONS = [10, 15, 20, 30, 45];
 

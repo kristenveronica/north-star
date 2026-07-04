@@ -26,7 +26,6 @@ import { renderResources } from "./views/materials.js";
 import { renderInventory } from "./views/inventory.js";
 import { renderCart } from "./views/cart.js";
 import { renderProjects, renderProjectDetail } from "./views/projects.js";
-import { renderApps } from "./views/apps.js";
 import { renderTermPlanner } from "./views/termPlanner.js";
 import { renderCalendar } from "./views/calendar.js";
 import { renderRewards } from "./views/rewards.js";
@@ -34,7 +33,6 @@ import { renderProgress } from "./views/progress.js";
 import { renderPortfolio } from "./views/portfolio.js";
 import { renderSettings } from "./views/settings.js";
 import { renderChildPortal, renderChildLogin, renderChildProjectHQ } from "./views/childPortal.js";
-import { renderPolaris } from "./views/polaris.js";
 import { renderReports, renderReportDetail } from "./views/reports.js";
 import { renderInsights, renderInsightsReports, renderInsightReportDetail } from "./views/insights.js";
 import { renderGuild, renderGuildSettings } from "./views/guild.js";
@@ -66,7 +64,7 @@ function initScrollTracking() {
   window.addEventListener("scroll", () => { _scrollByPath[location.hash] = window.scrollY; }, { passive: true });
 }
 
-function withParentShell(container, viewFn, params) {
+export function withParentShell(container, viewFn, params) {
   // The parent app requires a real account.
   if (!isLoggedIn()) {
     location.hash = "#/login";
@@ -166,7 +164,7 @@ function withParentShell(container, viewFn, params) {
   });
 }
 
-function withChildShell(container, viewFn, params) {
+export function withChildShell(container, viewFn, params) {
   const root = document.createElement("div");
   root.className = "child-portal";
   container.appendChild(root);
@@ -224,7 +222,6 @@ registerRoute("/domains",   (c, p) => withParentShell(c, renderDomains, p));
 registerRoute("/materials", (c, p) => withParentShell(c, renderResources, p));
 registerRoute("/inventory", (c, p) => withParentShell(c, renderInventory, p));
 registerRoute("/cart",      (c, p) => withParentShell(c, renderCart, p));
-registerRoute("/apps",      (c, p) => withParentShell(c, renderApps, p));
 registerRoute("/projects",  (c, p) => withParentShell(c, renderProjects, p));
 registerRoute("/projects/:id", (c, p) => withParentShell(c, renderProjectDetail, p));
 registerRoute("/planner",   (c, p) => withParentShell(c, renderTermPlanner, p));
@@ -249,7 +246,6 @@ registerRoute("/settings",  (c, p) => withParentShell(c, renderSettings, p));
 registerRoute("/kid",          (c)    => withChildShell(c, renderChildLogin));
 registerRoute("/kid/:code",    (c, p) => withChildShell(c, renderChildPortal, p));
 registerRoute("/kid/:code/project/:projectId", (c, p) => withChildShell(c, renderChildProjectHQ, p));
-registerRoute("/kid/:code/mentor/:mentorId", (c, p) => withChildShell(c, renderPolaris, p));
 
 /* ---------- Boot ---------- */
 const app = document.getElementById("app");

@@ -11,8 +11,6 @@ import {
 } from "../store.js";
 import { REFLECTION_PROMPTS } from "../seed.js";
 import { childPortalLogin } from "../lib/childPortalCloud.js";
-import { enabledAppsForChild, minutesLeftToday, buildLaunchUrl, processAppReturn } from "../lib/appsHub.js";
-import { getApp } from "../appsCatalog.js";
 import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
 import { openSubmissionModal } from "../components/submission.js";
@@ -163,57 +161,9 @@ export function renderChildLogin(container) {
 }
 
 /* ====== Portal ====== */
-/* "My learning apps" — enabled satellite apps as big launch tiles. The daily
-   time limit lives here: no minutes left = a calm "done for today" state. */
-function appTilesHTML(child) {
-  const apps = enabledAppsForChild(child.id);
-  if (!apps.length) return "";
-  return `
-    <h2 class="mb-2">My learning apps</h2>
-    <div class="grid grid-auto mb-3">
-      ${apps.map(({ row, app }) => {
-        const left = minutesLeftToday(child.id, app.id);
-        const done = left <= 0;
-        return `
-          <div class="card" style="background:linear-gradient(135deg, var(--sky-soft), var(--card-elev))">
-            <div class="row" style="gap:12px;align-items:center">
-              <div style="font-size:36px;line-height:1">${app.emoji}</div>
-              <div style="flex:1;min-width:0">
-                <strong>${esc(app.name)}</strong>
-                <div class="small text-muted">${done
-                  ? "All done for today — see you tomorrow! 🌙"
-                  : `${left} minute${left === 1 ? "" : "s"} left today`}</div>
-              </div>
-            </div>
-            ${row.lastSummary?.mastered?.length ? `
-              <div class="small mt-1">⭐ Last time: mastered ${esc(row.lastSummary.mastered.join(", "))}</div>` : ""}
-            <button class="btn ${done ? "" : "btn-primary"} mt-2" style="width:100%"
-              data-launch-app="${app.id}" ${done ? "disabled" : ""}>
-              ${done ? "Finished for today ✓" : "Start today's session →"}
-            </button>
-          </div>`;
-      }).join("")}
-    </div>`;
-}
-
 export function renderChildPortal(container, params) {
   const child = getChildByCode((params.code || "").toUpperCase());
 
-  // Returning from a learning app? Record the session it reported, celebrate,
-  // and clean the URL (idempotent — a reload can't double-count).
-  if (child && params.ns_result) {
-    const summary = processAppReturn(params.ns_result);
-    location.hash = `/kid/${child.accessCode}`; // triggers a clean re-render
-    if (summary) {
-      const app = getApp(summary.appId);
-      setTimeout(() => {
-        toast(`${app?.emoji || "✨"} Great session! ${summary.mastered?.length
-          ? `You mastered: ${summary.mastered.join(", ")} ⭐`
-          : `${summary.minutes || 0} minutes of ${app?.name || "learning"} done.`}`);
-      }, 300);
-    }
-    return;
-  }
   if (!child) {
     container.innerHTML = `
       <div class="welcome">
@@ -299,19 +249,6 @@ export function renderChildPortal(container, params) {
         <div class="metric"><div class="v">${stats.completedMilestones}/${stats.totalMilestones}</div><div class="l">Milestones done</div></div>
       </div>
 
-      ${appTilesHTML(child)}
-
-      <button class="mentor-invite" data-open-mentor="polaris">
-        <span class="mentor-invite-mark">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l1.9 6.6L20 10l-6.1 1.4L12 18l-1.9-6.6L4 10l6.1-1.4z"/></svg>
-        </span>
-        <span class="mentor-invite-text">
-          <span class="mentor-invite-name">Chat with Polaris</span>
-          <span class="mentor-invite-sub">Your maths mentor. Stuck on something? Let's think it through together.</span>
-        </span>
-        <span class="mentor-invite-go">→</span>
-      </button>
-
       <h2 class="mb-2">${missionsHeading}</h2>
       ${homeMissions.length === 0
         ? `<div class="empty">${activeProjects.length ? "All missions done — open a project below to review or write a reflection." : "No missions yet. Ask a parent to set up your first project."}</div>`
@@ -358,13 +295,6 @@ export function renderChildPortal(container, params) {
   `;
 
   /* ----- wiring ----- */
-  container.querySelectorAll("[data-launch-app]").forEach(b => {
-    b.addEventListener("click", () => {
-      const url = buildLaunchUrl(child, b.dataset.launchApp);
-      if (url) location.href = url;
-      else toast("This app isn't set up yet — ask a parent to check Learning Apps.", { type: "warning" });
-    });
-  });
   container.querySelectorAll("[data-complete-ms]").forEach(b => {
     b.addEventListener("click", () => handleMilestoneTap(b.dataset.completeMs, b, rerender));
   });
@@ -377,9 +307,6 @@ export function renderChildPortal(container, params) {
   });
   container.querySelectorAll("[data-open-hq]").forEach(b => {
     b.addEventListener("click", () => navigate(`/kid/${child.accessCode}/project/${b.dataset.openHq}`));
-  });
-  container.querySelectorAll("[data-open-mentor]").forEach(b => {
-    b.addEventListener("click", () => navigate(`/kid/${child.accessCode}/mentor/${b.dataset.openMentor}`));
   });
   container.querySelector("#open-self-assess")?.addEventListener("click", () => openSelfAssessment(child));
 }
