@@ -29,6 +29,17 @@ const normDomains = (a) => (Array.isArray(a) ? a.map(normalizeDomainId) : []);
 const orNull = (v) => (v === undefined || v === "" ? null : v);
 const arr = (v) => (Array.isArray(v) ? v : []);
 const dateOrNull = (v) => (v ? v : null);
+// Coerce a value to a plain object (jsonb), tolerating the legacy case where an
+// object was serialized to a JSON *string* in a text column (the mobility_profile
+// round-trip bug). Returns null for anything that isn't/can't be an object.
+const asObj = (v) => {
+  if (v && typeof v === "object" && !Array.isArray(v)) return v;
+  if (typeof v === "string" && v.trim().startsWith("{")) {
+    try { const o = JSON.parse(v); return (o && typeof o === "object" && !Array.isArray(o)) ? o : null; }
+    catch { return null; }
+  }
+  return null;
+};
 
 /* ============================================================
    MAPPERS  (state shape  <->  db row)
@@ -220,12 +231,19 @@ function toChildRow(c, familyId) {
     guide_id: orNull(c.guideId),
     // Capability-based Learning Profile blob: { levels, levelsNote, differences,
     // differencesNote, about }. Stored as-is in the existing jsonb column.
-    // `gender` is tucked in here so it round-trips to the cloud without a schema change.
+    // `gender`, `pin`, `printPermission` and `birthData` have no dedicated columns,
+    // so they're tucked in here to round-trip to the cloud without a schema change
+    // (same trick as gender). Without this, a child's portal PIN silently vanishes
+    // on any other device / after re-hydrate, and print permission + birth data are lost.
     learning_profile: {
       ...((c.learningProfile && !Array.isArray(c.learningProfile)) ? c.learningProfile : {}),
       gender: c.gender || "",
+      pin: c.pin || "",
+      printPermission: c.printPermission || "approval",
+      birthData: c.birthData || null,
     },
-    mobility_profile: orNull(c.mobilityProfile),
+    // jsonb (migration 0024). Send a real object or null — never a stringified blob.
+    mobility_profile: asObj(c.mobilityProfile),
   };
 }
 export function fromChildRow(r) {
@@ -254,7 +272,13 @@ export function fromChildRow(r) {
     guideId: r.guide_id || null,
     learningProfile: (r.learning_profile && !Array.isArray(r.learning_profile)) ? r.learning_profile : {},
     gender: (r.learning_profile && !Array.isArray(r.learning_profile) ? r.learning_profile.gender : "") || "",
-    mobilityProfile: r.mobility_profile || null,
+    // pin / printPermission / birthData live inside learning_profile (no dedicated
+    // columns) — read them back so the portal PIN, print permission and birth data
+    // survive cross-device and re-hydrate. See toChildRow.
+    pin: (r.learning_profile && !Array.isArray(r.learning_profile) ? r.learning_profile.pin : "") || "",
+    printPermission: (r.learning_profile && !Array.isArray(r.learning_profile) ? r.learning_profile.printPermission : "") || "approval",
+    birthData: (r.learning_profile && !Array.isArray(r.learning_profile) ? r.learning_profile.birthData : null) || null,
+    mobilityProfile: asObj(r.mobility_profile),
     createdAt: r.created_at,
   };
 }
