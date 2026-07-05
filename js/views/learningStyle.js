@@ -231,7 +231,7 @@ function renderChildSliders(child) {
           ${style.materials.map(m => `<li>${esc(m)}</li>`).join("")}
         </ul>
         <div class="divider"></div>
-        <a class="btn btn-primary btn-sm" href="#/materials">See all Resources →</a>
+        <a class="btn btn-primary btn-sm" href="#/materials">See all Learning Resources →</a>
       </div>
     </div>
   `;
