@@ -27,7 +27,13 @@ export function renderTechAgreement(container, params) {
   const nudge = techReviewSuggestion(child);
   const reviewDate = childTechAgreement(child).reviewDate || "";
 
+  const embedded = !!params.embedded;
   container.innerHTML = `
+    ${embedded ? `
+    <div class="btn-row mb-2" style="justify-content:flex-end;align-items:center">
+      <span class="small text-muted" id="ta-status" aria-live="polite"></span>
+      <button class="btn btn-primary" id="ta-pdf">⬇ Generate PDF</button>
+    </div>` : `
     <div class="topbar">
       <div>
         <a href="#/style" class="small text-muted">← Learning Profile</a>
@@ -38,7 +44,7 @@ export function renderTechAgreement(container, params) {
         <span class="small text-muted" id="ta-status" aria-live="polite"></span>
         <button class="btn btn-primary" id="ta-pdf">⬇ Generate PDF</button>
       </div>
-    </div>
+    </div>`}
 
     <div class="card mb-2" style="background:var(--card-elev)">
       <p class="small" style="margin:0">North Star doesn't prescribe rules. This is a space to intentionally think through your family's digital decisions <em>before</em> situations arise — the goal is conversation, clarity and alignment. Adopt the suggestions that fit, edit freely, and skip anything that doesn't apply yet. <strong>${prog.addressed} of ${prog.total} sections addressed.</strong></p>

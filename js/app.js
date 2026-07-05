@@ -224,6 +224,8 @@ registerRoute("/vision",    (c, p) => withParentShell(c, renderFamilyVision, p))
 registerRoute("/family-settings", (c, p) => withParentShell(c, renderFamilySettings, p));
 registerRoute("/children",  (c, p) => withParentShell(c, renderChildren, p));
 registerRoute("/children/:id", (c, p) => withParentShell(c, renderChildDetail, p));
+// Learning Profile / Insights / Technology are tabs inside the child hub.
+registerRoute("/children/:id/:tab", (c, p) => withParentShell(c, renderChildDetail, p));
 registerRoute("/style",     (c, p) => withParentShell(c, renderLearningStyle, p));
 registerRoute("/technology/:childId", (c, p) => withParentShell(c, renderTechAgreement, p));
 registerRoute("/domains",   (c, p) => withParentShell(c, renderDomains, p));

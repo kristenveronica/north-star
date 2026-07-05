@@ -145,20 +145,25 @@ const ACADEMIC_FIELDS = [
   { key: "testing", label: "Testing schedule", placeholder: "e.g. termly NAPLAN-style check, none" },
 ];
 
-export function renderLearningStyle(container) {
+export function renderLearningStyle(container, opts = {}) {
   const s = getState();
+  // `opts.childId` scopes this to one child (used when embedded as a Children-hub
+  // tab); `opts.embedded` drops the page's own topbar + child picker.
+  if (opts.childId) _selectedChildId = opts.childId;
   if (!_selectedChildId && s.children[0]) _selectedChildId = s.children[0].id;
   const child = s.children.find(c => c.id === _selectedChildId);
+  const embedded = !!opts.embedded;
 
   container.innerHTML = `
+    ${embedded ? "" : `
     <div class="topbar">
       <div>
         <h1>Learning Profile</h1>
         <div class="sub">Help North Star understand how your child learns today. These answers help personalise projects, recommendations and learning experiences. You can update this profile anytime as your child grows.</div>
       </div>
-    </div>
+    </div>`}
 
-    ${s.children.length > 1 ? `
+    ${!embedded && s.children.length > 1 ? `
       <div class="row mb-2" style="gap:8px">
         ${s.children.map(c => `<button class="chip ${c.id === _selectedChildId ? "selected" : ""}" data-child="${c.id}">${esc(c.name)}</button>`).join("")}
       </div>
@@ -167,9 +172,11 @@ export function renderLearningStyle(container) {
     ${child ? renderProfileCards(child) : `<div class="empty">Add a child first.</div>`}
   `;
 
-  container.querySelectorAll("[data-child]").forEach(b => {
-    b.addEventListener("click", () => { _selectedChildId = b.dataset.child; rerender(); });
-  });
+  if (!embedded) {
+    container.querySelectorAll("[data-child]").forEach(b => {
+      b.addEventListener("click", () => { _selectedChildId = b.dataset.child; rerender(); });
+    });
+  }
 
   if (child) { wireSliders(container, child); wireProfileCards(container, child); wireAccordion(container, PAGE); }
 }
@@ -224,7 +231,7 @@ function renderChildSliders(child) {
           ${style.materials.map(m => `<li>${esc(m)}</li>`).join("")}
         </ul>
         <div class="divider"></div>
-        <a class="btn btn-primary btn-sm" href="#/materials">See all Learning Resources →</a>
+        <a class="btn btn-primary btn-sm" href="#/materials">See all Resources →</a>
       </div>
     </div>
   `;

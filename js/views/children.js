@@ -10,6 +10,12 @@ import { rerender } from "../app.js";
 import { saveDraft, loadDraft, clearDraft } from "../lib/drafts.js";
 import { childProfileLimit, childSeatsUsed, canAddChild } from "../lib/entitlements.js";
 import { startBaseCheckout, addChildSeat, getBillingPrices } from "../lib/billing.js";
+import { currentMember, canAccessPath } from "../lib/permissions.js";
+// Sub-views folded into the child hub as tabs (they render into a panel in
+// embedded mode, scoped to this child — no separate top-level pages).
+import { renderLearningStyle } from "./learningStyle.js";
+import { renderInsights } from "./insights.js";
+import { renderTechAgreement } from "./technology.js";
 
 export function renderChildren(container) {
   const s = getState();
@@ -508,7 +514,21 @@ export function renderChildDetail(container, params) {
     container.innerHTML = `<div class="empty"><div class="emoji">🔍</div>Child not found.</div>`;
     return;
   }
+  const s = getState();
+  const member = currentMember(s);
   const stats = getChildStats(child.id);
+
+  // The child hub. Learning Profile / Insights / Technology are folded in as
+  // tabs (was three separate top-level pages), permission-gated to preserve the
+  // old pages' access rules. `show:false` items drop out for that member.
+  const TABS = [
+    { id: "overview",   label: "Overview" },
+    { id: "profile",    label: "Learning Profile", show: canAccessPath(member, "/style") },
+    { id: "insights",   label: "Insights",         show: canAccessPath(member, "/insights") },
+    { id: "technology", label: "Technology",       show: canAccessPath(member, "/technology") },
+  ].filter(t => t.show !== false);
+  let tab = params.tab || "overview";
+  if (!TABS.some(t => t.id === tab)) tab = "overview";
 
   container.innerHTML = `
     <div class="topbar">
@@ -532,6 +552,30 @@ export function renderChildDetail(container, params) {
       <div class="metric"><div class="v">${stats.badges}</div><div class="l">Project badges</div></div>
     </div>
 
+    <div class="chip-group mb-3" id="child-tabs" role="tablist" aria-label="${esc(child.name)} sections">
+      ${TABS.map(t => `<button class="chip ${t.id === tab ? "selected" : ""}" role="tab" aria-selected="${t.id === tab}" data-tab="${t.id}">${esc(t.label)}</button>`).join("")}
+    </div>
+
+    <div id="child-panel"></div>
+  `;
+
+  container.querySelector("[data-edit]").addEventListener("click", () => openChildModal(child.id));
+  container.querySelector("[data-kid]").addEventListener("click", () => navigate("/kid/" + child.accessCode));
+  container.querySelectorAll("#child-tabs [data-tab]").forEach(b => b.addEventListener("click", () => {
+    const t = b.dataset.tab;
+    navigate(t === "overview" ? `/children/${child.id}` : `/children/${child.id}/${t}`);
+  }));
+
+  const panel = container.querySelector("#child-panel");
+  if (tab === "profile")         renderLearningStyle(panel, { childId: child.id, embedded: true });
+  else if (tab === "insights")   renderInsights(panel, { childId: child.id, embedded: true });
+  else if (tab === "technology") renderTechAgreement(panel, { childId: child.id, embedded: true });
+  else                           renderChildOverview(panel, child);
+}
+
+// The default "Overview" tab — the child's profile summary + portal access.
+function renderChildOverview(panel, child) {
+  panel.innerHTML = `
     <div class="grid" style="grid-template-columns: 2fr 1fr; gap:18px">
       <div class="card">
         <h3 class="mb-2">Profile</h3>
@@ -567,13 +611,11 @@ export function renderChildDetail(container, params) {
     </div>
   `;
 
-  container.querySelector("[data-edit]").addEventListener("click", () => openChildModal(child.id));
-  container.querySelector("[data-kid]").addEventListener("click", () => navigate("/kid/" + child.accessCode));
-  container.querySelector("#copy-code").addEventListener("click", () => {
+  panel.querySelector("#copy-code").addEventListener("click", () => {
     navigator.clipboard?.writeText(child.accessCode);
     toast("Access code copied", { type: "success" });
   });
-  container.querySelectorAll('input[name="print-perm"]').forEach(r => {
+  panel.querySelectorAll('input[name="print-perm"]').forEach(r => {
     r.addEventListener("change", () => {
       if (r.checked) { updateChild(child.id, { printPermission: r.value }); toast("Printing permission saved", { type: "success" }); }
     });

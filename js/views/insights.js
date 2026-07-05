@@ -21,18 +21,27 @@ let _selectedChildId = null;
 /* ============================================================
    MAIN VIEW (/insights)
    ============================================================ */
-export function renderInsights(container, params = {}) {
+export function renderInsights(container, opts = {}) {
   const s = getState();
   const cfg = s.insightsConfig || {};
+  // `opts.childId` scopes to one child (Children-hub tab); `opts.embedded` drops
+  // this page's own topbar + child picker (the hub owns the child header).
+  const embedded = !!opts.embedded;
 
   if (!cfg.premiumEnabled) {
     return renderUpgradeGate(container);
   }
 
+  if (opts.childId) _selectedChildId = opts.childId;
   if (!_selectedChildId && s.children[0]) _selectedChildId = s.children[0].id;
   const child = s.children.find(c => c.id === _selectedChildId);
 
   container.innerHTML = `
+    ${embedded ? `
+    <div class="btn-row mb-2" style="justify-content:flex-end">
+      <button class="btn" data-go="/insights-reports">${icon("report")} Insights Reports</button>
+      <button class="btn btn-primary" id="generate-insight">✨ Generate Insights Report</button>
+    </div>` : `
     <div class="topbar">
       <div>
         <h1>Child Insights</h1>
@@ -42,7 +51,7 @@ export function renderInsights(container, params = {}) {
         <button class="btn" data-go="/insights-reports">${icon("report")} Insights Reports</button>
         <button class="btn btn-primary" id="generate-insight">✨ Generate Insights Report</button>
       </div>
-    </div>
+    </div>`}
 
     <div class="card mb-2" style="background:linear-gradient(135deg, var(--sage-soft), var(--card-elev));border-color:var(--sage-soft)">
       <div class="row" style="gap:12px;align-items:flex-start">
@@ -54,7 +63,7 @@ export function renderInsights(container, params = {}) {
       </div>
     </div>
 
-    ${s.children.length > 1 ? `
+    ${!embedded && s.children.length > 1 ? `
       <div class="row mb-2" style="gap:8px">
         ${s.children.map(c => `<button class="chip ${c.id === _selectedChildId ? "selected" : ""}" data-child="${c.id}">${esc(c.name)}</button>`).join("")}
       </div>
@@ -63,9 +72,11 @@ export function renderInsights(container, params = {}) {
     ${child ? renderChildInsights(child, s) : `<div class="empty">Add a child first.</div>`}
   `;
 
-  container.querySelectorAll("[data-child]").forEach(b => {
-    b.addEventListener("click", () => { _selectedChildId = b.dataset.child; rerender(); });
-  });
+  if (!embedded) {
+    container.querySelectorAll("[data-child]").forEach(b => {
+      b.addEventListener("click", () => { _selectedChildId = b.dataset.child; rerender(); });
+    });
+  }
   container.querySelectorAll("[data-go]").forEach(b => b.addEventListener("click", () => navigate(b.dataset.go)));
   container.querySelector("#generate-insight")?.addEventListener("click", () => generateAndOpenInsightsReport(child));
   container.querySelector("#save-birth")?.addEventListener("click", () => {
