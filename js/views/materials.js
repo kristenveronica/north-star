@@ -80,7 +80,7 @@ function applyOpenClasses(container) {
   if (allBtn) allBtn.textContent = _expandAll ? "Collapse all" : "Expand all";
 }
 
-export function renderResources(container) {
+export function renderResources(container, opts = {}) {
   const s = getState();
 
   // Lazily ensure each child has a few personalised recommendations to start from.
@@ -91,14 +91,17 @@ export function renderResources(container) {
   const cartCount = getState().cart.length;
   const needCount = newProjectResourceCount(getState());
 
+  // `embedded` = rendered inside the unified Resources page (which owns the
+  // page title + Cart button), so suppress this view's own topbar.
   container.innerHTML = `
+    ${opts.embedded ? "" : `
     <div class="topbar">
       <div>
         <h1>Learning Resources</h1>
         <div class="sub">Everything your family needs to deliver the learning journey North Star has created — evolving with every project, profile and season.</div>
       </div>
       <button class="btn btn-primary" data-cart>${icon("cart")} Cart ${cartCount ? `(${cartCount})` : ""}</button>
-    </div>
+    </div>`}
 
     ${needCount ? `
       <div class="suggestion-banner mb-2">
@@ -239,7 +242,8 @@ function partnerCard(p) {
 /* ---------- wiring ---------- */
 
 function wire(container) {
-  container.querySelector("[data-cart]").addEventListener("click", () => navigate("/cart"));
+  // Cart button is absent in embedded mode (the Resources page owns it) — stay null-safe.
+  container.querySelector("[data-cart]")?.addEventListener("click", () => navigate("/cart"));
 
   // Accordion: open one section at a time (smooth, no re-render).
   container.querySelectorAll("[data-acc-head]").forEach(btn => {

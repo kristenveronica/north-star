@@ -35,18 +35,20 @@ function rerenderKeepScroll(focusCat) {
   });
 }
 
-export function renderInventory(container) {
+export function renderInventory(container, opts = {}) {
   const s = getState();
   const inv = s.inventory || [];
   const total = inv.length;
 
+  // `embedded` = rendered inside the unified Resources page → suppress own topbar.
   container.innerHTML = `
+    ${opts.embedded ? "" : `
     <div class="topbar">
       <div>
         <h1>Family Inventory</h1>
         <div class="sub">Your living learning toolkit. Tell North Star what you already own and it designs projects around what you have — before ever recommending a purchase.</div>
       </div>
-    </div>
+    </div>`}
 
     <div class="card mb-2" style="background:var(--card-elev)">
       <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap">
