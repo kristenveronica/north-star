@@ -69,3 +69,9 @@ export function aiCoreWordLiving(family, summary) {
 export function aiMentorTurn({ mentor, child, history, message }) {
   return invokeAi("mentor-turn", { mentor, child, history, message });
 }
+
+/** Generate a real, ready-to-print worksheet tailored to a child.
+    Returns { title, subtitle, parentNote, materials[], sections[], extension }. */
+export function aiGeneratePrintable({ child, printable }) {
+  return invokeAi("generate-printable", { child, printable });
+}

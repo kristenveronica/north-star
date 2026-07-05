@@ -976,6 +976,62 @@ Stay in character. Never break the fourth wall or mention that you are an AI, a 
   return callClaudeChat(system, messages, MENTOR_REPLY_SCHEMA, apiKey);
 }
 
+// ---- Printable worksheet generation ------------------------------------
+// Produces a genuinely usable, ready-to-print worksheet tailored to one child
+// (age, learning style, interests, capability domains) — not a description of one.
+const PRINTABLE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["title", "subtitle", "parentNote", "materials", "sections"],
+  properties: {
+    title: { type: "string" },
+    subtitle: { type: "string" },
+    parentNote: { type: "string" },
+    materials: { type: "array", items: { type: "string" } },
+    sections: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["heading", "instructions", "items", "writingLines"],
+        properties: {
+          heading: { type: "string" },
+          instructions: { type: "string" },
+          items: { type: "array", items: { type: "string" } },
+          writingLines: { type: "integer" },
+        },
+      },
+    },
+    extension: { type: "string" },
+  },
+};
+
+async function generatePrintable(payload: any, apiKey: string) {
+  const c = payload.child || {};
+  const pr = payload.printable || {};
+  const system = `You create a SINGLE, ready-to-print worksheet or activity sheet a homeschooling parent hands to their child. It must be genuinely usable when printed — real questions, prompts, problems or step-by-step activities, never a description of a worksheet.
+
+Tailor everything to THIS child:
+- Name: ${c.name || "the child"}
+- Age: ${c.age ?? "unknown"}
+- Learning style (1 = Explorer/unschooling, open-ended & child-led; 10 = Traditional academic, structured): ${c.learningStyle ?? 5}
+- Interests / passions: ${(c.passions || []).join(", ") || "—"}
+- Capability domains in focus: ${(c.domains || []).join(", ") || "—"}
+
+Worksheet topic: "${pr.name || "learning activity"}"${pr.description ? ` — ${pr.description}` : ""}.
+Target capability domains: ${(pr.domains || []).join(", ") || "general"}.
+
+Rules:
+- Match the difficulty and language to the child's age. Weave their interests into the examples where it feels natural, not forced.
+- 2 to 4 sections. Each has clear, kid-facing instructions and 4 to 10 concrete items (questions / prompts / tasks).
+- writingLines = how many blank answer lines to print beneath a section (0 if the items already leave room, e.g. circle/match/multiple-choice).
+- Fits on 1–2 printed pages.
+- parentNote: one or two sentences on how to use it and what capability it builds.
+- Plain text only — no markdown symbols, no emoji.`;
+  const { parsed, usage } = await callClaude(system, `Create the worksheet now for ${c.name || "the child"}.`, PRINTABLE_SCHEMA, apiKey);
+  return { parsed, usage };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -994,6 +1050,7 @@ Deno.serve(async (req) => {
     else if (action === "growth-reflection") result = await growthReflection(payload, apiKey);
     else if (action === "coreword-living") result = await coreWordLiving(payload, apiKey);
     else if (action === "mentor-turn") result = await mentorTurn(payload, apiKey);
+    else if (action === "generate-printable") result = await generatePrintable(payload, apiKey);
     else return json({ error: `Unknown action: ${action}` }, 400);
 
     console.log(`[ai] ${action} usage:`, JSON.stringify(result.usage));

@@ -9,13 +9,15 @@
    ============================================================ */
 
 import {
-  getState, addMaterial, recordResourceAction, getChild,
+  getState, addMaterial, recordResourceAction, getChild, ageOf,
 } from "../store.js";
 import { suggestMaterialsForChild } from "../ai/suggestions.js";
+import { aiGeneratePrintable } from "../lib/ai.js";
+import { openPrintableWindow, writeWorksheet, writeError } from "../lib/printableDoc.js";
 import { buildLearningResources, newProjectResourceCount } from "../lib/resources.js";
 import { RESOURCE_SECTIONS } from "../lib/resourceCatalog.js";
 import { domainShort } from "../seed.js";
-import { esc, fmtMoney, toast, icon, DOMAIN_COLOR_CLASS } from "../components/ui.js";
+import { esc, fmtMoney, toast, icon, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 
@@ -273,7 +275,7 @@ function wire(container) {
       const it = _specs[b.dataset.key];
       if (!it) return;
       const action = b.dataset.action;
-      if (action === "generate") { generatePrintable(it); recordResourceAction(it, "owned"); toast("Printable downloaded", { type: "success" }); return rerenderKeepScroll(); }
+      if (action === "generate") { generateAiPrintable(it, b); return; }
       const statusMap = { approve: "approved", owned: "owned", borrow: "borrow", save: "save", "self-source": "self-source", dismiss: "dismissed", undo: "suggested" };
       recordResourceAction(it, statusMap[action] || "suggested");
       toast(actionToast(action), { type: action === "dismiss" ? "default" : "success" });
@@ -299,25 +301,56 @@ function ensurePersonalisedSeed(s) {
   });
 }
 
-function generatePrintable(it) {
-  const lines = [
-    `North Star — ${it.name}`,
-    "=".repeat(40),
-    "",
-    it.description || "",
-    "",
-    "This is a starter template. North Star will generate a richer, tailored",
-    "version of this printable for your child here as the feature evolves.",
-    "",
-    `Capability domains: ${(it.capabilityDomains || []).map(domainShort).join(", ") || "—"}`,
-  ];
-  const blob = new Blob([lines.join("\n")], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${String(it.name).replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.txt`;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
+/* ---------- AI printable generation ----------
+   A real, ready-to-print worksheet tailored to a specific child (age,
+   interests, learning style, capability domains) — rendered in a new tab. */
+function generateAiPrintable(it, btn) {
+  const children = getState().children || [];
+  if (!children.length) {
+    toast("Add a child first — printables are tailored to each child.", { type: "warning" });
+    return;
+  }
+  const target = it.forChildId ? children.find(c => c.id === it.forChildId) : null;
+  if (target) return doGeneratePrintable(it, target, btn);
+  if (children.length === 1) return doGeneratePrintable(it, children[0], btn);
+
+  // Several children and no specific target → pick one. Each pick is its own
+  // click gesture, so the print window still opens without the pop-up blocker.
+  const body = document.createElement("div");
+  body.innerHTML = `
+    <p class="text-muted small">Who is this “${esc(it.name)}” worksheet for? North Star tailors it to their age, interests and learning style.</p>
+    <div class="chip-group">${children.map(c => `<button class="chip" data-pick="${c.id}">${esc(c.name)}</button>`).join("")}</div>`;
+  const modal = openModal({ title: "Generate a worksheet", body });
+  body.querySelectorAll("[data-pick]").forEach(pb => pb.addEventListener("click", () => {
+    const child = children.find(c => c.id === pb.dataset.pick);
+    modal.close();
+    doGeneratePrintable(it, child, btn);
+  }));
+}
+
+async function doGeneratePrintable(it, child, btn) {
+  const win = openPrintableWindow();               // opened inside the gesture (no pop-up block)
+  if (!win) { toast("Allow pop-ups to open your printable worksheet.", { type: "warning" }); return; }
+  if (btn) btn.disabled = true;
+  try {
+    const doc = await aiGeneratePrintable({
+      child: {
+        name: child.name,
+        age: ageOf(child) ?? child.age ?? null,
+        learningStyle: child.learningStyle,
+        passions: child.passions,
+        domains: child.domains,
+      },
+      printable: { name: it.name, description: it.description, domains: it.capabilityDomains },
+    });
+    writeWorksheet(win, doc, child);
+    toast(`Worksheet ready for ${child.name} — print or save it from the new tab.`, { type: "success" });
+  } catch (e) {
+    writeError(win, e.message || "Couldn't create the worksheet just now. Please try again.");
+    toast(e.message || "Couldn't generate the worksheet", { type: "warning" });
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 function actionToast(action) {
