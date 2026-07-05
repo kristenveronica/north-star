@@ -53,7 +53,8 @@ const DEFAULT_STATE = {
   // now (shared cross-mentor memory is Phase 2). Slice kept here (inert) for /dev.
   mentorConversations: [], // [{ id, childId, mentorId, turns:[{ role:"child"|"mentor", text, suggestions?, at }], createdAt, updatedAt }]
 
-  // Layer 15 — Learning Guild + Family Councils + Family Legacy
+  // Family Councils (live) + Learning Guild state (Guild UI held out of MVP in /dev,
+  // but these slices stay here — the /dev harness imports them). Family Legacy removed.
   guildConfig: {
     premiumEnabled: false,
     showcaseAllowed: false,

@@ -32,7 +32,7 @@ export function renderSettings(container) {
             <div class="field"><label>Parent name</label><input class="input" id="parentName" value="${esc(f.parentName || "")}"/></div>
             <div class="field"><label>Family name</label><input class="input" id="familyName" value="${esc(f.familyName || "")}"/></div>
           </div>
-          <p class="hint" style="margin:6px 0 0">Faith Integration, Home Location, Travel and people now live in <a href="#/family-settings">Family Settings</a>.</p>
+          <p class="hint" style="margin:6px 0 0">Faith Integration, Home Location, Travel and people now live in <a href="#/family-settings">Family</a>.</p>
           <div class="row" style="justify-content:flex-end;align-items:center;gap:12px">
             <span class="small text-muted" id="pref-autosave" aria-live="polite"></span>
             <button class="btn btn-primary" id="save">Save</button>

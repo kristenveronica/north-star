@@ -24,19 +24,19 @@ const GROUPS = [
     collapsible: true,
     items: [
       { label: "Family North Star", path: "/vision", icon: "vision" },
-      { label: "Family Settings", path: "/family-settings", icon: "familySettings" },
+      { label: "Family", path: "/family-settings", icon: "familySettings" },
       { label: "Children", path: "/children", icon: "children" },
       { label: "Learning Profile", path: "/style", icon: "style" },
       { label: "Capability Domains", path: "/domains", icon: "domains" },
       { label: "Family Inventory", path: "/inventory", icon: "inventory" },
       { label: "Learning Resources", path: "/materials", icon: "materials" },
+      { label: "Family Councils", path: "/councils", icon: "council" },
     ],
   },
   {
     label: "Plan",
     items: [
       { label: "Projects", path: "/projects", icon: "projects" },
-      { label: "Term Planner", path: "/planner", icon: "plan" },
       { label: "Calendar", path: "/calendar", icon: "calendar" },
       { label: "Rewards & Tolls", path: "/rewards", icon: "reward" },
     ],
@@ -44,19 +44,10 @@ const GROUPS = [
   {
     label: "Track",
     items: [
-      { label: "Progress", path: "/progress", icon: "progress" },
       { label: "Reflections", path: "/reflections", icon: "vision" },
       { label: "Portfolio", path: "/portfolio", icon: "portfolio" },
       { label: "Growth Reports", path: "/reports", icon: "report" },
       { label: "Child Insights", path: "/insights", icon: "insights", premium: true },
-    ],
-  },
-  {
-    label: "Community",
-    items: [
-      { label: "The Learning Guild", path: "/guild", icon: "guild", premium: true },
-      { label: "Family Councils", path: "/councils", icon: "council" },
-      { label: "Family Legacy", path: "/legacy", icon: "legacy" },
     ],
   },
   {

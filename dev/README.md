@@ -22,6 +22,13 @@ them in version control here but out of the live site.
 | `mentors/registry.js` | `js/mentors/registry.js` — mentor persona registry |
 | `mentors/whiteboard.js` | `js/mentors/whiteboard.js` — Polaris whiteboard + voice |
 | `views/polaris.js` | `js/views/polaris.js` — child mentor chat |
+| `views/guild.js` | `js/views/guild.js` — The Learning Guild (community) |
+| `communityCatalogue.js` | `js/communityCatalogue.js` — Guild seed data |
+
+The Learning Guild (community) is held out of the MVP too — an empty community
+makes a young product feel hollow, so it ships once there's density. Its store
+slices (`guildConfig`, `showcases`, `mentorshipRequests`, etc.) stay in the live
+`js/store.js` (the dev harness imports them). Reachable in dev at `#/guild`.
 
 These files still import shared modules (`store.js`, `router.js`, `ui.js`,
 `ai.js`) from the live `js/` tree via `../../js/…` — so the dev app always runs

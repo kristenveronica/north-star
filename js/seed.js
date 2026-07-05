@@ -4,7 +4,6 @@
    ============================================================ */
 
 import { getState, update, uid } from "./store.js";
-import { SAMPLE_SHOWCASES } from "./communityCatalogue.js";
 
 /* ============================================================
    Capability Domains — the central intelligence layer of North Star.
@@ -479,19 +478,7 @@ export function seedIfEmpty() {
     });
 
     state.meta.activeChildId = noah.id;
-
-    /* ---------- Layer 15: seed sample community data ---------- */
-    state.showcases = SAMPLE_SHOWCASES.map(s => ({
-      id: uid("show"),
-      title: s.title, summary: s.summary, lessons: s.lessons,
-      points: s.points, celebrations: s.celebrations,
-      photos: [], comments: [],
-      fromOtherFamily: true,
-      family: s.family,
-      childName: s.childName,
-      icon: s.icon,
-      createdAt: new Date(Date.now() - Math.random() * 60 * 86400000).toISOString(),
-    }));
+    // (The Learning Guild — incl. sample showcase data — is held out of the MVP in /dev.)
   });
 }
 

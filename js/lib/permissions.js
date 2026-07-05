@@ -79,17 +79,13 @@ const PATH_RULES = [
   { p: "/cart", req: ["view:materials", "contrib:print"] },
   { p: "/apps", req: ["view:progress", "contrib:generate"] },
   { p: "/projects", req: ["view:projects", "contrib:generate", "contrib:editProjects", "contrib:milestones"] },
-  { p: "/planner", req: ["view:projects", "contrib:editProjects"] },
   { p: "/rewards", req: ["view:projects", "contrib:generate", "contrib:editProjects", "contrib:milestones"] },
   { p: "/calendar", req: ["view:calendar", "contrib:calendar"] },
-  { p: "/progress", req: ["view:progress"] },
   { p: "/reflections", req: ["view:progress", "contrib:reflections", "contrib:observations"] },
   { p: "/portfolio", req: ["view:portfolio", "contrib:portfolio"] },
   { p: "/reports", req: ["view:reports", "contrib:reports"] },
   { p: "/insights", req: ["view:reports"] },
-  { p: "/guild", req: OWNER },
   { p: "/councils", req: OWNER },
-  { p: "/legacy", req: OWNER },
   { p: "/settings", req: OWNER },
 ];
 

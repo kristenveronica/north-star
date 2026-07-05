@@ -9,11 +9,11 @@ import {
   requestMentorship, approveMentorship, rejectMentorship, completeMentorship,
   joinChallenge, leaveChallenge, completeChallenge,
   setSkillExchange,
-} from "../store.js";
+} from "../../js/store.js";
 import { QUEST_TEAMS, CHALLENGES, MENTORS, MENTORSHIP_CATEGORIES } from "../communityCatalogue.js";
-import { esc, icon, toast, openModal, fmtDate, DOMAIN_COLOR_CLASS } from "../components/ui.js";
-import { navigate } from "../router.js";
-import { rerender } from "../app.js";
+import { esc, icon, toast, openModal, fmtDate, DOMAIN_COLOR_CLASS } from "../../js/components/ui.js";
+import { navigate } from "../../js/router.js";
+import { rerender } from "../../js/app.js";
 
 const TABS = [
   { id: "quest-teams",   label: "Quest Teams",        icon: "🧭" },

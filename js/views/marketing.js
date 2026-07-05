@@ -1092,8 +1092,8 @@ export function renderFeaturesPublic(container) {
     ["For your family", ["Family vision", "Core Word & Credo", "Values & character", "Learning-style & DIY sliders", "Family councils"]],
     ["For each child", ["Child profiles", "Personalised suggestions", "Voice reflections", "Access codes & PINs", "Stars, badges & momentum"]],
     ["The learning", ["Whole-human capability domains", "Project builder", "Daily missions", "Milestones & countdowns", "Suggested resources & mock cart"]],
-    ["Reflection & growth", ["Reflections — written or spoken", "Portfolio", "Growth reports", "Child insights (optional)", "Family Legacy Timeline"]],
-    ["Day to day", ["Calendar", "Notifications", "Rewards & natural consequences", "Faith track (optional)", "The Learning Guild (coming)"]],
+    ["Reflection & growth", ["Reflections — written or spoken", "Portfolio", "Growth reports", "Child insights (optional)", "Year-in-Review film"]],
+    ["Day to day", ["Calendar", "Notifications", "Rewards & natural consequences", "Faith track (optional)"]],
   ];
 
   container.innerHTML = `

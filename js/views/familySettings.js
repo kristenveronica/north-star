@@ -170,7 +170,7 @@ export function renderFamilySettings(container) {
   container.innerHTML = `
     <div class="topbar">
       <div>
-        <h1>Family Settings</h1>
+        <h1>Family</h1>
         <div class="sub">The practical, real-world context North Star uses to personalise projects safely. (Your vision lives in Family North Star.)</div>
       </div>
     </div>
@@ -452,7 +452,7 @@ export function renderFamilySettings(container) {
     commit();
     saveBtn.textContent = "✓ Saved";
     saveBtn.disabled = true;
-    toast("Family Settings saved", { type: "success" });
+    toast("Family saved", { type: "success" });
     setTimeout(() => { saveBtn.textContent = "Save settings"; saveBtn.disabled = false; if (statusEl) statusEl.textContent = ""; }, 2000);
   });
 
