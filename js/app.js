@@ -24,7 +24,7 @@ import { renderTechAgreement } from "./views/technology.js";
 import { renderDomains } from "./views/domains.js";
 import { renderResources } from "./views/materials.js";
 import { renderInventory } from "./views/inventory.js";
-import { renderCart } from "./views/cart.js";
+import { renderPlanningList } from "./views/planningList.js";
 import { renderProjects, renderProjectDetail } from "./views/projects.js";
 import { renderCalendar } from "./views/calendar.js";
 import { renderRewards } from "./views/rewards.js";
@@ -232,7 +232,7 @@ registerRoute("/technology/:childId", (c, p) => withParentShell(c, renderTechAgr
 registerRoute("/domains",   (c, p) => withParentShell(c, renderDomains, p));
 registerRoute("/materials", (c, p) => withParentShell(c, renderResources, p));
 registerRoute("/inventory", (c, p) => withParentShell(c, renderInventory, p));
-registerRoute("/cart",      (c, p) => withParentShell(c, renderCart, p));
+registerRoute("/planning",  (c, p) => withParentShell(c, renderPlanningList, p));
 registerRoute("/projects",  (c, p) => withParentShell(c, renderProjects, p));
 registerRoute("/projects/:id", (c, p) => withParentShell(c, renderProjectDetail, p));
 registerRoute("/calendar",  (c, p) => withParentShell(c, renderCalendar, p));

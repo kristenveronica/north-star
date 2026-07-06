@@ -9,7 +9,7 @@
    ============================================================ */
 
 import {
-  getState, addMaterial, recordResourceAction, getChild, ageOf,
+  getState, addMaterial, recordResourceAction, getChild, ageOf, getPlannedResources,
 } from "../store.js";
 import { suggestMaterialsForChild } from "../ai/suggestions.js";
 import { aiGeneratePrintable } from "../lib/ai.js";
@@ -90,7 +90,7 @@ export function renderResources(container, opts = {}) {
 
   const sections = buildLearningResources(getState());
   _specs = {};
-  const cartCount = getState().cart.length;
+  const plannedCount = getPlannedResources().length;
   const needCount = newProjectResourceCount(getState());
 
   // `embedded` = rendered inside the unified Resources page (which owns the
@@ -102,7 +102,7 @@ export function renderResources(container, opts = {}) {
         <h1>Learning Resources</h1>
         <div class="sub">Everything your family needs to deliver the learning journey North Star has created — evolving with every project, profile and season.</div>
       </div>
-      <button class="btn btn-primary" data-cart>${icon("cart")} Cart ${cartCount ? `(${cartCount})` : ""}</button>
+      <button class="btn btn-primary" data-cart>${icon("cart")} Your list${plannedCount ? ` (${plannedCount})` : ""}</button>
     </div>`}
 
     ${needCount ? `
@@ -118,7 +118,7 @@ export function renderResources(container, opts = {}) {
     </div>
 
     <div class="stack">
-      ${RESOURCE_SECTIONS.map(sec => sectionHtml(sec, sections[sec.id])).join("")}
+      ${RESOURCE_SECTIONS.filter(sec => sec.id !== "marketplace").map(sec => sectionHtml(sec, sections[sec.id])).join("")}
     </div>
   `;
 
@@ -139,7 +139,7 @@ function sectionHtml(sec, items) {
 
 // Which items to show per section (resolved items drop out of the "needs" lists).
 function visibleItems(sectionId, items) {
-  if (sectionId === "project") return items.filter(i => i.status === "suggested" || i.status === "approved");
+  if (sectionId === "project") return items.filter(i => ["suggested", "approved", "planned"].includes(i.status));
   return items.filter(i => i.status !== "dismissed");
 }
 
@@ -173,41 +173,42 @@ function resourceCard(it) {
   `;
 }
 
+// One primary action + a quiet ··· overflow. The primary adapts to the item:
+// printables are made (Generate), everything else joins the Planning List.
 function actionRow(it) {
-  if (it.status === "approved") {
-    return `<div class="row" style="gap:8px;align-items:center"><span class="tag tag-sage">${icon("check")} Approved${it.inCart ? " · in cart" : ""}</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
+  // Resolved states: a calm confirmation the parent can undo — no button pile.
+  if (it.status === "planned") {
+    return `<div class="row" style="gap:10px;align-items:center">
+      <span class="tag tag-sage">✓ On your list</span>
+      <button class="btn btn-ghost btn-sm" data-goto-list>View list</button>
+      <button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button>
+    </div>`;
   }
   if (it.status === "owned") {
-    return `<div class="row" style="gap:8px;align-items:center"><span class="tag tag-sage">✓ You have this</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
+    return `<div class="row" style="gap:10px;align-items:center"><span class="tag tag-sage">✓ You have this</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
   }
-  if (it.status === "self-source") {
-    return `<div class="row" style="gap:8px;align-items:center"><span class="tag">You're sourcing this</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
-  }
-  if (it.status === "borrow") {
-    return `<div class="row" style="gap:8px;align-items:center"><span class="tag">🤝 Borrowing this</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
-  }
-  if (it.status === "save") {
-    return `<div class="row" style="gap:8px;align-items:center"><span class="tag tag-gold">💰 Saved for later</span><button class="btn btn-ghost btn-sm" data-action="undo" data-key="${esc(it.key)}">Undo</button></div>`;
-  }
-  // suggested
+
+  // Printables are generated on the spot — no acquiring, so no ··· "have it".
   if (it.format === "printable") {
     return `
-      <div class="row" style="gap:8px;flex-wrap:wrap">
+      <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
         <button class="btn btn-primary btn-sm" data-action="generate" data-key="${esc(it.key)}">⬇ Generate &amp; download</button>
-        <button class="btn btn-sm" data-action="dismiss" data-key="${esc(it.key)}">Not needed</button>
+        <button class="btn btn-ghost btn-sm" data-action="dismiss" data-key="${esc(it.key)}">Not needed</button>
       </div>`;
   }
-  const primary = it.kind === "diy"
-    ? `<button class="btn btn-primary btn-sm" data-action="approve" data-key="${esc(it.key)}">Approve</button>`
-    : `<button class="btn btn-primary btn-sm" data-action="approve" data-key="${esc(it.key)}">Add to cart</button>`;
+
+  // Ownable items: Add to list + a ··· menu for the two secondary choices.
+  const k = esc(it.key);
   return `
-    <div class="row" style="gap:8px;flex-wrap:wrap">
-      ${primary}
-      <button class="btn btn-sm" data-action="owned" data-key="${esc(it.key)}">I already have</button>
-      <button class="btn btn-sm" data-action="borrow" data-key="${esc(it.key)}">🤝 Borrow</button>
-      <button class="btn btn-sm" data-action="self-source" data-key="${esc(it.key)}">I'll source it</button>
-      <button class="btn btn-sm" data-action="save" data-key="${esc(it.key)}">💰 Save for later</button>
-      <button class="btn btn-ghost btn-sm" data-action="dismiss" data-key="${esc(it.key)}">Dismiss</button>
+    <div class="row-between" style="align-items:center;gap:8px">
+      <button class="btn btn-primary btn-sm" data-action="plan" data-key="${k}">+ Add to list</button>
+      <div class="res-more">
+        <button class="btn btn-ghost btn-sm res-more__btn" data-more="${k}" aria-label="More options" aria-haspopup="true" aria-expanded="false">•••</button>
+        <div class="res-more__menu" data-more-menu="${k}" hidden>
+          <button class="res-more__item" data-action="owned" data-key="${k}">✓ I already have it</button>
+          <button class="res-more__item" data-action="dismiss" data-key="${k}">✕ Not for us</button>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -244,8 +245,9 @@ function partnerCard(p) {
 /* ---------- wiring ---------- */
 
 function wire(container) {
-  // Cart button is absent in embedded mode (the Resources page owns it) — stay null-safe.
-  container.querySelector("[data-cart]")?.addEventListener("click", () => navigate("/cart"));
+  // "Your list" button is absent in embedded mode (the Resources page owns it) — stay null-safe.
+  container.querySelector("[data-cart]")?.addEventListener("click", () => navigate("/planning"));
+  container.querySelectorAll("[data-goto-list]").forEach(b => b.addEventListener("click", () => navigate("/planning")));
 
   // Accordion: open one section at a time (smooth, no re-render).
   container.querySelectorAll("[data-acc-head]").forEach(btn => {
@@ -270,13 +272,33 @@ function wire(container) {
     toast("Affiliate links activate when the partner ecosystem goes live.", { duration: 3000 });
   }));
 
+  // ··· overflow menus: toggle open (one at a time), close on outside click.
+  const closeMenus = () => container.querySelectorAll("[data-more-menu]").forEach(m => {
+    m.hidden = true;
+    container.querySelector(`[data-more="${CSS.escape(m.dataset.moreMenu)}"]`)?.setAttribute("aria-expanded", "false");
+  });
+  container.querySelectorAll("[data-more]").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const menu = container.querySelector(`[data-more-menu="${CSS.escape(btn.dataset.more)}"]`);
+      const willOpen = menu?.hidden;
+      closeMenus();
+      if (menu && willOpen) { menu.hidden = false; btn.setAttribute("aria-expanded", "true"); }
+    });
+  });
+  if (!wire._menuDismiss) {
+    wire._menuDismiss = true;
+    document.addEventListener("click", () => document.querySelectorAll("[data-more-menu]").forEach(m => { m.hidden = true; }));
+  }
+
   container.querySelectorAll("[data-action]").forEach(b => {
     b.addEventListener("click", () => {
       const it = _specs[b.dataset.key];
       if (!it) return;
       const action = b.dataset.action;
+      closeMenus();
       if (action === "generate") { generateAiPrintable(it, b); return; }
-      const statusMap = { approve: "approved", owned: "owned", borrow: "borrow", save: "save", "self-source": "self-source", dismiss: "dismissed", undo: "suggested" };
+      const statusMap = { plan: "planned", owned: "owned", dismiss: "dismissed", undo: "suggested" };
       recordResourceAction(it, statusMap[action] || "suggested");
       toast(actionToast(action), { type: action === "dismiss" ? "default" : "success" });
       rerenderKeepScroll();
@@ -355,12 +377,9 @@ async function doGeneratePrintable(it, child, btn) {
 
 function actionToast(action) {
   return {
-    approve: "Approved",
+    plan: "Added to your planning list",
     owned: "Marked as already owned",
-    borrow: "You'll borrow this",
-    save: "Saved for later",
-    "self-source": "You'll source this yourself",
-    dismiss: "Dismissed",
+    dismiss: "Removed",
     undo: "Reset",
   }[action] || "Updated";
 }

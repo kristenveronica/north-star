@@ -807,6 +807,9 @@ function _applyResourceStatus(s, m, status) {
   m.status = status;
   m.approved = status === "approved";
   m.rejected = status === "dismissed";
+  // "planned" = the family wants this and it's on their Planning List. Seed a
+  // default acquisition method (make a DIY item, otherwise buy) they can change.
+  if (status === "planned" && !m.planMethod) m.planMethod = m.buyOrDIY === "diy" ? "make" : "buy";
   if (status === "owned") {
     m.meta = { ...(m.meta || {}), purchased: true };
     // Marking a resource as owned grows the living Family Inventory.
@@ -875,6 +878,28 @@ export function removeFromCart(materialId) {
     s.cart = s.cart.filter(c => c.materialId !== materialId);
     const m = s.materials.find(x => x.id === materialId);
     if (m) m.inCart = false;
+  });
+}
+
+/* ---- Planning List (the honest replacement for the mock cart) ----
+   Items the family has chosen to acquire live as materials with status
+   "planned", each carrying a planMethod: "buy" | "borrow" | "make". */
+export function getPlannedResources() {
+  return (_state.materials || []).filter(m => m.status === "planned");
+}
+export function setResourcePlanMethod(id, method) {
+  update(s => {
+    const m = s.materials.find(x => x.id === id);
+    if (m) m.planMethod = method;
+  });
+}
+/** Set a stored resource's status by record id (used by the Planning List for
+    "got it" → owned, or removing an item), routing through the shared status
+    logic so inventory/cart side-effects stay consistent. */
+export function setResourceStatusById(id, status) {
+  update(s => {
+    const m = s.materials.find(x => x.id === id);
+    if (m) _applyResourceStatus(s, m, status);
   });
 }
 

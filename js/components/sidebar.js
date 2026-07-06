@@ -59,7 +59,7 @@ const GROUPS = [
 export function renderSidebar() {
   const path = currentPath();
   const s = getState();
-  const cartCount = s.cart.length;
+  const plannedCount = (s.materials || []).filter(m => m.status === "planned").length;
 
   // Dynamic navigation: built from the CURRENT user's permissions. Pages they
   // can't access are omitted entirely (never shown disabled), and empty groups
@@ -92,7 +92,7 @@ export function renderSidebar() {
             <a class="nav-item ${path === item.path || (item.path !== "/" && path.startsWith(item.path)) ? "active" : ""}" href="#${item.path}">
               <span class="ico">${icon(item.icon)}</span>
               <span>${item.label}</span>
-              ${item.path === "/materials" && cartCount ? `<span class="badge">${cartCount}</span>` : ""}
+              ${item.path === "/materials" && plannedCount ? `<span class="badge">${plannedCount}</span>` : ""}
               ${item.premium ? `<span class="badge" style="background:var(--gold-soft);color:var(--gold-ink)">Premium</span>` : ""}
             </a>
           `).join("");

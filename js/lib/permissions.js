@@ -76,7 +76,7 @@ const PATH_RULES = [
   { p: "/domains", req: ["view:domains"] },
   { p: "/inventory", req: ["view:materials"] },
   { p: "/materials", req: ["view:materials"] },
-  { p: "/cart", req: ["view:materials", "contrib:print"] },
+  { p: "/planning", req: ["view:materials", "contrib:print"] },
   { p: "/apps", req: ["view:progress", "contrib:generate"] },
   { p: "/projects", req: ["view:projects", "contrib:generate", "contrib:editProjects", "contrib:milestones"] },
   { p: "/rewards", req: ["view:projects", "contrib:generate", "contrib:editProjects", "contrib:milestones"] },
