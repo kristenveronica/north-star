@@ -14,6 +14,7 @@ import { currentMember, canAccessPath } from "../lib/permissions.js";
 // Sub-views folded into the child hub as tabs (they render into a panel in
 // embedded mode, scoped to this child — no separate top-level pages).
 import { renderLearningStyle } from "./learningStyle.js";
+import { describeLearningStyle, describeDIY } from "../ai/suggestions.js";
 import { renderInsights } from "./insights.js";
 import { renderTechAgreement } from "./technology.js";
 
@@ -283,6 +284,8 @@ function openChildModal(childId = null) {
   const restoredDraft = existing ? null : loadDraft(NEW_CHILD_DRAFT);
   const draft = existing ? { ...existing } : { ...blankDraft, ...(restoredDraft || {}) };
   const arr = (v) => Array.isArray(v) ? v.join(", ") : v || "";
+  const lsDesc = describeLearningStyle(draft.learningStyle ?? 5);
+  const diyDesc = describeDIY(draft.diyMaterials ?? 5);
 
   const body = document.createElement("div");
   body.innerHTML = `
@@ -320,6 +323,25 @@ function openChildModal(childId = null) {
     <div class="field"><label>Areas needing support</label><input class="input" id="f-support" placeholder="comma separated" value="${esc(arr(draft.supportNeeds))}"/></div>
     <div class="field"><label>Current goals</label><input class="input" id="f-goals" placeholder="comma separated" value="${esc(arr(draft.goals))}"/></div>
     <div class="field"><label>Notes from parent</label><textarea class="textarea" id="f-notes" data-voice data-voice-label="Dictate your notes">${esc(draft.notes || "")}</textarea></div>
+    <details open class="card" style="background:var(--card-elev);margin:4px 0 14px;padding:14px 16px">
+      <summary class="fw-700" style="cursor:pointer">Learning Profile <span class="text-muted small" style="font-weight:400">— how ${esc(draft.name || "your child")} learns best</span></summary>
+      <p class="text-muted small" style="margin:8px 0 12px">These two scales shape how North Star packages every project for ${esc(draft.name || "your child")}. Fine-tune them any time.</p>
+      <div class="field">
+        <label class="small">Learning style <span class="text-muted">— unschooling ↔ traditional</span></label>
+        <input type="range" min="1" max="10" value="${draft.learningStyle ?? 5}" id="f-ls" class="slider"/>
+        <div class="slider-scale"><span>1 · Explorer</span><span>5 · Hybrid</span><span>10 · Traditional</span></div>
+        <div class="small text-muted" style="margin-top:6px"><span class="fw-700" id="f-ls-label">${esc(lsDesc.label)}</span> — <span id="f-ls-summary">${esc(lsDesc.summary)}</span></div>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label class="small">DIY materials <span class="text-muted">— buy ↔ make your own</span></label>
+        <input type="range" min="1" max="10" value="${draft.diyMaterials ?? 5}" id="f-diy" class="slider"/>
+        <div class="slider-scale"><span>1 · Buy everything</span><span>5 · Balanced</span><span>10 · Make most things</span></div>
+        <div class="small text-muted" style="margin-top:6px"><span class="fw-700" id="f-diy-label">${esc(diyDesc.label)}</span> — <span id="f-diy-summary">${esc(diyDesc.summary)}</span></div>
+      </div>
+      ${existing
+        ? `<button type="button" class="btn btn-sm" style="margin-top:14px" id="f-open-profile">Fine-tune challenges, strengths &amp; giftedness →</button>`
+        : `<p class="small text-muted" style="margin-top:14px">The deeper profile — learning challenges, strengths and giftedness — opens on ${esc(draft.name || "your child")}'s page once you've added them.</p>`}
+    </details>
     <details open class="card" style="background:var(--card-elev);margin:4px 0 14px;padding:14px 16px">
       <summary class="fw-700" style="cursor:pointer">Mobility &amp; Independence <span class="text-muted small" style="font-weight:400">— set this for ${esc(draft.name || "your child")}</span></summary>
       <p class="text-muted small" style="margin:8px 0 8px">Tell North Star what kinds of movement and transport you're comfortable with for ${esc(draft.name || "this child")}. Projects will stay within these boundaries. You can collapse this once you've set it.</p>
@@ -391,6 +413,25 @@ function openChildModal(childId = null) {
   // City-of-birth autocomplete (captures country too)
   attachCityAutocomplete(body.querySelector("#f-bd-city"), body.querySelector("#f-bd-country"));
 
+  // Learning Profile scales — live description as the sliders move.
+  const lsSlider = body.querySelector("#f-ls");
+  lsSlider?.addEventListener("input", () => {
+    const d = describeLearningStyle(+lsSlider.value);
+    body.querySelector("#f-ls-label").textContent = d.label;
+    body.querySelector("#f-ls-summary").textContent = d.summary;
+  });
+  const diySlider = body.querySelector("#f-diy");
+  diySlider?.addEventListener("input", () => {
+    const d = describeDIY(+diySlider.value);
+    body.querySelector("#f-diy-label").textContent = d.label;
+    body.querySelector("#f-diy-summary").textContent = d.summary;
+  });
+  // Jump to the full Learning Profile tab for the deeper cards (existing child).
+  body.querySelector("#f-open-profile")?.addEventListener("click", () => {
+    modal.close();
+    navigate(`/children/${existing.id}/profile`);
+  });
+
   // Access code: keep it tidy (UPPERCASE, letters+digits), let the parent derive
   // a meaningful code from the name, and auto-fill a blank one on name blur.
   const accessInput = body.querySelector("#f-access");
@@ -419,6 +460,8 @@ function openChildModal(childId = null) {
       age: ageOf({ birthday }),
       birthday,
       grade: body.querySelector("#f-grade").value.trim() || null,
+      learningStyle: +(body.querySelector("#f-ls")?.value) || 5,
+      diyMaterials: +(body.querySelector("#f-diy")?.value) || 5,
       passions: splitCsv(body.querySelector("#f-passions").value),
       strengths: splitCsv(body.querySelector("#f-strengths").value),
       supportNeeds: splitCsv(body.querySelector("#f-support").value),
