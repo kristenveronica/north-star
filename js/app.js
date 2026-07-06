@@ -30,7 +30,7 @@ import { renderCalendar } from "./views/calendar.js";
 import { renderRewards } from "./views/rewards.js";
 import { renderPortfolio } from "./views/portfolio.js";
 import { renderSettings } from "./views/settings.js";
-import { renderChildPortal, renderChildLogin, renderChildProjectHQ } from "./views/childPortal.js";
+import { renderChildPortal, renderChildLogin, renderChildProjectHQ, renderChildCalendar } from "./views/childPortal.js";
 import { renderReports, renderReportDetail } from "./views/reports.js";
 import { renderInsights, renderInsightsReports, renderInsightReportDetail } from "./views/insights.js";
 import { renderCouncils, renderCouncilDetail } from "./views/councils.js";
@@ -252,6 +252,7 @@ registerRoute("/settings",  (c, p) => withParentShell(c, renderSettings, p));
 registerRoute("/kid",          (c)    => withChildShell(c, renderChildLogin));
 registerRoute("/kid/:code",    (c, p) => withChildShell(c, renderChildPortal, p));
 registerRoute("/kid/:code/project/:projectId", (c, p) => withChildShell(c, renderChildProjectHQ, p));
+registerRoute("/kid/:code/calendar", (c, p) => withChildShell(c, renderChildCalendar, p));
 
 /* ---------- Boot ---------- */
 const app = document.getElementById("app");

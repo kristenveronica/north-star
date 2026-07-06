@@ -259,6 +259,17 @@ export function renderChildPortal(container, params) {
         ? `<div class="empty">No active projects.</div>`
         : `<div class="grid grid-auto mb-3">${activeProjects.map(p => projectTile(p, s, child)).join("")}</div>`}
 
+      <div class="card mb-3" style="background:linear-gradient(135deg, var(--sky-soft), var(--card-elev))">
+        <div class="row" style="gap:14px;align-items:center;flex-wrap:wrap">
+          <div style="font-size:32px">📅</div>
+          <div style="flex:1;min-width:240px">
+            <h3 style="font-family:var(--font-serif)">Your calendar</h3>
+            <p class="small text-muted">See when your missions and projects are due — and start planning your own week. Learning to see your time is a real superpower.</p>
+          </div>
+          <button class="btn" id="open-kid-cal">Open my calendar →</button>
+        </div>
+      </div>
+
       ${activeProjects.length ? `
         <h2 class="mb-2">Rewards you're working toward</h2>
         <div class="grid grid-auto mb-3">
@@ -309,6 +320,118 @@ export function renderChildPortal(container, params) {
     b.addEventListener("click", () => navigate(`/kid/${child.accessCode}/project/${b.dataset.openHq}`));
   });
   container.querySelector("#open-self-assess")?.addEventListener("click", () => openSelfAssessment(child));
+  container.querySelector("#open-kid-cal")?.addEventListener("click", () => navigate(`/kid/${child.accessCode}/calendar`));
+}
+
+/* ====== Calendar (child-facing) ======
+   A gentle month view scoped to this child's own projects + missions, so they
+   can start to see time, notice what's coming up, and learn to plan a week.
+   Tapping an event opens that project's HQ. */
+let _kidCalDate = new Date();
+
+export function renderChildCalendar(container, params) {
+  const child = getChildByCode((params.code || "").toUpperCase());
+  if (!child) {
+    container.innerHTML = `<div class="welcome"><div class="welcome-card center"><h1>That code doesn't work.</h1><a href="#/kid" class="btn btn-primary mt-2">Try again</a></div></div>`;
+    return;
+  }
+  // Honour the same PIN gate the rest of the portal uses.
+  if (child.pin && sessionStorage.getItem("kid-pin-ok::" + child.id) !== "1") {
+    location.hash = `#/kid/${child.accessCode}`;
+    return;
+  }
+
+  const s = getState();
+  const year = _kidCalDate.getFullYear();
+  const month = _kidCalDate.getMonth();
+  const first = new Date(year, month, 1);
+  const startWeekday = (first.getDay() + 6) % 7; // Mon-start
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const events = collectKidEvents(s, child, year, month);
+  const monthCount = Object.values(events).reduce((n, arr) => n + arr.length, 0);
+
+  container.innerHTML = `
+    <div class="topbar-kid">
+      <a href="#/kid/${child.accessCode}" class="row" style="gap:10px;align-items:center;text-decoration:none;color:inherit">
+        <div class="child-card-avatar avatar-${child.avatarIndex}" style="width:36px;height:36px;font-size:14px">${initials(child.name)}</div>
+        <span class="small text-muted">← Back to my portal</span>
+      </a>
+      <div class="btn-row">
+        <button class="btn btn-sm" id="kc-prev" aria-label="Previous month">←</button>
+        <span class="fw-700" style="min-width:150px;text-align:center">${first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
+        <button class="btn btn-sm" id="kc-next" aria-label="Next month">→</button>
+        <button class="btn btn-sm" id="kc-today">Today</button>
+      </div>
+    </div>
+
+    <div class="kid-content">
+      <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <div style="font-size:30px">📅</div>
+        <div style="flex:1;min-width:240px">
+          <h1 class="kid-hello" style="margin:0">Your calendar</h1>
+          <p class="small text-muted" style="margin:2px 0 0">${monthCount ? `You have ${monthCount} thing${monthCount === 1 ? "" : "s"} happening this month. Tap any one to open it.` : "Nothing due this month — a good time to plan ahead. Use ← → to look around."}</p>
+        </div>
+      </div>
+
+      <div class="cal-grid">
+        ${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => `<div class="cal-head">${d}</div>`).join("")}
+        ${renderKidCells(year, month, daysInMonth, startWeekday, events)}
+      </div>
+
+      <p class="small text-muted" style="margin-top:12px">⭐ = a project is due · the other stars are your missions. Seeing them here helps you plan when to do each one.</p>
+    </div>
+  `;
+
+  container.querySelector("#kc-prev").addEventListener("click", () => { _kidCalDate = new Date(year, month - 1, 1); rerender(); });
+  container.querySelector("#kc-next").addEventListener("click", () => { _kidCalDate = new Date(year, month + 1, 1); rerender(); });
+  container.querySelector("#kc-today").addEventListener("click", () => { _kidCalDate = new Date(); rerender(); });
+  container.querySelectorAll("[data-open-hq]").forEach(b => b.addEventListener("click", () => navigate(`/kid/${child.accessCode}/project/${b.dataset.openHq}`)));
+}
+
+function collectKidEvents(s, child, year, month) {
+  const out = {};
+  const add = (date, ev) => {
+    if (!date) return;
+    const d = new Date(date);
+    if (d.getFullYear() !== year || d.getMonth() !== month) return;
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    (out[key] ||= []).push(ev);
+  };
+  const myProjects = s.projects.filter(p => p.childId === child.id);
+  myProjects.forEach(p => add(p.dueDate, {
+    projectId: p.id, domain: p.domains?.[0], label: `★ ${p.title}`, tooltip: `${p.title} is due`,
+  }));
+  s.milestones.forEach(m => {
+    const proj = myProjects.find(p => p.id === m.projectId);
+    if (!proj) return;
+    add(m.dueDate, { projectId: proj.id, domain: proj.domains?.[0], label: m.title, tooltip: `${m.title} (${proj.title})` });
+  });
+  return out;
+}
+
+function renderKidCells(year, month, daysInMonth, startWeekday, events) {
+  const today = new Date();
+  const cells = [];
+  const prevMonthDays = new Date(year, month, 0).getDate();
+  for (let i = startWeekday; i > 0; i--) {
+    cells.push(`<div class="cal-cell muted"><div class="d">${prevMonthDays - i + 1}</div></div>`);
+  }
+  for (let day = 1; day <= daysInMonth; day++) {
+    const isToday = year === today.getFullYear() && month === today.getMonth() && day === today.getDate();
+    const dayKey = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const dayEvents = events[dayKey] || [];
+    cells.push(`
+      <div class="cal-cell ${isToday ? "today" : ""}">
+        <div class="d">${day}</div>
+        ${dayEvents.slice(0, 3).map(e => `<span class="cal-event dom-${e.domain || "brain"}" data-open-hq="${e.projectId}" style="cursor:pointer" title="${esc(e.tooltip)}">${esc(e.label)}</span>`).join("")}
+        ${dayEvents.length > 3 ? `<span class="cal-event" style="background:var(--bg-2);color:var(--text-muted)">+${dayEvents.length - 3} more</span>` : ""}
+      </div>
+    `);
+  }
+  while (cells.length % 7 !== 0 || cells.length < 35) {
+    cells.push(`<div class="cal-cell muted"></div>`);
+  }
+  return cells.join("");
 }
 
 function openSelfAssessment(child) {
