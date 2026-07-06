@@ -3,19 +3,14 @@
    At-a-glance: each child's status, upcoming events, vision recap.
    ============================================================ */
 
-import { getState, update, getChildStats, getActiveMilestonesForChild, getAllUpcomingEvents } from "../store.js";
+import { getState, getChildStats, getActiveMilestonesForChild, getAllUpcomingEvents } from "../store.js";
 import { esc, renderCountdown, icon, DOMAIN_COLOR_CLASS, fmtDate } from "../components/ui.js";
 import { navigate } from "../router.js";
-import { aiCoreWordLiving } from "../lib/ai.js";
-import { rerender } from "../app.js";
 
 export function renderDashboard(container) {
   const s = getState();
   const family = s.family;
   const upcoming = getAllUpcomingEvents().slice(0, 6);
-  // Living Core Word: refresh in the background when there's new activity.
-  maybeRefreshLiving(s);
-  const living = (family.coreWordLiving?.connections) || [];
   const onboarded = !!s.meta?.onboarded;
 
   container.innerHTML = `
@@ -60,19 +55,6 @@ export function renderDashboard(container) {
             `).join("")}
           </div>
         </div>
-        ${living.length ? `
-          <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--primary-soft)">
-            <div class="small text-muted" style="letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px">Recently brought to life</div>
-            <div class="stack" style="gap:9px">
-              ${living.map(c => `
-                <div class="row" style="gap:10px;align-items:flex-start">
-                  <span class="brand-mark" style="width:24px;height:24px;font-size:13px;flex-shrink:0;margin-top:1px">${esc(c.letter)}</span>
-                  <div style="font-size:14px"><span class="fw-700">${esc(c.quality)}</span> — ${esc(c.evidence)}</div>
-                </div>
-              `).join("")}
-            </div>
-          </div>
-        ` : ""}
       </div>
     ` : ""}
 
@@ -166,58 +148,4 @@ function eventRow(ev) {
 
 function initials(name) {
   return (name || "?").trim().split(/\s+/).map(w => w[0]).slice(0, 2).join("").toUpperCase();
-}
-
-/* ---------- Living Core Word ----------
-   Surface which Core Word qualities have GENUINELY been demonstrated in recent
-   work — judged by the AI, which is told to return nothing rather than force a
-   connection. Cached on the family and only recomputed when project activity
-   actually changes (signature), so it's not an AI call on every dashboard load.
-   The cache is local-only (derived/recomputable; never synced or migrated). */
-let _livingInFlight = false;
-
-function livingSignature(s) {
-  const projects = s.projects || [];
-  const completed = projects.filter(p => p.status === "completed");
-  const latest = completed.reduce((m, p) => Math.max(m, new Date(p.completedAt || p.dueDate || 0).getTime() || 0), 0);
-  const active = projects.filter(p => p.status === "active" || p.status === "ready-for-reflection").length;
-  return `${completed.length}:${latest}:${active}`;
-}
-
-function buildLivingSummary(s) {
-  const now = Date.now();
-  const recent = (s.projects || []).filter(p =>
-    p.status === "completed"
-      ? (now - new Date(p.completedAt || p.dueDate || 0).getTime() <= 120 * 86400000)
-      : (p.status === "active" || p.status === "ready-for-reflection"));
-  const nameById = Object.fromEntries((s.children || []).map(c => [c.id, c.name]));
-  const projects = recent.slice(0, 12).map(p => ({
-    childName: nameById[p.childId] || "",
-    title: p.title, status: p.status,
-    capabilities: (p.capabilitiesDeveloped || []).slice(0, 4),
-    domains: p.domains || [],
-    passion: p.passionConnection || "",
-  }));
-  const reflectionSnippets = (s.reflections || []).slice(-5).map(r => (r.response || "").slice(0, 140)).filter(Boolean);
-  return { projects, reflectionSnippets };
-}
-
-function maybeRefreshLiving(s) {
-  const fam = s.family || {};
-  if (!fam.coreWord || !(fam.acronym || []).some(a => a.meaning)) return;
-  const sig = livingSignature(s);
-  if (fam.coreWordLiving?.signature === sig) return;   // already current for this activity
-  if (_livingInFlight) return;
-  const summary = buildLivingSummary(s);
-  if (!summary.projects.length) return;                // no real work to draw from — show nothing, no AI call
-  _livingInFlight = true;
-  aiCoreWordLiving(fam, summary)
-    .then(res => {
-      update(st => {
-        if (st.family) st.family.coreWordLiving = { signature: sig, computedAt: Date.now(), connections: (res?.connections || []).slice(0, 3) };
-      });
-      rerender();
-    })
-    .catch(e => console.warn("[dashboard] core-word living unavailable:", e?.message))
-    .finally(() => { _livingInFlight = false; });
 }
