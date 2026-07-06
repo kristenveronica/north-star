@@ -75,3 +75,9 @@ export function aiMentorTurn({ mentor, child, history, message }) {
 export function aiGeneratePrintable({ child, printable }) {
   return invokeAi("generate-printable", { child, printable });
 }
+
+/** Quick-start onboarding: turn 3 free-text (or dictated) answers into a
+    structured starting point. Returns { family, children[], project, understood }. */
+export function aiQuickstartExtract({ family, kids, dream }) {
+  return invokeAi("quickstart-extract", { family, kids, dream });
+}

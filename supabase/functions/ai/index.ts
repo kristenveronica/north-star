@@ -1032,6 +1032,91 @@ Rules:
   return { parsed, usage };
 }
 
+/* ============================================================
+   quickstart-extract — the engine behind the 5-minute onboarding.
+   Turns a parent's three casual (often voice-transcribed) answers into
+   a clean, structured starting point: family values, each child's
+   profile, and a rich project seed. Accuracy on names/ages matters most.
+   ============================================================ */
+const QUICKSTART_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["family", "children", "project", "understood"],
+  properties: {
+    family: {
+      type: "object",
+      additionalProperties: false,
+      required: ["values", "passions"],
+      properties: {
+        familyName: { type: "string" },
+        values: { type: "array", items: { type: "string" } },
+        passions: { type: "array", items: { type: "string" } },
+        suggestedCoreWord: { type: "string" },
+      },
+    },
+    children: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["name", "age", "passions", "strengths", "learningStyle", "howTheyLearn"],
+        properties: {
+          name: { type: "string" },
+          age: { type: ["integer", "null"] },
+          passions: { type: "array", items: { type: "string" } },
+          strengths: { type: "array", items: { type: "string" } },
+          learningStyle: { type: "integer" },
+          howTheyLearn: { type: "string" },
+        },
+      },
+    },
+    project: {
+      type: "object",
+      additionalProperties: false,
+      required: ["forChildName", "idea"],
+      properties: {
+        forChildName: { type: "string" },
+        idea: { type: "string" },
+        title: { type: "string" },
+      },
+    },
+    understood: { type: "string" },
+  },
+};
+
+async function quickstartExtract(payload: any, apiKey: string) {
+  const familyText = (payload?.family || "").toString().slice(0, 4000);
+  const kidsText = (payload?.kids || "").toString().slice(0, 4000);
+  const dreamText = (payload?.dream || "").toString().slice(0, 4000);
+  const system = `You are turning a parent's casual, often voice-transcribed answers into a clean, structured starting point for North Star. The answers may be messy, rambling, spoken aloud, or contain filler words — read for MEANING, not literal phrasing.
+
+You receive three answers:
+1. ABOUT THE FAMILY — their values, what matters to them, shared passions/interests.
+2. ABOUT THE KIDS — names, ages, passions, and how each one learns best.
+3. A DREAM PROJECT the parent would love to see come to life for their child(ren).
+
+Extract:
+- family.values: 2–5 short character/value words the family clearly cares about (infer sensibly from what they say; never invent values they didn't imply).
+- family.passions: shared family interests or activities they mention.
+- family.familyName: ONLY if they actually state a surname / family name; otherwise omit the field entirely.
+- family.suggestedCoreWord: OPTIONAL — a single evocative word that could anchor this family's identity, ONLY if one is strongly implied. Otherwise omit. Never force it.
+- children[]: one object per child mentioned.
+    • name: EXACTLY as written (you may fix capitalisation, never guess a different name).
+    • age: an integer if stated or clearly implied; otherwise null.
+    • passions / strengths: short items drawn from what they said.
+    • learningStyle: an integer 1–10 for how they learn, where 1 = fully child-led / unschooling / hands-on & exploratory, 5 = balanced, 10 = highly structured / traditional-academic. Map from their description; if genuinely unclear, use 5.
+    • howTheyLearn: ONE short, warm, human sentence a parent would nod at (this is shown back to them).
+- project.forChildName: which child the dream project is for — match one of the children's names; if unspecified, use the first/eldest child.
+- project.idea: distil the dream into a rich 1–3 sentence brief a project generator can build from. PRESERVE the parent's specific words and excitement — this is the spark, not a summary.
+- project.title: OPTIONAL short, friendly working title.
+- understood: ONE warm second-person sentence mirroring back what you heard about this family ("You're a family that…"), shown on the reveal screen.
+
+Accuracy on NAMES and AGES matters most — a project addressed to the wrong child breaks trust instantly. Everything else can be a sensible best guess grounded in what they actually said. If an answer was skipped, do your best with the others and keep arrays small rather than inventing.`;
+  const userText = `ABOUT THE FAMILY:\n${familyText || "(skipped)"}\n\nABOUT THE KIDS:\n${kidsText || "(skipped)"}\n\nDREAM PROJECT:\n${dreamText || "(skipped)"}`;
+  const { parsed, usage } = await callClaude(system, userText, QUICKSTART_SCHEMA, apiKey);
+  return { parsed, usage };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -1051,6 +1136,7 @@ Deno.serve(async (req) => {
     else if (action === "coreword-living") result = await coreWordLiving(payload, apiKey);
     else if (action === "mentor-turn") result = await mentorTurn(payload, apiKey);
     else if (action === "generate-printable") result = await generatePrintable(payload, apiKey);
+    else if (action === "quickstart-extract") result = await quickstartExtract(payload, apiKey);
     else return json({ error: `Unknown action: ${action}` }, 400);
 
     console.log(`[ai] ${action} usage:`, JSON.stringify(result.usage));
