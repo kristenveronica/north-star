@@ -76,8 +76,9 @@ export function aiGeneratePrintable({ child, printable }) {
   return invokeAi("generate-printable", { child, printable });
 }
 
-/** Quick-start onboarding: turn 3 free-text (or dictated) answers into a
-    structured starting point. Returns { family, children[], project, understood }. */
-export function aiQuickstartExtract({ family, kids, dream }) {
-  return invokeAi("quickstart-extract", { family, kids, dream });
+/** Quick-start onboarding: turn 3 free-text answers (or one dictated free-form
+    blob via `freeform`) into a structured starting point.
+    Returns { family, children[], project, understood }. */
+export function aiQuickstartExtract({ family, kids, dream, freeform }) {
+  return invokeAi("quickstart-extract", { family, kids, dream, freeform });
 }

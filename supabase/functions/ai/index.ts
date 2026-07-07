@@ -1088,6 +1088,8 @@ async function quickstartExtract(payload: any, apiKey: string) {
   const familyText = (payload?.family || "").toString().slice(0, 4000);
   const kidsText = (payload?.kids || "").toString().slice(0, 4000);
   const dreamText = (payload?.dream || "").toString().slice(0, 4000);
+  // "just talk" path: one free-form blob covering everything at once.
+  const freeform = (payload?.freeform || "").toString().slice(0, 6000);
   const system = `You are turning a parent's casual, often voice-transcribed answers into a clean, structured starting point for North Star. The answers may be messy, rambling, spoken aloud, or contain filler words — read for MEANING, not literal phrasing.
 
 You receive three answers:
@@ -1112,7 +1114,9 @@ Extract:
 - understood: ONE warm second-person sentence mirroring back what you heard about this family ("You're a family that…"), shown on the reveal screen.
 
 Accuracy on NAMES and AGES matters most — a project addressed to the wrong child breaks trust instantly. Everything else can be a sensible best guess grounded in what they actually said. If an answer was skipped, do your best with the others and keep arrays small rather than inventing.`;
-  const userText = `ABOUT THE FAMILY:\n${familyText || "(skipped)"}\n\nABOUT THE KIDS:\n${kidsText || "(skipped)"}\n\nDREAM PROJECT:\n${dreamText || "(skipped)"}`;
+  const userText = freeform
+    ? `The parent described everything in their own words — this single free-form answer covers their family, their kids, and a dream project all together. Read it all and extract the structured pieces:\n\n${freeform}`
+    : `ABOUT THE FAMILY:\n${familyText || "(skipped)"}\n\nABOUT THE KIDS:\n${kidsText || "(skipped)"}\n\nDREAM PROJECT:\n${dreamText || "(skipped)"}`;
   const { parsed, usage } = await callClaude(system, userText, QUICKSTART_SCHEMA, apiKey);
   return { parsed, usage };
 }

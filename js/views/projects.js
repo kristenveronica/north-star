@@ -379,7 +379,7 @@ function projectSnapshot(t) {
 
 /* Create real Project + Milestones from a generated template.
    status: "active" (accepted) or "draft" (saved to review later). */
-function createProjectFromTemplate(t, child, status = "active") {
+export function createProjectFromTemplate(t, child, status = "active") {
   const start = new Date(); start.setHours(17, 0, 0, 0);
   const due = new Date(start); due.setDate(due.getDate() + t.durationDays);
   const project = addProject({

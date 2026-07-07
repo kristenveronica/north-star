@@ -15,6 +15,7 @@ import { enableAutoVoice } from "./components/voiceInput.js";
 import { logoMarkSVG } from "./components/logo.js";
 
 import { renderOnboarding } from "./views/onboarding.js";
+import { renderQuickstart } from "./views/quickstart.js";
 import { renderInviteAccept } from "./views/inviteAccept.js";
 import { renderDashboard } from "./views/dashboard.js";
 import { renderFamilyVision } from "./views/familyVision.js";
@@ -218,6 +219,7 @@ registerRoute("/login",        withPublicShell(renderLogin));
 registerRoute("/signup",       withPublicShell(renderSignup));
 registerRoute("/reset-password", withPublicShell(renderResetPassword));
 registerRoute("/onboarding",   (c) => renderOnboarding(c));
+registerRoute("/start",        (c) => renderQuickstart(c));
 registerRoute("/invite/:token", (c, p) => renderInviteAccept(c, p));
 // Ghost page: a standalone, unlinked white-label discovery form (no public nav/footer).
 registerRoute("/discover",     (c) => renderPlatformDiscovery(c));

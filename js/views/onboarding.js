@@ -106,6 +106,17 @@ function paint(card) {
   if (step === "welcome") {
     card.innerHTML = `
       ${indicator}
+      <div class="card mb-3" id="qs-banner" style="background:linear-gradient(135deg, var(--gold-soft), var(--card-elev));border-color:var(--gold-soft);cursor:pointer">
+        <div class="row" style="gap:14px;align-items:center;flex-wrap:wrap">
+          <div style="font-size:30px">✦</div>
+          <div style="flex:1;min-width:220px">
+            <div class="fw-700" style="font-family:var(--font-serif);font-size:19px">In a hurry? Try the 5-minute quick start.</div>
+            <p class="text-muted small" style="margin:2px 0 0">Answer three quick questions — or just talk — and we'll generate your child's first project on the spot. You can deepen everything later.</p>
+          </div>
+          <button class="btn btn-primary" id="qs-go" type="button">Quick start →</button>
+        </div>
+      </div>
+      <div class="center mb-2"><span class="text-muted small">— or set up step by step —</span></div>
       <h1>Welcome to your family's North Star.</h1>
       <p class="lede">This isn't a planner. Pour a cup of tea — we'll clarify the destination for your children's learning and growth, starting with who's in their world.</p>
       <div class="field">
@@ -132,6 +143,9 @@ function paint(card) {
       </div>
     `;
     wireRelList(card);
+    const qsGo = () => { captureDraft(card); navigate("/start"); };
+    card.querySelector("#qs-go").addEventListener("click", (e) => { e.stopPropagation(); qsGo(); });
+    card.querySelector("#qs-banner").addEventListener("click", qsGo);
     card.querySelector("#next").addEventListener("click", () => {
       _draft.parentName = card.querySelector("#parentName").value.trim();
       _draft.familyName = card.querySelector("#familyName").value.trim();
