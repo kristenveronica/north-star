@@ -94,8 +94,7 @@ export function renderOnboarding(container) {
 function renderChooser(card) {
   card.innerHTML = `
     <div class="center"><div class="qs-mark" style="font-size:34px">✦</div></div>
-    <h1 style="text-align:center">How would you like to begin?</h1>
-    <p class="lede" style="text-align:center;margin:0 auto 22px;max-width:38ch">There's no wrong door — you can do the other parts whenever you like.</p>
+    <h1 style="text-align:center;margin-bottom:24px">How would you like to begin?</h1>
     <div class="onb-choose">
       <button type="button" class="onb-door" data-quick>
         <div class="onb-door__ico">✦</div>
