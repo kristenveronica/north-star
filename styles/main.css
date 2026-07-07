@@ -4376,9 +4376,10 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .qs-shell{display:flex;flex-direction:column;align-items:center;gap:22px;width:100%;max-width:600px;}
 .qs-logo{text-align:center;padding-top:6px;}
 .qs-logo .ns-logo-stacked{align-items:center;}
+.qs-logo .ns-logo-stacked .ns-logo-wordmark{align-items:center;text-align:center;}
 .qs-logo .ns-logo-name{color:#F7F2E6;}
 .qs-logo .ns-logo-tag{color:var(--gold);}
-.qs-card{width:100%;background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);box-shadow:0 1px 3px rgba(0,0,0,0.28), 0 26px 54px -18px rgba(0,0,0,0.5), 0 0 66px -10px rgba(247,242,230,0.13);display:flex;flex-direction:column;overflow:hidden;padding-bottom:8px;}
+.qs-card{width:100%;background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);box-shadow:0 2px 5px rgba(0,0,0,0.32), 0 32px 64px -20px rgba(0,0,0,0.58), 0 0 46px -4px rgba(247,242,230,0.32), 0 0 110px -22px rgba(244,233,197,0.22);display:flex;flex-direction:column;overflow:hidden;padding-bottom:8px;}
 .qs-top{display:flex;align-items:center;gap:12px;padding:16px 22px 6px;min-height:52px;}
 .qs-back{background:none;border:0;color:var(--text-muted);font-size:22px;line-height:1;cursor:pointer;padding:4px 6px;border-radius:8px;}
 .qs-back:hover{color:var(--text);}
@@ -4475,9 +4476,10 @@ small, .small { font-size: 13px; color: var(--text-muted); }
    as if the card is catching the light source above it. */
 .welcome--branded .welcome-card{
   box-shadow:
-    0 1px 3px rgba(0,0,0,0.28),
-    0 26px 54px -18px rgba(0,0,0,0.5),
-    0 0 66px -10px rgba(247,242,230,0.13);
+    0 2px 5px rgba(0,0,0,0.32),
+    0 32px 64px -20px rgba(0,0,0,0.58),
+    0 0 46px -4px rgba(247,242,230,0.32),
+    0 0 110px -22px rgba(244,233,197,0.22);
 }
 .onb-shell{
   display:flex; flex-direction:column; align-items:center; gap:24px;
@@ -4486,5 +4488,6 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .onb-shell .welcome-card{ margin:0; }
 .onb-brand{ text-align:center; padding-top:8px; }
 .welcome--branded .ns-logo-stacked{ align-items:center; }
+.welcome--branded .ns-logo-stacked .ns-logo-wordmark{ align-items:center; text-align:center; }
 .welcome--branded .ns-logo-name{ color:#F7F2E6; }
 .welcome--branded .ns-logo-tag{ color:var(--gold); }
