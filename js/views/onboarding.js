@@ -13,6 +13,7 @@ import { VISION_QS, autosize, attachTidy } from "./familyVision.js";
 import { REL_OPTIONS } from "./familySettings.js";
 import { saveDraft, loadDraft, clearDraft } from "../lib/drafts.js";
 import { setOnboardingParked } from "../lib/repo.js";
+import { logoStacked } from "../components/logo.js";
 
 const STEPS = ["welcome", "vision", "core-word", "done"];
 
@@ -79,7 +80,13 @@ export function renderOnboarding(container) {
   }
   // Resuming mid-way through Full Setup → they've already chosen; skip the fork.
   if (_step > 0) _chose = true;
-  container.innerHTML = `<div class="welcome"><div class="welcome-card" id="welcome-card"></div></div>`;
+  container.innerHTML = `
+    <div class="welcome welcome--branded">
+      <div class="onb-shell">
+        <div class="onb-brand">${logoStacked({ size: 48, variant: "light" })}</div>
+        <div class="welcome-card" id="welcome-card"></div>
+      </div>
+    </div>`;
   paint(container.querySelector("#welcome-card"));
 }
 
