@@ -107,8 +107,8 @@ function renderChooser(card) {
       <button type="button" class="onb-door" data-full>
         <div class="onb-door__ico">☕</div>
         <div class="onb-door__t">Full Setup</div>
-        <div class="onb-door__time">about 15–20 minutes</div>
-        <p class="onb-door__d">Clarify your family's vision, values and Core Word, and build out each child's profile. Lay the full foundation, step by step.</p>
+        <div class="onb-door__time">about 30–45 minutes</div>
+        <p class="onb-door__d">Best accompanied by a cup of tea. Clarify your family's vision, values and Core Word, and build out each child's profile in depth — the more you pour in, the more bespoke the outcome.</p>
         <span class="onb-door__cta">Begin →</span>
       </button>
     </div>`;
