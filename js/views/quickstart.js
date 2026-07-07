@@ -43,7 +43,7 @@ function paint() {
   _c.innerHTML = `
     <div class="qs-page">
       <div class="qs-shell">
-        <div class="qs-logo">${logoStacked({ size: 44, variant: "light" })}</div>
+        <div class="qs-logo">${logoStacked({ size: 40, variant: "light" })}</div>
         <div class="qs-card">${s.html}</div>
       </div>
     </div>`;
