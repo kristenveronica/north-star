@@ -17,6 +17,7 @@ import { setOnboardingParked } from "../lib/repo.js";
 const STEPS = ["welcome", "vision", "core-word", "done"];
 
 let _step = 0;
+let _chose = false;   // has the family picked Quick Start vs Full Setup yet?
 let _draft = {
   parentName: "",
   familyName: "",
@@ -76,8 +77,36 @@ export function renderOnboarding(container) {
     _draft = { ..._draft, ...saved.draft };
     if (typeof saved.step === "number" && saved.step >= 0 && saved.step < STEPS.length - 1) _step = saved.step;
   }
+  // Resuming mid-way through Full Setup → they've already chosen; skip the fork.
+  if (_step > 0) _chose = true;
   container.innerHTML = `<div class="welcome"><div class="welcome-card" id="welcome-card"></div></div>`;
   paint(container.querySelector("#welcome-card"));
+}
+
+/* ---------- Step 0: choose your on-ramp (Quick Start vs Full Setup) ---------- */
+function renderChooser(card) {
+  card.innerHTML = `
+    <div class="center"><div class="qs-mark" style="font-size:34px">✦</div></div>
+    <h1 style="text-align:center">How would you like to begin?</h1>
+    <p class="lede" style="text-align:center;margin:0 auto 22px;max-width:38ch">There's no wrong door — you can do the other parts whenever you like.</p>
+    <div class="onb-choose">
+      <button type="button" class="onb-door" data-quick>
+        <div class="onb-door__ico">✦</div>
+        <div class="onb-door__t">Quick Start</div>
+        <div class="onb-door__time">about 5 minutes</div>
+        <p class="onb-door__d">Answer three quick questions — or just talk — and we'll generate your child's first project on the spot. Deepen everything later.</p>
+        <span class="onb-door__cta">Start →</span>
+      </button>
+      <button type="button" class="onb-door" data-full>
+        <div class="onb-door__ico">☕</div>
+        <div class="onb-door__t">Full Setup</div>
+        <div class="onb-door__time">about 15–20 minutes</div>
+        <p class="onb-door__d">Clarify your family's vision, values and Core Word, and build out each child's profile. Lay the full foundation, step by step.</p>
+        <span class="onb-door__cta">Begin →</span>
+      </button>
+    </div>`;
+  card.querySelector("[data-quick]").addEventListener("click", () => navigate("/start"));
+  card.querySelector("[data-full]").addEventListener("click", () => { _chose = true; paint(card); });
 }
 
 const visionForCtx = () => ({
@@ -88,6 +117,8 @@ const visionForCtx = () => ({
 const familyForCtx = () => ({ familyName: _draft.familyName, coreWord: _draft.coreWord, motto: _draft.motto });
 
 function paint(card) {
+  // First-run fork: choose Quick Start vs Full Setup before anything else.
+  if (_step === 0 && !_chose) { renderChooser(card); return; }
   const step = STEPS[_step];
   // Bind the auto-save listener once; the card element persists across steps.
   if (!card._draftBound) {
@@ -106,17 +137,6 @@ function paint(card) {
   if (step === "welcome") {
     card.innerHTML = `
       ${indicator}
-      <div class="card mb-3" id="qs-banner" style="background:linear-gradient(135deg, var(--gold-soft), var(--card-elev));border-color:var(--gold-soft);cursor:pointer">
-        <div class="row" style="gap:14px;align-items:center;flex-wrap:wrap">
-          <div style="font-size:30px">✦</div>
-          <div style="flex:1;min-width:220px">
-            <div class="fw-700" style="font-family:var(--font-serif);font-size:19px">In a hurry? Try the 5-minute quick start.</div>
-            <p class="text-muted small" style="margin:2px 0 0">Answer three quick questions — or just talk — and we'll generate your child's first project on the spot. You can deepen everything later.</p>
-          </div>
-          <button class="btn btn-primary" id="qs-go" type="button">Quick start →</button>
-        </div>
-      </div>
-      <div class="center mb-2"><span class="text-muted small">— or set up step by step —</span></div>
       <h1>Welcome to your family's North Star.</h1>
       <p class="lede">This isn't a planner. Pour a cup of tea — we'll clarify the destination for your children's learning and growth, starting with who's in their world.</p>
       <div class="field">
@@ -143,9 +163,6 @@ function paint(card) {
       </div>
     `;
     wireRelList(card);
-    const qsGo = () => { captureDraft(card); navigate("/start"); };
-    card.querySelector("#qs-go").addEventListener("click", (e) => { e.stopPropagation(); qsGo(); });
-    card.querySelector("#qs-banner").addEventListener("click", qsGo);
     card.querySelector("#next").addEventListener("click", () => {
       _draft.parentName = card.querySelector("#parentName").value.trim();
       _draft.familyName = card.querySelector("#familyName").value.trim();
