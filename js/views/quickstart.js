@@ -16,6 +16,7 @@ import { createProjectFromTemplate } from "./projects.js";
 import { setOnboardingParked } from "../lib/repo.js";
 import { isLoggedIn } from "../auth.js";
 import { esc, toast, icon } from "../components/ui.js";
+import { logoStacked } from "../components/logo.js";
 import { navigate } from "../router.js";
 
 let _c = null;                 // container
@@ -39,8 +40,14 @@ export function renderQuickstart(container) {
 /* ---------- render ---------- */
 function paint() {
   const s = SCREENS[S.screen]();
-  _c.innerHTML = `<div class="qs">${s.html}</div>`;
-  s.wire?.(_c.querySelector(".qs"));
+  _c.innerHTML = `
+    <div class="qs-page">
+      <div class="qs-shell">
+        <div class="qs-logo">${logoStacked({ size: 44, variant: "light" })}</div>
+        <div class="qs-card">${s.html}</div>
+      </div>
+    </div>`;
+  s.wire?.(_c.querySelector(".qs-card"));
   window.scrollTo(0, 0);
 }
 const go = (screen) => { S.screen = screen; paint(); };
@@ -98,13 +105,13 @@ function topbar(n) {
     ? `<div class="qs-dots">${[1, 2, 3].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</div>`
     : `<div class="qs-dots" style="visibility:hidden"><i></i></div>`;
   const back = n ? `<button class="qs-back" data-back>←</button>` : `<span class="qs-back" style="visibility:hidden">←</span>`;
-  return `<div class="qs-top">${back}${dots}<span class="qs-brand">North Star</span></div>`;
+  return `<div class="qs-top">${back}${dots}<span class="qs-back" style="visibility:hidden" aria-hidden="true">←</span></div>`;
 }
 
 const SCREENS = {
   welcome: () => ({
     html: `
-      <div class="qs-top"><span class="qs-back" style="visibility:hidden">←</span><div class="qs-dots" style="visibility:hidden"><i></i></div><span class="qs-brand">North Star</span></div>
+      <div class="qs-top"><span class="qs-back" style="visibility:hidden">←</span><div class="qs-dots" style="visibility:hidden"><i></i></div><span class="qs-back" style="visibility:hidden" aria-hidden="true">←</span></div>
       <div class="qs-body qs-welcome">
         <div class="qs-mark">✦</div>
         <h1>Let's build your child's first adventure.</h1>
@@ -125,7 +132,7 @@ const SCREENS = {
 
   talk: () => ({
     html: `
-      <div class="qs-top"><button class="qs-back" data-back>←</button><div class="qs-dots" style="visibility:hidden"><i></i></div><span class="qs-brand">North Star</span></div>
+      <div class="qs-top"><button class="qs-back" data-back>←</button><div class="qs-dots" style="visibility:hidden"><i></i></div><span class="qs-back" style="visibility:hidden" aria-hidden="true">←</span></div>
       <div class="qs-body">
         <div class="qs-eyebrow">One quick chat</div>
         <h1>Tell me about your family — in your own words.</h1>
@@ -172,7 +179,7 @@ const SCREENS = {
 
   confirm: () => ({
     html: `
-      <div class="qs-top"><button class="qs-back" data-back>←</button><div class="qs-dots" style="visibility:hidden"><i></i></div><span class="qs-brand">North Star</span></div>
+      <div class="qs-top"><button class="qs-back" data-back>←</button><div class="qs-dots" style="visibility:hidden"><i></i></div><span class="qs-back" style="visibility:hidden" aria-hidden="true">←</span></div>
       <div class="qs-body">
         <div class="qs-eyebrow">Quick check</div>
         <h1>Did I get your kids right?</h1>
@@ -212,7 +219,7 @@ const SCREENS = {
     const child = S.targetChild || {};
     return {
       html: `
-        <div class="qs-top"><span class="qs-back" style="visibility:hidden">←</span><div class="qs-dots" style="visibility:hidden"><i></i></div><span class="qs-brand">Welcome to North Star</span></div>
+        <div class="qs-top"><span class="qs-back" style="visibility:hidden">←</span><div class="qs-dots" style="visibility:hidden"><i></i></div><span class="qs-back" style="visibility:hidden" aria-hidden="true">←</span></div>
         <div class="qs-body">
           <div class="qs-reveal-hero">
             <div class="m">✦</div>
@@ -244,7 +251,7 @@ const SCREENS = {
 
   error: () => ({
     html: `
-      <div class="qs-top"><button class="qs-back" data-back>←</button><div class="qs-dots" style="visibility:hidden"><i></i></div><span class="qs-brand">North Star</span></div>
+      <div class="qs-top"><button class="qs-back" data-back>←</button><div class="qs-dots" style="visibility:hidden"><i></i></div><span class="qs-back" style="visibility:hidden" aria-hidden="true">←</span></div>
       <div class="qs-body qs-welcome">
         <div class="qs-mark" style="color:var(--primary)">✦</div>
         <h1>Let's try that again.</h1>
@@ -410,5 +417,10 @@ function shortPassion(s) {
 export const __qsTest = {
   setState: (partial) => { S = { screen: "welcome", answers: { a1: "", a2: "", a3: "", freeform: "" }, extracted: null, kids: [], ...partial }; },
   screenHtml: (name) => SCREENS[name]().html,
+  paintInto: (container, name) => {
+    _c = container;
+    S = { screen: name, answers: { a1: "", a2: "", a3: "", freeform: "" }, extracted: null, kids: [{ name: "Maya", age: 9 }] };
+    paint();
+  },
   shortPassion,
 };

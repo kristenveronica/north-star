@@ -4372,7 +4372,13 @@ small, .small { font-size: 13px; color: var(--text-muted); }
    Quick-Start Onboarding (js/views/quickstart.js)
    Full-screen express onboarding flow. Reuses global tokens/buttons.
    ============================================================ */
-.qs{max-width:560px;margin:0 auto;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;padding:0 0 26px;}
+.qs-page{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:40px 20px;background:radial-gradient(ellipse at 50% 0%, var(--midnight) 0%, var(--midnight-deep) 72%);}
+.qs-shell{display:flex;flex-direction:column;align-items:center;gap:22px;width:100%;max-width:600px;}
+.qs-logo{text-align:center;padding-top:6px;}
+.qs-logo .ns-logo-stacked{align-items:center;}
+.qs-logo .ns-logo-name{color:#F7F2E6;}
+.qs-logo .ns-logo-tag{color:var(--gold);}
+.qs-card{width:100%;background:var(--card);border:1px solid var(--border);border-radius:var(--r-xl);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden;padding-bottom:8px;}
 .qs-top{display:flex;align-items:center;gap:12px;padding:16px 22px 6px;min-height:52px;}
 .qs-back{background:none;border:0;color:var(--text-muted);font-size:22px;line-height:1;cursor:pointer;padding:4px 6px;border-radius:8px;}
 .qs-back:hover{color:var(--text);}
@@ -4383,8 +4389,8 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .qs-brand::before{content:"✦ ";color:var(--gold);}
 
 .qs-body{flex:1;display:flex;flex-direction:column;padding:8px 22px 16px;}
-.qs-foot{padding:14px 22px calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;}
-.qs h1{font-family:var(--font-serif);font-weight:600;font-size:clamp(29px,7.4vw,40px);line-height:1.08;letter-spacing:.005em;margin:6px 0 10px;text-wrap:balance;}
+.qs-foot{padding:14px 22px 20px;display:flex;flex-direction:column;gap:10px;}
+.qs-card h1{font-family:var(--font-serif);font-weight:600;font-size:clamp(29px,7.4vw,40px);line-height:1.08;letter-spacing:.005em;margin:6px 0 10px;text-wrap:balance;}
 .qs-eyebrow{font-family:var(--font-sans);font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--primary);margin-bottom:8px;}
 .qs-lede{font-size:15.5px;color:var(--text-muted);margin:0 0 20px;max-width:44ch;}
 
@@ -4421,7 +4427,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .qs-addkid:hover{border-color:var(--primary);}
 
 /* crafting */
-.qs-craft{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:22px;min-height:60vh;}
+.qs-craft{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:22px;min-height:320px;padding:36px 22px;}
 .qs-orbit{width:80px;height:80px;position:relative;}
 .qs-orbit .core{position:absolute;inset:0;display:grid;place-items:center;font-size:32px;color:var(--gold);}
 .qs-orbit .r{position:absolute;inset:0;border-radius:50%;border:2px solid transparent;border-top-color:var(--primary);animation:qs-spin 1.05s linear infinite;}
