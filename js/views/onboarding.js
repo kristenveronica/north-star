@@ -104,10 +104,10 @@ function renderChooser(card) {
         <span class="onb-door__cta">Start →</span>
       </button>
       <button type="button" class="onb-door" data-full>
-        <div class="onb-door__ico">☕</div>
+        <div class="onb-door__ico">🌱</div>
         <div class="onb-door__t">Full Setup</div>
-        <div class="onb-door__time">about 30–45 minutes</div>
-        <p class="onb-door__d">Best accompanied by a cup of tea. Clarify your family's vision, values and Core Word, and build out each child's profile in depth — the more you pour in, the more bespoke the outcome.</p>
+        <div class="onb-door__time">45 minutes to an hour</div>
+        <p class="onb-door__d">Invest an hour now to multiply the return — for your children and your family — for years to come. Go deep on your vision, values and Core Word, and build out each child's profile; the more you pour in, the more North Star can shape a journey that's unmistakably theirs.</p>
         <span class="onb-door__cta">Begin →</span>
       </button>
     </div>`;
@@ -144,7 +144,7 @@ function paint(card) {
     card.innerHTML = `
       ${indicator}
       <h1>Welcome to your family's North Star.</h1>
-      <p class="lede">This isn't a planner. Pour a cup of tea — we'll clarify the destination for your children's learning and growth, starting with who's in their world.</p>
+      <p class="lede">This isn't a planner. The time you invest here is what North Star multiplies — the more it understands, the more it can shape every project, reward and milestone around your real family. Let's clarify the destination for your children's learning and growth, starting with who's in their world.</p>
       <div class="field">
         <label>Your name</label>
         <input class="input" id="parentName" value="${esc(_draft.parentName)}" placeholder="e.g. Kristen" />
