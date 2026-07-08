@@ -4406,6 +4406,19 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .qs-chip{background:var(--card-elev);border:1px solid var(--border-strong);border-radius:999px;padding:7px 13px;font-size:13.5px;color:var(--text);cursor:pointer;transition:.15s;}
 .qs-chip:hover{border-color:var(--primary);color:var(--primary);}
 .qs-chip::before{content:"＋ ";color:var(--text-soft);}
+.qs-chip.is-used,.qs-chip[disabled]{opacity:.4;pointer-events:none;}
+
+/* Reusable tap-to-add "spark" chips (guided onboarding + Family North Star editor).
+   The placeholder examples disappear on first keystroke; these stay, so a parent
+   who's short on words always has a wide palette to draw from. */
+.prompt-chips{margin-top:10px;}
+.prompt-chips__cap{font-size:12.5px;color:var(--text-soft);margin-bottom:8px;}
+.prompt-chips__row{display:flex;flex-wrap:wrap;gap:7px;}
+.prompt-chip{background:var(--card-elev);border:1px solid var(--border-strong);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--text);cursor:pointer;transition:.15s;}
+.prompt-chip::before{content:"＋ ";color:var(--text-soft);}
+.prompt-chip:hover{border-color:var(--primary);color:var(--primary);}
+.prompt-chip.is-used{opacity:.38;pointer-events:none;}
+.prompt-chip.is-used::before{content:"✓ ";color:var(--sage-ink);}
 
 .qs-welcome{align-items:center;text-align:center;justify-content:center;}
 .qs-welcome h1{margin-top:10px;}

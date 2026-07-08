@@ -31,6 +31,53 @@ export const VISION_QS = [
     ph: "e.g. Nature, books, creativity, travel, sports and adventure." },
 ];
 
+/* Tap-to-add sparks for each Deeper Vision question. The "e.g." placeholders
+   vanish the moment a parent starts typing — these stay, giving a wide,
+   evocative palette for anyone who finds it hard to put words to what they
+   value. Kept relevant to each question so a tap always makes sense in place. */
+export const VISION_CHIPS = {
+  adultsHoping: ["Curious", "Kind", "Resilient", "Confident", "Generous", "Hardworking",
+    "Independent", "Compassionate", "Courageous", "Honest", "Creative", "Grounded", "Wise", "Joyful"],
+  values: ["Integrity", "Kindness", "Courage", "Faith", "Generosity", "Responsibility",
+    "Humility", "Respect", "Honesty", "Perseverance", "Gratitude", "Freedom", "Curiosity", "Service"],
+  successLooksLike: ["A love of learning", "Confidence", "Independence", "Strong relationships",
+    "Real-world capability", "Resilience", "Good character", "Joy in the everyday",
+    "Financial wisdom", "Knowing who they are", "Contributing to others", "Following their curiosity"],
+  capableByEighteen: ["Financial literacy", "Entrepreneurship", "Clear communication", "Problem-solving",
+    "Cooking & home skills", "Reading widely", "Writing well", "Critical thinking",
+    "A trade or craft", "Digital skills", "Public speaking", "Managing money", "Practical life skills", "Leadership"],
+  selfAndOthers: ["Confident, not arrogant", "Compassionate", "Respectful", "Secure in who they are",
+    "Empathetic", "Generous", "Honest", "Calm under pressure", "Welcoming to others",
+    "Quick to forgive", "A good listener", "Standing up for others"],
+  experiences: ["Nature", "Books", "Travel", "Creativity", "Sport", "Adventure", "Real work",
+    "Community & service", "Music", "Building & making", "Time with family", "Quiet & rest",
+    "Faith & wonder", "Different cultures"],
+};
+
+/* Render + wire a row of tap-to-add "spark" chips beneath a textarea.
+   Appends the chip text to the field (comma-separated), fires an input event so
+   autosize / autosave / previews all update, then dims the used chip. Generic —
+   reused by the guided onboarding and the Family North Star editor. */
+export function attachPromptChips(textareaEl, chips) {
+  if (!textareaEl || !chips || !chips.length) return;
+  const wrap = document.createElement("div");
+  wrap.className = "prompt-chips";
+  wrap.innerHTML = `
+    <div class="prompt-chips__cap">Need a spark? Tap any that fit — then make them yours:</div>
+    <div class="prompt-chips__row">
+      ${chips.map(c => `<button type="button" class="prompt-chip" data-chip="${esc(c)}">${esc(c)}</button>`).join("")}
+    </div>`;
+  textareaEl.insertAdjacentElement("afterend", wrap);
+  wrap.querySelectorAll("[data-chip]").forEach(b => b.addEventListener("click", () => {
+    if (b.classList.contains("is-used")) return;
+    const cur = textareaEl.value.replace(/\s*$/, "");
+    textareaEl.value = (cur ? cur.replace(/,\s*$/, "") + ", " : "") + b.dataset.chip;
+    b.classList.add("is-used");
+    textareaEl.dispatchEvent(new Event("input", { bubbles: true }));
+    textareaEl.focus();
+  }));
+}
+
 export function renderFamilyVision(container) {
   const fam = getState().family || {};
   const complete = !!(fam.coreWord && fam.mission);
@@ -327,8 +374,13 @@ export function renderFamilyVision(container) {
 
   /* ---------- Auto-size textareas (page scrolls, never the box) + gentle tidy ---------- */
   container.querySelectorAll(".lt-acc__body textarea").forEach(autosize);
-  // Tidy formatting on the deeper-vision answers when the parent moves on.
-  VISION_QS.forEach(q => attachTidy(container.querySelector("#" + q.id)));
+  // Tidy formatting on the deeper-vision answers when the parent moves on, and
+  // give each a palette of tap-to-add sparks for anyone short on words.
+  VISION_QS.forEach(q => {
+    const el = container.querySelector("#" + q.id);
+    attachPromptChips(el, VISION_CHIPS[q.id]);
+    attachTidy(el);
+  });
 }
 
 /** Grow a textarea to fit its content, but never below a sensible minimum (so

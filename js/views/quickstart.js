@@ -156,21 +156,36 @@ const SCREENS = {
     title: "Tell me about your family.",
     lede: "What matters to you, the values you're raising your kids around, the things you love doing together. However it comes out is perfect.",
     placeholder: "e.g. Faith is a big part of our life, we love being outdoors, and we want our kids to grow up kind and curious…",
-    examples: ["Faith is important to us", "We love the outdoors", "Kind, curious kids", "Less screen time", "Hard work matters"],
+    examples: [
+      "Faith is important to us", "We love the outdoors", "Kind, curious kids", "Less screen time",
+      "Hard work matters", "Creativity & the arts", "Reading together", "Adventure & travel",
+      "Strong family bonds", "Generosity & service", "Independence & grit", "Entrepreneurial spirit",
+      "Nature & the land", "Health & being active", "Curiosity above all", "Honesty & integrity",
+    ],
   }),
   q2: () => questionScreen({
     n: 2, eyebrow: "Question 2 of 3 · Your kids", key: "a2",
     title: "Who are your kids — and how do they learn best?",
     lede: "Names and ages, what they're into, and anything about how they tick. Don't overthink it.",
     placeholder: "e.g. Maya's 9, obsessed with horses and drawing, learns by doing. Leo's 6, loves dinosaurs and Lego, can't sit still…",
-    examples: ["loves animals", "very hands-on", "gets bored easily", "super creative", "asks big questions"],
+    examples: [
+      "loves animals", "very hands-on", "gets bored easily", "super creative", "asks big questions",
+      "into sports", "loves building things", "always drawing", "obsessed with reading", "needs to move",
+      "loves tech & gaming", "sensitive & deep", "a social butterfly", "learns by watching first",
+      "loves a good story", "into space & science",
+    ],
   }),
   q3: () => questionScreen({
     n: 3, eyebrow: "Question 3 of 3 · The fun one", key: "a3",
     title: "Imagine one awesome project for your child. What's in it?",
     lede: "Dream a little. What would make their eyes light up? I'll turn it into a real, do-able adventure.",
     placeholder: "e.g. I'd love Maya to learn all about horses — how to care for them, the different breeds — and design her own dream stable…",
-    examples: ["something with animals", "building something real", "a bit of adventure", "arts & crafts"],
+    examples: [
+      "something with animals", "building something real", "a bit of adventure", "arts & crafts",
+      "science experiments", "cooking or baking", "a little business", "out in nature",
+      "writing their own story", "coding or robots", "music or performing", "a mystery to solve",
+      "designing something", "caring for the planet",
+    ],
   }),
 
   reading: () => ({

@@ -9,7 +9,7 @@ import { DOMAIN_CATALOG } from "../seed.js";
 import { navigate } from "../router.js";
 import { esc, toast } from "../components/ui.js";
 import { aiSuggestCoreWord, aiSuggestVision } from "../lib/ai.js";
-import { VISION_QS, autosize, attachTidy } from "./familyVision.js";
+import { VISION_QS, VISION_CHIPS, attachPromptChips, autosize, attachTidy } from "./familyVision.js";
 import { REL_OPTIONS } from "./familySettings.js";
 import { saveDraft, loadDraft, clearDraft } from "../lib/drafts.js";
 import { setOnboardingParked } from "../lib/repo.js";
@@ -209,6 +209,7 @@ function paint(card) {
     `;
     VISION_QS.forEach(q => {
       const t = card.querySelector("#" + q.id);
+      attachPromptChips(t, VISION_CHIPS[q.id]);
       autosize(t);
       attachTidy(t, val => { _draft[q.id] = val; });
     });
