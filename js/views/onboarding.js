@@ -1,58 +1,85 @@
 /* ============================================================
-   onboarding.js — First-run guided sequence for the Family North Star.
-   Order: Identity + Relationship Map → Deeper Vision → Desired
-   Outcomes → Motto / Mission / Core Word → Done.
+   onboarding.js — First-run guided sequence (Full Setup).
+
+   Mirrors the Parent Portal exactly, so nothing drifts:
+     1. Family & People      (identity + the shared Family Members section)
+     2. Home Location        (shared)
+     3. Deeper Vision        (the six reflections)
+     4. Vision, Core Word & Credo
+     5. Travel / Worldschool (shared)
+     6. Faith Integration    (shared)
+     7. Family Rhythm        (shared)
+     8. Done
+
+   The practical-context steps (location, people, travel, faith, rhythm)
+   reuse the SAME section builders as /family-settings via familySections.js —
+   edit a field once and both surfaces update.
    ============================================================ */
 
-import { getState, update, uid } from "../store.js";
+import { getState, update, setFamily, uid } from "../store.js";
 import { DOMAIN_CATALOG } from "../seed.js";
 import { navigate } from "../router.js";
 import { esc, toast } from "../components/ui.js";
 import { aiSuggestCoreWord, aiSuggestVision } from "../lib/ai.js";
 import { VISION_QS, VISION_CHIPS, attachPromptChips, autosize, attachTidy } from "./familyVision.js";
-import { REL_OPTIONS } from "./familySettings.js";
+import {
+  makeFamilyState, gatherFamilyPatch,
+  locationSection, relationshipsSection, travelSection, faithSection, rhythmSection,
+} from "./familySections.js";
 import { saveDraft, loadDraft, clearDraft } from "../lib/drafts.js";
 import { setOnboardingParked } from "../lib/repo.js";
 import { logoStacked } from "../components/logo.js";
 
-const STEPS = ["welcome", "vision", "core-word", "done"];
+const STEPS = ["welcome", "location", "vision", "core-word", "travel", "faith", "rhythm", "done"];
+// Steps whose fields belong to the shared family-context sections (autosave to the family record).
+const SECTION_STEPS = new Set(["welcome", "location", "travel", "faith", "rhythm"]);
 
 let _step = 0;
 let _chose = false;   // has the family picked Quick Start vs Full Setup yet?
+let _fst = null;      // shared family-context working state (loc/rel/travel/faith/rhythm)
 let _draft = {
   parentName: "",
   familyName: "",
-  relationships: [],
   adultsHoping: "", values: "", successLooksLike: "",
   capableByEighteen: "", selfAndOthers: "", experiences: "",
-  faithEnabled: false, faithTradition: "",
-  desiredOutcomes: "",
   mission: "", motto: "",
   coreWord: "",
   acronym: [],
 };
 
-/* ---------- Draft auto-save: a safety net for the lengthy onboarding ----------
-   Onboarding can span more than one sitting. We persist the in-progress draft
-   (and which step they're on) to localStorage on every edit, restore it on
-   return, and clear it only once they finish. Nothing typed is ever lost. */
+/* ---------- Draft auto-save (identity + vision + core word) ----------
+   The practical sections persist straight to the family record; this draft
+   only covers the vision/identity fields + which step you're on, so a long
+   sitting can be resumed with nothing lost. */
 const ONBOARDING_DRAFT = "onboarding";
 function persistDraft() { saveDraft(ONBOARDING_DRAFT, { step: _step, draft: _draft }); }
 function dropDraft() { clearDraft(ONBOARDING_DRAFT); }
-// Pull whatever fields are currently on screen into the draft, then persist.
 function captureDraft(card) {
   const g = (id) => card.querySelector("#" + id);
   const text = (id, key) => { const el = g(id); if (el) _draft[key] = el.value; };
   text("parentName", "parentName");
   text("familyName", "familyName");
   VISION_QS.forEach(q => { const el = g(q.id); if (el) _draft[q.id] = el.value; });
-  const faith = g("faithEnabled"); if (faith) _draft.faithEnabled = faith.checked;
-  text("faithTradition", "faithTradition");
   text("mission", "mission");
   text("motto", "motto");
   const cw = g("coreWord"); if (cw) _draft.coreWord = cw.value.toUpperCase().slice(0, 12);
   persistDraft();
 }
+
+/* Persist the shared family-context sections to the family record (debounced). */
+function persistSections() {
+  if (_fst) setFamily(gatherFamilyPatch(_fst));
+}
+function ensureFamilyRecord() {
+  // A stable family id must exist before people can be invited from Step 1.
+  update(s => { s.family = s.family || {}; if (!s.family.id) s.family.id = uid("fam"); });
+}
+const sectionCtx = () => ({
+  onChange: persistSections,
+  commit: persistSections,
+  children: getState().children || [],
+  fam: getState().family || {},
+});
 
 export function renderOnboarding(container) {
   const fam = getState().family;
@@ -61,25 +88,25 @@ export function renderOnboarding(container) {
       ..._draft,
       parentName: fam.parentName || "",
       familyName: fam.familyName || "",
-      relationships: Array.isArray(fam.relationships) ? fam.relationships.map(r => ({ ...r })) : [],
       ...(fam.vision || {}),
-      faithEnabled: !!fam.faithEnabled,
-      faithTradition: fam.faithTradition || "",
-      desiredOutcomes: (fam.desiredOutcomes || []).join("\n"),
       mission: fam.mission || "",
       motto: fam.motto || "",
       coreWord: fam.coreWord || "",
       acronym: fam.acronym || [],
     };
   }
-  // Restore this account's in-progress draft (takes precedence over committed data) and resume the step.
+  // Shared working copies for location / people / travel / faith / rhythm.
+  _fst = makeFamilyState(getState().family || {});
+
+  // Restore this account's in-progress draft (takes precedence) and resume the step.
   const saved = loadDraft(ONBOARDING_DRAFT);
   if (saved && saved.draft && typeof saved.draft === "object") {
     _draft = { ..._draft, ...saved.draft };
     if (typeof saved.step === "number" && saved.step >= 0 && saved.step < STEPS.length - 1) _step = saved.step;
   }
   // Resuming mid-way through Full Setup → they've already chosen; skip the fork.
-  if (_step > 0) _chose = true;
+  if (_step > 0) { _chose = true; ensureFamilyRecord(); }
+
   container.innerHTML = `
     <div class="welcome welcome--branded">
       <div class="onb-shell">
@@ -112,7 +139,7 @@ function renderChooser(card) {
       </button>
     </div>`;
   card.querySelector("[data-quick]").addEventListener("click", () => navigate("/start"));
-  card.querySelector("[data-full]").addEventListener("click", () => { _chose = true; paint(card); });
+  card.querySelector("[data-full]").addEventListener("click", () => { ensureFamilyRecord(); _chose = true; paint(card); });
 }
 
 const visionForCtx = () => ({
@@ -126,23 +153,46 @@ function paint(card) {
   // First-run fork: choose Quick Start vs Full Setup before anything else.
   if (_step === 0 && !_chose) { renderChooser(card); return; }
   const step = STEPS[_step];
-  // Bind the auto-save listener once; the card element persists across steps.
+  // Bind persistence listeners once; the card element persists across steps.
   if (!card._draftBound) {
     card.addEventListener("input", () => captureDraft(card));
     card.addEventListener("change", () => captureDraft(card));
+    let secTimer;
+    const dp = () => { clearTimeout(secTimer); secTimer = setTimeout(() => { if (SECTION_STEPS.has(STEPS[_step])) persistSections(); }, 500); };
+    card.addEventListener("input", dp);
+    card.addEventListener("change", dp);
     card._draftBound = true;
   }
-  // Persist the current step + draft (or clear it once they've finished).
   if (step === "done") dropDraft(); else persistDraft();
   const indicator = `
     <div class="step-indicator">
       ${STEPS.map((_, i) => `<div class="dot ${i < _step ? "done" : i === _step ? "active" : ""}"></div>`).join("")}
     </div>`;
 
-  /* ---------- Step 1: Family Identity + Relationship Map ---------- */
+  /* Shared helper: render one of the practical-context sections as a full step. */
+  const renderSectionStep = (section, { eyebrow, title, lede }) => {
+    card.innerHTML = `
+      ${indicator}
+      <button class="btn btn-ghost btn-sm onb-tochooser" id="back" type="button">← Back</button>
+      <div class="t-eyebrow" style="margin-top:4px">${esc(eyebrow)}</div>
+      <h1 style="margin-top:4px">${esc(title)}</h1>
+      ${lede ? `<p class="lede">${esc(lede)}</p>` : ""}
+      <div class="onb-section">${section.body(_fst, { fam: getState().family || {} })}</div>
+      <div class="row-between mt-3">
+        <span class="text-muted small">Step ${_step + 1} of ${STEPS.length}</span>
+        <button class="btn btn-primary btn-lg" id="next">Continue →</button>
+      </div>`;
+    section.wire(card, _fst, sectionCtx());
+    card.querySelectorAll(".onb-section textarea").forEach(el => autosize(el, 220));
+    card.querySelector("#back").addEventListener("click", () => { persistSections(); _step--; paint(card); });
+    card.querySelector("#next").addEventListener("click", () => { persistSections(); _step++; paint(card); });
+  };
+
+  /* ---------- Step 1: Family Identity + People ---------- */
   if (step === "welcome") {
     card.innerHTML = `
       ${indicator}
+      <button class="btn btn-ghost btn-sm onb-tochooser" id="to-chooser" type="button">← Back to options</button>
       <h1>Welcome to your family's North Star.</h1>
       <p class="lede">This isn't a planner. The time you invest here is what North Star multiplies — the more it understands, the more it can shape every project, reward and milestone around your real family. Let's clarify the destination for your children's learning and growth, starting with who's in their world.</p>
       <div class="field">
@@ -154,10 +204,8 @@ function paint(card) {
         <input class="input" id="familyName" value="${esc(_draft.familyName)}" placeholder="e.g. The Veronica Family" />
       </div>
       <div class="card mt-2" style="background:var(--card-elev)">
-        <h4 style="margin:0 0 4px">Family members & support people</h4>
-        <p class="text-muted small" style="margin:0 0 10px">Add the important people in your child's life. This helps North Star reflect your real family in rewards, celebrations and projects — never assumptions.</p>
-        <div id="rel-list" class="stack"></div>
-        <button class="btn btn-sm mt-2" id="rel-add" type="button">+ Add person</button>
+        <h4 style="margin:0 0 10px">Family members & support people</h4>
+        <div class="onb-section">${relationshipsSection.body()}</div>
       </div>
       <div class="row-between mt-3">
         <span class="text-muted small">Step 1 of ${STEPS.length}</span>
@@ -168,25 +216,47 @@ function paint(card) {
         <p class="text-muted small" style="margin:6px 0 0">Anything you've typed is saved. You can pick up right here whenever you're ready.</p>
       </div>
     `;
-    wireRelList(card);
+    relationshipsSection.wire(card, _fst, sectionCtx());
+    // Keep the family record's name current (so invites read the right family name).
+    const persistIdentity = () => setFamily({
+      parentName: card.querySelector("#parentName").value.trim(),
+      familyName: card.querySelector("#familyName").value.trim(),
+    });
+    card.querySelector("#parentName").addEventListener("input", persistIdentity);
+    card.querySelector("#familyName").addEventListener("input", persistIdentity);
+    // Return to the Quick Start vs Full Setup fork (nothing typed is lost — the draft persists).
+    card.querySelector("#to-chooser").addEventListener("click", () => {
+      captureDraft(card); persistSections();
+      _chose = false; _step = 0; paint(card);
+    });
     card.querySelector("#next").addEventListener("click", () => {
       _draft.parentName = card.querySelector("#parentName").value.trim();
       _draft.familyName = card.querySelector("#familyName").value.trim();
       if (!_draft.familyName) { toast("Give your family a name to begin", { type: "warning" }); return; }
-      _step++; paint(card);
+      persistSections(); _step++; paint(card);
     });
     card.querySelector("#park").addEventListener("click", () => {
-      captureDraft(card);          // save whatever's on screen (draft persists)
-      setOnboardingParked(true);   // let the guard pass us through to the dashboard
+      captureDraft(card); persistSections();
+      setOnboardingParked(true);
       toast("No rush — your setup is saved. Finish it anytime from your dashboard.", { type: "success", duration: 3500 });
       navigate("/");
     });
   }
 
-  /* ---------- Step 2: Deeper Vision ---------- */
+  /* ---------- Step 2: Home Location ---------- */
+  if (step === "location") {
+    renderSectionStep(locationSection, {
+      eyebrow: "Your world",
+      title: "Where's home?",
+      lede: "This is optional — but if you share your general area, North Star can point you to real learning near you.",
+    });
+  }
+
+  /* ---------- Step 3: Deeper Vision ---------- */
   if (step === "vision") {
     card.innerHTML = `
       ${indicator}
+      <button class="btn btn-ghost btn-sm onb-tochooser" id="back" type="button">← Back</button>
       <h1>Deeper Vision</h1>
       <p class="lede">Take a moment to reflect. Your answers become the foundation that shapes the learning journey, experiences and opportunities North Star will suggest for your children.</p>
       ${VISION_QS.map(q => `
@@ -194,16 +264,8 @@ function paint(card) {
           <label>${esc(q.label)}</label>
           <textarea class="textarea" id="${q.id}" data-voice data-voice-label="Speak your answer" placeholder="${esc(q.ph)}">${esc(_draft[q.id] || "")}</textarea>
         </div>`).join("")}
-      <div class="field">
-        <label class="checkbox">
-          <input type="checkbox" id="faithEnabled" ${_draft.faithEnabled ? "checked" : ""}/>
-          Include Faith Gigs in our family rhythm
-        </label>
-        <input class="input mt-1 ${_draft.faithEnabled ? "" : "hidden"}" id="faithTradition" placeholder="Which faith tradition?" value="${esc(_draft.faithTradition)}" />
-        <span class="hint">A family-wide setting (you can change it later in Settings).</span>
-      </div>
       <div class="row-between mt-2">
-        <button class="btn" id="back">← Back</button>
+        <button class="btn" id="back2">← Back</button>
         <button class="btn btn-primary btn-lg" id="next">Continue →</button>
       </div>
     `;
@@ -213,24 +275,20 @@ function paint(card) {
       autosize(t);
       attachTidy(t, val => { _draft[q.id] = val; });
     });
-    const faithCb = card.querySelector("#faithEnabled");
-    const faithIn = card.querySelector("#faithTradition");
-    faithCb.addEventListener("change", () => {
-      _draft.faithEnabled = faithCb.checked;
-      faithIn.classList.toggle("hidden", !faithCb.checked);
-    });
-    card.querySelector("#back").addEventListener("click", () => { _step--; paint(card); });
+    const goBack = () => { VISION_QS.forEach(q => { const i = card.querySelector("#" + q.id); if (i) _draft[q.id] = i.value.trim(); }); _step--; paint(card); };
+    card.querySelector("#back").addEventListener("click", goBack);
+    card.querySelector("#back2").addEventListener("click", goBack);
     card.querySelector("#next").addEventListener("click", () => {
       VISION_QS.forEach(q => { const i = card.querySelector("#" + q.id); if (i) _draft[q.id] = i.value.trim(); });
-      _draft.faithTradition = card.querySelector("#faithTradition").value.trim();
       _step++; paint(card);
     });
   }
 
-  /* ---------- Step 3: Vision, Core Word & Credo ---------- */
+  /* ---------- Step 4: Vision, Core Word & Credo ---------- */
   if (step === "core-word") {
     card.innerHTML = `
       ${indicator}
+      <button class="btn btn-ghost btn-sm onb-tochooser" id="back" type="button">← Back</button>
       <h1>Vision, Core Word & Credo.</h1>
       <p style="font-family:var(--font-serif);font-size:19px;font-style:italic;color:var(--text);border-left:2px solid var(--primary);padding-left:15px;margin:0 0 16px;max-width:48ch;line-height:1.4">If you don't intentionally instill your family's values in your children, the world will gladly do it for them.</p>
       <p class="lede">Most of us first met mission, vision and values at work — rarely at home. Yet the world's most enduring families share one thing: a clear set of values, deeply embedded in their children, that becomes a compass for life. This is where you define that language and begin weaving it through their learning journey. Big visions are remembered through small words — and small phrases, repeated often, become identity.</p>
@@ -273,7 +331,7 @@ function paint(card) {
       <p class="text-muted small" style="margin:24px 0 0;padding-top:16px;border-top:1px solid var(--divider);font-style:italic">The language children grow up with often becomes the voice they carry into adulthood.</p>
 
       <div class="row-between mt-3">
-        <button class="btn" id="back">← Back</button>
+        <button class="btn" id="back2">← Back</button>
         <button class="btn btn-primary btn-lg" id="next">Save our North Star →</button>
       </div>
     `;
@@ -310,7 +368,6 @@ function paint(card) {
     renderAcronymRows();
     autosize(card.querySelector("#mission"));
 
-    // Motto / Mission suggestions
     const wireText = (kind, sId, rId, stId, fId) => {
       const s = card.querySelector(sId), r = card.querySelector(rId), st = card.querySelector(stId), f = card.querySelector(fId);
       const run = async (btn) => {
@@ -329,7 +386,6 @@ function paint(card) {
     wireText("motto", "#suggest-motto", "#regen-motto", "#motto-status", "#motto");
     wireText("mission", "#suggest-mission", "#regen-mission", "#mission-status", "#mission");
 
-    // Core word suggestion
     const cwBtn = card.querySelector("#suggest-word"), cwRegen = card.querySelector("#regen-word"), cwStatus = card.querySelector("#word-status");
     const runCw = async (btn) => {
       btn.disabled = true; const label = btn.textContent; btn.textContent = "Thinking…"; cwStatus.textContent = "Shaping a few from your vision…";
@@ -348,21 +404,18 @@ function paint(card) {
     cwBtn.addEventListener("click", () => runCw(cwBtn));
     cwRegen.addEventListener("click", () => runCw(cwRegen));
 
-    card.querySelector("#back").addEventListener("click", () => {
+    const goBack = () => {
       _draft.motto = card.querySelector("#motto").value.trim();
       _draft.mission = card.querySelector("#mission").value.trim();
       _step--; paint(card);
-    });
+    };
+    card.querySelector("#back").addEventListener("click", goBack);
+    card.querySelector("#back2").addEventListener("click", goBack);
     card.querySelector("#next").addEventListener("click", () => {
       _draft.mission = card.querySelector("#mission").value.trim();
       _draft.motto = card.querySelector("#motto").value.trim();
-      const cleanRel = (_draft.relationships || [])
-        .map(r => ({
-          name: (r.name || "").trim(),
-          relationship: r.relationship === "Other" ? ((r.relationshipOther || "").trim() || "Other") : r.relationship,
-          roleNote: (r.roleNote || "").trim(),
-        }))
-        .filter(r => r.name);
+      // Commit vision/identity/core-word. Practical sections already autosave
+      // to the family record, so we merge — never overwrite — them here.
       update(state => {
         if (!state.domains.length) state.domains = DOMAIN_CATALOG;
         state.family = {
@@ -370,13 +423,10 @@ function paint(card) {
           id: state.family?.id || uid("fam"),
           parentName: _draft.parentName,
           familyName: _draft.familyName,
-          relationships: cleanRel,
           mission: _draft.mission,
           motto: _draft.motto,
           coreWord: _draft.coreWord,
           acronym: _draft.acronym,
-          faithEnabled: _draft.faithEnabled,
-          faithTradition: _draft.faithTradition,
           learningStyleDefault: state.family?.learningStyleDefault ?? 5,
           diyMaterialsPreference: state.family?.diyMaterialsPreference ?? 5,
           vision: visionForCtx(),
@@ -387,6 +437,36 @@ function paint(card) {
       setOnboardingParked(false);  // fully onboarded now — no resume banner needed
       _step++; paint(card);
     });
+  }
+
+  /* ---------- Step 5: Travel / Worldschool ---------- */
+  if (step === "travel") {
+    renderSectionStep(travelSection, {
+      eyebrow: "Your world",
+      title: "Are you on the move?",
+      lede: "Turn this on if your family travels — North Star can suggest local experiences or destination-based projects. Leave it off if you're settled at home.",
+    });
+  }
+
+  /* ---------- Step 6: Faith Integration ---------- */
+  if (step === "faith") {
+    renderSectionStep(faithSection, {
+      eyebrow: "Your world",
+      title: "Faith, if it's part of your family.",
+      lede: "Entirely optional and parent-controlled. No faith language is ever used unless you turn this on.",
+    });
+  }
+
+  /* ---------- Step 7: Family Rhythm ---------- */
+  if (step === "rhythm") {
+    renderSectionStep(rhythmSection, {
+      eyebrow: "Your world",
+      title: "Your family's rhythm.",
+      lede: "Tell North Star your family's real capacity — the days and hours learning naturally fits into — so it scales to your week and never overfills it.",
+    });
+    // Last data step → the Continue button should read as completion.
+    const next = card.querySelector("#next");
+    if (next) next.textContent = "Finish setup →";
   }
 
   /* ---------- Done ---------- */
@@ -412,42 +492,4 @@ function paint(card) {
     card.querySelector("#go-dash").addEventListener("click", () => navigate("/"));
     card.querySelector("#go-children").addEventListener("click", () => navigate("/children"));
   }
-}
-
-/* ---------- Relationship Map (compact, onboarding step 1) ---------- */
-function wireRelList(card) {
-  const list = card.querySelector("#rel-list");
-  const render = () => {
-    if (!_draft.relationships.length) {
-      list.innerHTML = `<p class="text-muted small" style="margin:0">No one added yet.</p>`;
-      return;
-    }
-    list.innerHTML = _draft.relationships.map((r, i) => {
-      const isOther = !REL_OPTIONS.includes(r.relationship) || r.relationship === "Other";
-      const sel = isOther ? "Other" : r.relationship;
-      return `
-      <div class="card" style="background:var(--card);padding:10px" data-rel="${i}">
-        <div class="row" style="gap:8px;flex-wrap:wrap;align-items:flex-end">
-          <div class="field" style="flex:1;min-width:130px;margin:0"><label class="small">Name</label><input class="input" data-rk="name" value="${esc(r.name || "")}" placeholder="e.g. Grandma Jo"/></div>
-          <div class="field" style="flex:1;min-width:130px;margin:0"><label class="small">Relationship</label>
-            <select class="input" data-rk="relationship">${REL_OPTIONS.map(o => `<option ${o === sel ? "selected" : ""}>${o}</option>`).join("")}</select>
-          </div>
-          <button class="btn btn-sm" data-rk="remove" title="Remove" style="margin-bottom:2px">✕</button>
-        </div>
-        <div class="field ${isOther ? "" : "hidden"}" data-other style="margin:8px 0 0"><label class="small">Who are they to the child?</label><input class="input" data-rk="relationshipOther" value="${esc(isOther && r.relationship !== "Other" ? r.relationship : (r.relationshipOther || ""))}" placeholder="e.g. Godmother, neighbour"/></div>
-        <div class="field" style="margin:8px 0 0"><label class="small">Role in their learning <span class="text-muted">(optional)</span></label><input class="input" data-rk="roleNote" value="${esc(r.roleNote || "")}" placeholder="e.g. teaches piano, business mentor"/></div>
-      </div>`;
-    }).join("");
-    list.querySelectorAll("[data-rel]").forEach(row => {
-      const i = +row.dataset.rel;
-      const otherWrap = row.querySelector("[data-other]");
-      row.querySelector('[data-rk="name"]').addEventListener("input", e => { _draft.relationships[i].name = e.target.value; });
-      row.querySelector('[data-rk="relationship"]').addEventListener("change", e => { _draft.relationships[i].relationship = e.target.value; otherWrap.classList.toggle("hidden", e.target.value !== "Other"); });
-      row.querySelector('[data-rk="relationshipOther"]')?.addEventListener("input", e => { _draft.relationships[i].relationshipOther = e.target.value; });
-      row.querySelector('[data-rk="roleNote"]').addEventListener("input", e => { _draft.relationships[i].roleNote = e.target.value; });
-      row.querySelector('[data-rk="remove"]').addEventListener("click", () => { _draft.relationships.splice(i, 1); render(); });
-    });
-  };
-  card.querySelector("#rel-add").addEventListener("click", () => { _draft.relationships.push({ name: "", relationship: "Mother", roleNote: "" }); render(); });
-  render();
 }

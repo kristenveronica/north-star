@@ -4504,3 +4504,11 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .welcome--branded .ns-logo-stacked .ns-logo-wordmark{ align-items:center; text-align:center; }
 .welcome--branded .ns-logo-name{ color:#F7F2E6; }
 .welcome--branded .ns-logo-tag{ color:var(--gold); }
+
+/* Full Setup steps that embed a shared family-context section. */
+.onb-tochooser{ margin:0 0 12px; padding-left:0; }
+.welcome-card .onb-section{ margin-top:6px; }
+/* The section rows (people / destinations) render as divided list items; give the
+   grids inside the cream card comfortable breathing room. */
+.welcome-card .onb-section .ns-person:first-child{ padding-top:2px; }
+.welcome-card .onb-section .ns-acc__intro{ margin-top:0; }
