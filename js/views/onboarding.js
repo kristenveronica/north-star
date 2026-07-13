@@ -209,7 +209,7 @@ function paint(card) {
       </div>
       <div class="row-between mt-3">
         <span class="text-muted small">Step 1 of ${STEPS.length}</span>
-        <button class="btn btn-primary btn-lg" id="next">Begin →</button>
+        <button class="btn btn-primary btn-lg" id="next">Continue →</button>
       </div>
       <div class="center mt-2">
         <button class="btn btn-ghost btn-sm" id="park" type="button">I'll set this up later — take me to my dashboard →</button>

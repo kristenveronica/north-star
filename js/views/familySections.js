@@ -221,24 +221,27 @@ export const relationshipsSection = {
           });
         });
 
-        // Collapsible "Customise what they can see & do" panel (collapsed by default,
-        // so the row isn't overwhelming). Shows a small "N selected" hint when closed.
-        const permToggle = row.querySelector(`[data-perm-toggle="${i}"]`);
-        const permPanel = row.querySelector(`[data-perm-panel="${i}"]`);
-        const permCount = row.querySelector(`[data-perm-count="${i}"]`);
-        const updatePermCount = () => {
-          if (permCount) {
-            const n = (rel[i].permissions || []).length;
-            permCount.textContent = n ? `${n} selected` : "";
-          }
+        // Contribution & View each collapse independently under their own heading
+        // (collapsed by default, with an "N selected" hint), so the row stays calm.
+        const contribKeys = new Set(CONTRIBUTION_PERMS.map(p => p.key));
+        const viewKeys = new Set(VIEW_PERMS.map(p => p.key));
+        const updateCounts = () => {
+          const perms = rel[i].permissions || [];
+          const setCount = (key, n) => { const el = row.querySelector(`[data-perm-count="${key}"]`); if (el) el.textContent = n ? `${n} selected` : ""; };
+          setCount(`contrib-${i}`, perms.filter(k => contribKeys.has(k)).length);
+          setCount(`view-${i}`, perms.filter(k => viewKeys.has(k)).length);
         };
-        permToggle?.addEventListener("click", () => {
-          const opening = permPanel.hasAttribute("hidden");
-          if (opening) permPanel.removeAttribute("hidden"); else permPanel.setAttribute("hidden", "");
-          permToggle.setAttribute("aria-expanded", String(opening));
-          permToggle.classList.toggle("is-open", opening);
+        row.querySelectorAll("[data-perm-head]").forEach(head => {
+          head.addEventListener("click", () => {
+            const key = head.dataset.permHead;
+            const body = row.querySelector(`[data-perm-body="${key}"]`);
+            const opening = body.hasAttribute("hidden");
+            if (opening) body.removeAttribute("hidden"); else body.setAttribute("hidden", "");
+            head.setAttribute("aria-expanded", String(opening));
+            head.classList.toggle("is-open", opening);
+          });
         });
-        updatePermCount();
+        updateCounts();
 
         // Email + invitation.
         row.querySelector('[data-rk="email"]')?.addEventListener("input", e => { rel[i].email = e.target.value; });
@@ -266,8 +269,8 @@ export const relationshipsSection = {
             rel[i].permissions = rel[i].permissions || [];
             if (cb.checked) { if (!rel[i].permissions.includes(cb.value)) rel[i].permissions.push(cb.value); }
             else rel[i].permissions = rel[i].permissions.filter(k => k !== cb.value);
-            cb.closest(".chip")?.classList.toggle("selected", cb.checked);
-            updatePermCount();
+            cb.closest(".pchip")?.classList.toggle("is-on", cb.checked);
+            updateCounts();
             onChange();
           });
         });
@@ -278,7 +281,7 @@ export const relationshipsSection = {
             const boxes = [...row.querySelectorAll(`[data-childacc="${i}"]`)];
             const checked = boxes.filter(x => x.checked).map(x => x.value);
             rel[i].childIds = (checked.length === boxes.length) ? [] : checked;
-            cb.closest(".chip")?.classList.toggle("selected", cb.checked);
+            cb.closest(".pchip")?.classList.toggle("is-on", cb.checked);
             onChange();
           });
         });
@@ -550,34 +553,35 @@ function relRow(r, i, children = []) {
       ✓ Full access to everything — Family North Star, settings, every child and AI configuration — the same authority as you.
     </div>
 
-    <div data-perms="${i}" class="perm-collapsible ${isOwner ? "hidden" : ""}">
-      <button type="button" class="perm-toggle" data-perm-toggle="${i}" aria-expanded="false">
-        <span class="perm-toggle__chev" aria-hidden="true">&rsaquo;</span>
-        <span class="perm-toggle__label">Customise what they can see &amp; do</span>
-        <span class="perm-toggle__count" data-perm-count="${i}"></span>
-      </button>
-      <div class="perm-panel" data-perm-panel="${i}" hidden>
-        <div class="small fw-700 text-muted" style="margin-bottom:7px">Contribution — what they can do</div>
-        <div class="row" style="flex-wrap:wrap;gap:8px">
-          ${CONTRIBUTION_PERMS.map(p => permChip(i, p, r)).join("")}
+    <div data-perms="${i}" class="perm-groups ${isOwner ? "hidden" : ""}">
+      <div class="perm-group">
+        <button type="button" class="perm-head" data-perm-head="contrib-${i}" aria-expanded="false">
+          <span class="perm-head__chev" aria-hidden="true">&rsaquo;</span>
+          <span class="perm-head__title">Contribution — what they can do</span>
+          <span class="perm-head__count" data-perm-count="contrib-${i}"></span>
+        </button>
+        <div class="perm-body" data-perm-body="contrib-${i}" hidden>
+          <div class="perm-chips">${CONTRIBUTION_PERMS.map(p => permChip(i, p, r)).join("")}</div>
         </div>
-        <p class="small text-muted" style="margin:6px 0 0">💳 Granting <em>Generate AI Projects</em> or <em>Request AI Reports</em> makes this a billable contributor seat once they accept (manage in Settings → Subscription).</p>
-        <div class="small fw-700 text-muted" style="margin:14px 0 7px">View — what they can see</div>
-        <div class="row" style="flex-wrap:wrap;gap:8px">
-          ${VIEW_PERMS.map(p => permChip(i, p, r)).join("")}
-        </div>
-
-        ${children.length ? `
-          <div class="small fw-700 text-muted" style="margin:14px 0 7px">Which children can they support?</div>
-          <div class="row" style="flex-wrap:wrap;gap:8px">
-            ${children.map(c => `<label class="chip ${childOn(c.id) ? "selected" : ""}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-              <input type="checkbox" data-childacc="${i}" value="${esc(c.id)}" ${childOn(c.id) ? "checked" : ""} style="margin:0"/> ${esc(c.name)}</label>`).join("")}
-          </div>
-          <span class="hint">All selected = every child (the default). Unselect to limit this person to specific children — e.g. one parent who only supports one child in a blended family.</span>
-        ` : ""}
-
-        <p class="small text-muted" style="margin:12px 0 0">Configuration — Family North Star, Family Settings, Learning Profile, child profile editing, capability setup, billing and permissions — is reserved for Owners and never appears in a Contributor's portal.</p>
       </div>
+      <div class="perm-group">
+        <button type="button" class="perm-head" data-perm-head="view-${i}" aria-expanded="false">
+          <span class="perm-head__chev" aria-hidden="true">&rsaquo;</span>
+          <span class="perm-head__title">View — what they can see</span>
+          <span class="perm-head__count" data-perm-count="view-${i}"></span>
+        </button>
+        <div class="perm-body" data-perm-body="view-${i}" hidden>
+          <div class="perm-chips">${VIEW_PERMS.map(p => permChip(i, p, r)).join("")}</div>
+          ${children.length ? `
+            <div class="small fw-700 text-muted" style="margin:16px 0 8px">Which children can they support?</div>
+            <div class="perm-chips">
+              ${children.map(c => `<label class="pchip ${childOn(c.id) ? "is-on" : ""}"><input type="checkbox" data-childacc="${i}" value="${esc(c.id)}" ${childOn(c.id) ? "checked" : ""} hidden/><span>${esc(c.name)}</span></label>`).join("")}
+            </div>
+            <span class="hint">All selected = every child (the default). Unselect to limit this person to specific children.</span>
+          ` : ""}
+        </div>
+      </div>
+      <p class="small text-muted" style="margin:10px 0 0">Configuration — Family North Star, Family Settings, Learning Profile, child profile editing, capability setup, billing and permissions — is reserved for Owners and never appears in a Contributor's portal.</p>
     </div>
 
     <div class="field" style="margin:14px 0 0">
@@ -593,8 +597,9 @@ function relRow(r, i, children = []) {
 
 function permChip(i, p, r) {
   const on = (r.permissions || []).includes(p.key);
-  return `<label class="chip ${on ? "selected" : ""}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-    <input type="checkbox" data-perm="${i}" value="${esc(p.key)}" ${on ? "checked" : ""} style="margin:0"/> ${esc(p.label)}
+  return `<label class="pchip ${on ? "is-on" : ""}">
+    <input type="checkbox" data-perm="${i}" value="${esc(p.key)}" ${on ? "checked" : ""} hidden/>
+    <span>${esc(p.label)}</span>
   </label>`;
 }
 
