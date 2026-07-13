@@ -70,6 +70,12 @@ export function openModal({ title, body, footer, onClose }) {
 /* ---------- Confirm dialog ---------- */
 export function confirmDialog({ title, message, confirmLabel = "Confirm", danger = false }) {
   return new Promise(resolve => {
+    // Settle exactly once. Closing the modal fires onClose → resolve(false); the
+    // OK/Cancel handlers must record their answer BEFORE they close, or the
+    // onClose(false) would clobber a "confirm" (the classic "Owner grant / delete
+    // does nothing" bug — OK was silently resolving false).
+    let settled = false;
+    const done = (v) => { if (!settled) { settled = true; resolve(v); } };
     const foot = el(`<div class="row" style="gap:10px;justify-content:flex-end;width:100%">
       <button class="btn" data-cancel>Cancel</button>
       <button class="btn ${danger ? "btn-danger" : "btn-primary"}" data-ok>${esc(confirmLabel)}</button>
@@ -78,10 +84,10 @@ export function confirmDialog({ title, message, confirmLabel = "Confirm", danger
       title,
       body: `<p class="text-muted">${esc(message)}</p>`,
       footer: foot,
-      onClose: () => resolve(false),
+      onClose: () => done(false),
     });
-    foot.querySelector("[data-cancel]").addEventListener("click", () => { m.close(); resolve(false); });
-    foot.querySelector("[data-ok]").addEventListener("click", () => { m.close(); resolve(true); });
+    foot.querySelector("[data-cancel]").addEventListener("click", () => { done(false); m.close(); });
+    foot.querySelector("[data-ok]").addEventListener("click", () => { done(true); m.close(); });
   });
 }
 

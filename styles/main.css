@@ -4420,6 +4420,19 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .prompt-chip.is-used{opacity:.38;pointer-events:none;}
 .prompt-chip.is-used::before{content:"✓ ";color:var(--sage-ink);}
 
+/* Collapsible per-person permissions (Family Members / onboarding people step).
+   Collapsed by default so the row stays calm; expand to customise. */
+.perm-owner-note{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--sage-soft);color:var(--sage-ink);font-size:13px;line-height:1.4;}
+.perm-collapsible{margin-top:12px;}
+.perm-toggle{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:var(--card-elev);border:1px solid var(--border-strong);border-radius:10px;padding:10px 13px;cursor:pointer;font-size:13.5px;font-weight:600;color:var(--text);transition:.15s;}
+.perm-toggle:hover{border-color:var(--primary);}
+.perm-toggle__chev{color:var(--text-soft);font-size:17px;line-height:1;transition:transform .18s ease;}
+.perm-toggle.is-open .perm-toggle__chev{transform:rotate(90deg);}
+.perm-toggle__label{flex:1;}
+.perm-toggle__count{font-size:12px;font-weight:600;color:var(--primary-ink);}
+.perm-panel{padding:14px 2px 2px;}
+.perm-panel[hidden]{display:none;}
+
 .qs-welcome{align-items:center;text-align:center;justify-content:center;}
 .qs-welcome h1{margin-top:10px;}
 .qs-mark{font-size:36px;color:var(--gold);line-height:1;}

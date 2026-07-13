@@ -17,7 +17,7 @@
    ============================================================ */
 
 import { supabase } from "./supabase.js";
-import { freshState, hydrateState } from "../store.js";
+import { freshState, hydrateState, getState } from "../store.js";
 import { claimSubscription, claimSubscriptionByEmail } from "./billing.js";
 import { DOMAIN_CATALOG, normalizeDomainId } from "../seed.js";
 
@@ -812,9 +812,38 @@ async function _doEnsureFamilyAndHydrate() {
   state.childSelfAssessments = (selfAssessments.data || []).map(fromSelfAssessmentRow);
   state.growthReports = (growthReports.data || []).map(fromGrowthReportRow);
   state.meta.onboarded = !!prof.data?.onboarded;
+
+  // ---- Anti-clobber: never lose locally-created-but-unsynced rows ----
+  // A re-hydrate (token refresh, tab focus, second sign-in event) replaces the
+  // whole store from the cloud. If it fires in the ~½s before a just-added
+  // child/project/milestone finishes its debounced write, that row would be
+  // wiped from the store AND never synced — the classic "I add a child and it
+  // deletes itself" bug. So, ONLY when we're re-hydrating the SAME family we
+  // already hold locally (never on an account switch — that would leak data),
+  // carry over any local rows whose id isn't in the cloud result yet, then push
+  // them up. Deleting a row on another device is the rare loser here; silently
+  // losing a brand-new child is the far worse outcome we're preventing.
+  const local = getState();
+  const sameFamily = !!local?.family?.id && local.family.id === familyId;
+  let preserved = 0;
+  if (sameFamily) {
+    const mergeLocalOnly = (cloudArr, localArr) => {
+      const ids = new Set(cloudArr.map(x => x.id));
+      const extras = (localArr || []).filter(x => x && x.id && !ids.has(x.id));
+      preserved += extras.length;
+      return extras.length ? [...cloudArr, ...extras] : cloudArr;
+    };
+    state.children = mergeLocalOnly(state.children, local.children);
+    state.projects = mergeLocalOnly(state.projects, local.projects);
+    state.milestones = mergeLocalOnly(state.milestones, local.milestones);
+  }
   state.meta.activeChildId = state.children[0]?.id || null;
 
   hydrateState(state);
+
+  // If we rescued unsynced local rows, push them to the cloud right away so a
+  // later hydrate (which now WILL see them) can't lose them again.
+  if (preserved) { try { await syncCore(state); } catch { /* next update retries */ } }
 }
 
 /* ============================================================

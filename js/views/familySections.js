@@ -189,7 +189,15 @@ export const relationshipsSection = {
 
         // Access Level — Owner vs Contributor. Owner needs an explicit confirm.
         const permsWrap = row.querySelector(`[data-perms="${i}"]`);
+        const ownerNote = row.querySelector(`[data-owner-note="${i}"]`);
         const hint = row.querySelector(`[data-acc-hint="${i}"]`);
+        const setAccessUI = (owner) => {
+          permsWrap?.classList.toggle("hidden", owner);
+          ownerNote?.classList.toggle("hidden", !owner);
+          if (hint) hint.textContent = owner
+            ? "Full access across your family's environment — the same as you."
+            : "A contributor only sees what you allow — set it below.";
+        };
         row.querySelectorAll(`[data-acc-level="${i}"]`).forEach(radio => {
           radio.addEventListener("change", async () => {
             if (!radio.checked) return;
@@ -204,16 +212,33 @@ export const relationshipsSection = {
                 return;
               }
               rel[i].accessLevel = "owner";
-              permsWrap?.classList.add("hidden");
-              if (hint) hint.textContent = "Full editing access across your family's educational environment.";
+              setAccessUI(true);
             } else {
               rel[i].accessLevel = "contributor";
-              permsWrap?.classList.remove("hidden");
-              if (hint) hint.textContent = "Customise exactly what this person can access below.";
+              setAccessUI(false);
             }
             onChange();
           });
         });
+
+        // Collapsible "Customise what they can see & do" panel (collapsed by default,
+        // so the row isn't overwhelming). Shows a small "N selected" hint when closed.
+        const permToggle = row.querySelector(`[data-perm-toggle="${i}"]`);
+        const permPanel = row.querySelector(`[data-perm-panel="${i}"]`);
+        const permCount = row.querySelector(`[data-perm-count="${i}"]`);
+        const updatePermCount = () => {
+          if (permCount) {
+            const n = (rel[i].permissions || []).length;
+            permCount.textContent = n ? `${n} selected` : "";
+          }
+        };
+        permToggle?.addEventListener("click", () => {
+          const opening = permPanel.hasAttribute("hidden");
+          if (opening) permPanel.removeAttribute("hidden"); else permPanel.setAttribute("hidden", "");
+          permToggle.setAttribute("aria-expanded", String(opening));
+          permToggle.classList.toggle("is-open", opening);
+        });
+        updatePermCount();
 
         // Email + invitation.
         row.querySelector('[data-rk="email"]')?.addEventListener("input", e => { rel[i].email = e.target.value; });
@@ -242,6 +267,7 @@ export const relationshipsSection = {
             if (cb.checked) { if (!rel[i].permissions.includes(cb.value)) rel[i].permissions.push(cb.value); }
             else rel[i].permissions = rel[i].permissions.filter(k => k !== cb.value);
             cb.closest(".chip")?.classList.toggle("selected", cb.checked);
+            updatePermCount();
             onChange();
           });
         });
@@ -514,33 +540,44 @@ function relRow(r, i, children = []) {
     <div class="field" style="margin:0">
       <label class="small fw-700">Access Level</label>
       <div class="row" style="gap:18px;margin-top:5px">
-        <label class="checkbox" style="cursor:pointer"><input type="radio" name="acc-${i}" data-acc-level="${i}" value="owner" ${isOwner ? "checked" : ""}/> Owner</label>
         <label class="checkbox" style="cursor:pointer"><input type="radio" name="acc-${i}" data-acc-level="${i}" value="contributor" ${isOwner ? "" : "checked"}/> Contributor</label>
+        <label class="checkbox" style="cursor:pointer"><input type="radio" name="acc-${i}" data-acc-level="${i}" value="owner" ${isOwner ? "checked" : ""}/> Owner</label>
       </div>
-      <span class="hint" data-acc-hint="${i}">${isOwner ? "Full editing access across your family's educational environment." : "Customise exactly what this person can access below."}</span>
+      <span class="hint" data-acc-hint="${i}">${isOwner ? "Full access across your family's environment — the same as you." : "A contributor only sees what you allow — set it below."}</span>
     </div>
 
-    <div data-perms="${i}" class="${isOwner ? "hidden" : ""}" style="margin-top:14px">
-      <div class="small fw-700 text-muted" style="margin-bottom:7px">Contribution — what they can do</div>
-      <div class="row" style="flex-wrap:wrap;gap:8px">
-        ${CONTRIBUTION_PERMS.map(p => permChip(i, p, r)).join("")}
-      </div>
-      <p class="small text-muted" style="margin:6px 0 0">💳 Granting <em>Generate AI Projects</em> or <em>Request AI Reports</em> makes this a billable contributor seat once they accept (manage in Settings → Subscription).</p>
-      <div class="small fw-700 text-muted" style="margin:14px 0 7px">View — what they can see</div>
-      <div class="row" style="flex-wrap:wrap;gap:8px">
-        ${VIEW_PERMS.map(p => permChip(i, p, r)).join("")}
-      </div>
+    <div class="perm-owner-note ${isOwner ? "" : "hidden"}" data-owner-note="${i}">
+      ✓ Full access to everything — Family North Star, settings, every child and AI configuration — the same authority as you.
+    </div>
 
-      ${children.length ? `
-        <div class="small fw-700 text-muted" style="margin:14px 0 7px">Which children can they support?</div>
+    <div data-perms="${i}" class="perm-collapsible ${isOwner ? "hidden" : ""}">
+      <button type="button" class="perm-toggle" data-perm-toggle="${i}" aria-expanded="false">
+        <span class="perm-toggle__chev" aria-hidden="true">&rsaquo;</span>
+        <span class="perm-toggle__label">Customise what they can see &amp; do</span>
+        <span class="perm-toggle__count" data-perm-count="${i}"></span>
+      </button>
+      <div class="perm-panel" data-perm-panel="${i}" hidden>
+        <div class="small fw-700 text-muted" style="margin-bottom:7px">Contribution — what they can do</div>
         <div class="row" style="flex-wrap:wrap;gap:8px">
-          ${children.map(c => `<label class="chip ${childOn(c.id) ? "selected" : ""}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
-            <input type="checkbox" data-childacc="${i}" value="${esc(c.id)}" ${childOn(c.id) ? "checked" : ""} style="margin:0"/> ${esc(c.name)}</label>`).join("")}
+          ${CONTRIBUTION_PERMS.map(p => permChip(i, p, r)).join("")}
         </div>
-        <span class="hint">All selected = every child (the default). Unselect to limit this person to specific children — e.g. one parent who only supports one child in a blended family.</span>
-      ` : ""}
+        <p class="small text-muted" style="margin:6px 0 0">💳 Granting <em>Generate AI Projects</em> or <em>Request AI Reports</em> makes this a billable contributor seat once they accept (manage in Settings → Subscription).</p>
+        <div class="small fw-700 text-muted" style="margin:14px 0 7px">View — what they can see</div>
+        <div class="row" style="flex-wrap:wrap;gap:8px">
+          ${VIEW_PERMS.map(p => permChip(i, p, r)).join("")}
+        </div>
 
-      <p class="small text-muted" style="margin:12px 0 0">Configuration — Family North Star, Family Settings, Learning Profile, child profile editing, capability setup, billing and permissions — is reserved for Owners and never appears in a Contributor's portal.</p>
+        ${children.length ? `
+          <div class="small fw-700 text-muted" style="margin:14px 0 7px">Which children can they support?</div>
+          <div class="row" style="flex-wrap:wrap;gap:8px">
+            ${children.map(c => `<label class="chip ${childOn(c.id) ? "selected" : ""}" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+              <input type="checkbox" data-childacc="${i}" value="${esc(c.id)}" ${childOn(c.id) ? "checked" : ""} style="margin:0"/> ${esc(c.name)}</label>`).join("")}
+          </div>
+          <span class="hint">All selected = every child (the default). Unselect to limit this person to specific children — e.g. one parent who only supports one child in a blended family.</span>
+        ` : ""}
+
+        <p class="small text-muted" style="margin:12px 0 0">Configuration — Family North Star, Family Settings, Learning Profile, child profile editing, capability setup, billing and permissions — is reserved for Owners and never appears in a Contributor's portal.</p>
+      </div>
     </div>
 
     <div class="field" style="margin:14px 0 0">

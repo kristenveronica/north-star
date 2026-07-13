@@ -86,9 +86,20 @@ export function wireAccordion(container, pageId) {
   container.querySelectorAll("[data-acc-head]").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.accHead;
+      // Remember where the clicked header sits in the viewport BEFORE the toggle.
+      // Opening one section closes any other that was open — if that other section
+      // was ABOVE this one, the page collapses upward and the viewport drops into
+      // the middle/bottom of the section you just opened. Re-pin the header to its
+      // original spot afterwards so you always land at the TOP of what you opened.
+      const before = btn.getBoundingClientRect().top;
       if (s.expandAll) { s.expandAll = false; s.open = id; }
       else { s.open = (s.open === id) ? null : id; }
       apply(id);
+      requestAnimationFrame(() => {
+        const after = btn.getBoundingClientRect().top;
+        const delta = after - before;
+        if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+      });
     });
   });
 
