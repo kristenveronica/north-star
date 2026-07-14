@@ -22,7 +22,10 @@ import { getState } from "../store.js";
 import { esc, toast, confirmDialog } from "../components/ui.js";
 import { autosize } from "./familyVision.js";
 import { attachLocationAutocomplete } from "../lib/cities.js";
-import { defaultRhythm, reflectionSchedule, monthName, MONTHS } from "../lib/schoolYear.js";
+import {
+  defaultRhythm, reflectionSchedule, monthName, MONTHS,
+  TERM_STRUCTURES, termStructureOf, breakSlots, defaultBreakWeeks,
+} from "../lib/schoolYear.js";
 import { weeklyLearningBudgetHours } from "../lib/learningCapacity.js";
 import { CONTRIBUTION_PERMS, VIEW_PERMS, DEFAULT_CONTRIBUTOR_PERMS } from "../lib/permissions.js";
 import { createInvite } from "../lib/invites.js";
@@ -162,7 +165,7 @@ export const relationshipsSection = {
   blurb: "The real people in your child's world — North Star only ever refers to those you add.",
   body() {
     return `
-      <p class="ns-acc__intro">The trusted adults in your child's world — parents, grandparents, tutors, mentors, coaches. North Star only ever refers to people you add here. For each person you can set an <strong>Access Level</strong> and customise exactly what they can see and do. You are the Owner; everyone else's portal is generated from the permissions you grant.</p>
+      <p class="ns-acc__intro">The trusted adults in your child's world — parents, grandparents, tutors, mentors, coaches. North Star only ever refers to people you add here. For each person you can set an <strong>Access Level</strong> and customise exactly what they can see and do. Everyone else's portal is generated from the permissions you grant.</p>
       <div id="rel-list" class="stack"></div>
       <button class="btn btn-sm mt-2" id="rel-add" type="button">+ Add Person</button>`;
   },
@@ -187,7 +190,7 @@ export const relationshipsSection = {
         row.querySelector('[data-rk="notes"]').addEventListener("input", e => { rel[i].notes = e.target.value; });
         row.querySelector('[data-rk="remove"]').addEventListener("click", () => { rel.splice(i, 1); renderRel(); onChange(); });
 
-        // Access Level — Owner vs Contributor. Owner needs an explicit confirm.
+        // Access Level — Full Access vs Contributor. Full Access needs an explicit confirm.
         const permsWrap = row.querySelector(`[data-perms="${i}"]`);
         const ownerNote = row.querySelector(`[data-owner-note="${i}"]`);
         const hint = row.querySelector(`[data-acc-hint="${i}"]`);
@@ -203,9 +206,9 @@ export const relationshipsSection = {
             if (!radio.checked) return;
             if (radio.value === "owner") {
               const ok = await confirmDialog({
-                title: "Grant Full Owner Access?",
-                message: "Owners have complete editing access across your family's educational environment, including Family North Star, Family Settings, Learning Profiles, Child Profiles, permissions and AI configuration. They will have the same authority as you to modify your family's educational experience. Only grant Owner access to someone you trust to jointly manage your child's education.",
-                confirmLabel: "Grant Owner Access",
+                title: "Give this person Full Access?",
+                message: "Full Access means they can view and edit everything across your family's learning environment — Family North Star, Family Settings, Learning Profiles, child profiles, permissions and AI configuration — exactly as you can. This does NOT transfer your account or billing to them; you remain the account holder. Only give Full Access to someone you trust to jointly manage your children's education.",
+                confirmLabel: "Give Full Access",
               });
               if (!ok) {
                 row.querySelector(`[data-acc-level="${i}"][value="contributor"]`).checked = true;
@@ -416,6 +419,8 @@ export const rhythmSection = {
   body(st, ctx = {}) {
     const rhythm = st.rhythm;
     const fam = ctx.fam || {};
+    const structure = termStructureOf(rhythm);
+    const holMode = rhythm.holidayMode === "custom" ? "custom" : "auto";
     const monthOpts = (sel) => MONTHS.map((m, i) => `<option value="${i + 1}" ${(+sel) === (i + 1) ? "selected" : ""}>${m}</option>`).join("");
     return `
       <p class="ns-acc__intro">How learning naturally fits into your family's life. North Star uses this to time reflections, shape the calendar and (soon) scale project workload to your week — never to overfill it. You're not scheduling lessons; you're telling North Star your family's capacity.</p>
@@ -442,29 +447,115 @@ export const rhythmSection = {
         <div class="field" style="margin:0"><label>Custom end time <span class="text-muted small">(optional)</span></label><input class="input" type="time" id="ry-end-time" value="${esc(rhythm.customEndTime || "")}"/></div>
       </div>
       <div class="card" style="background:var(--card-elev);margin-top:14px">
-        <div class="small text-muted">North Star organises the year into <strong>four quarters</strong> — its default rhythm of ~9–10 week terms with breaks between, matching the natural seasons. You can still think in semesters; reflections and celebrations follow the quarters.</div>
+        <div class="small text-muted">North Star's default setting organises the year into <strong>four quarters</strong> — its rhythm of ~9–10 week terms with breaks between, matches the natural seasons.<br/>You are welcome to customise your year below if you prefer semesters or trimesters.</div>
       </div>
+
+      <div class="grid grid-2" style="gap:14px;margin-top:14px">
+        <div class="field" style="margin:0">
+          <label>School year structure</label>
+          <select class="input" id="ry-structure">
+            ${TERM_STRUCTURES.map(t => `<option value="${t.v}" ${structure.v === t.v ? "selected" : ""}>${t.label}</option>`).join("")}
+          </select>
+        </div>
+        <div class="field" style="margin:0">
+          <label>School holidays</label>
+          <select class="input" id="ry-holmode">
+            <option value="auto" ${holMode === "auto" ? "selected" : ""}>Let North Star schedule them — I'll pick the length</option>
+            <option value="custom" ${holMode === "custom" ? "selected" : ""}>I'll enter specific dates</option>
+          </select>
+        </div>
+      </div>
+      <div id="ry-breaks"></div>
+
       <div id="ry-preview" class="card" style="margin-top:12px"></div>`;
   },
   wire(root, st, ctx) {
     const rhythm = st.rhythm;
     const loc = st.loc;
     const fam = ctx.fam || {};
+    const onChange = ctx.onChange || (() => {});
     const previewEl = root.querySelector("#ry-preview");
     const paintRhythm = () => {
       const sched = reflectionSchedule(rhythm, new Date());
       const weekly = weeklyLearningBudgetHours(rhythm);
+      const structure = termStructureOf(rhythm);
+      const slots = breakSlots(rhythm);
+      const holWeeks = slots.reduce((n, s) =>
+        n + (Number(rhythm.breakWeeks?.[s.key]) || defaultBreakWeeks(s.kind)), 0);
       const lbl = "letter-spacing:0.04em;text-transform:uppercase;font-size:10.5px;color:var(--text-soft)";
       previewEl.innerHTML = `
         <div class="small" style="${lbl};margin-bottom:8px">North Star sees</div>
         <div class="grid grid-2" style="gap:10px">
           <div><div class="small text-muted">Weekly learning budget</div><div class="fw-700">${weekly} ${weekly === 1 ? "hour" : "hours"}/week</div></div>
           <div><div class="small text-muted">School year</div><div class="fw-700">${esc(sched.schoolYear.label)} · ${monthName(rhythm.schoolYearStartMonth)}–${monthName(rhythm.schoolYearEndMonth)}</div></div>
-          <div><div class="small text-muted">Current quarter</div><div class="fw-700">${sched.currentQuarter ? sched.currentQuarter.label : "On a break"}</div></div>
+          <div><div class="small text-muted">Structure</div><div class="fw-700">${structure.count} × ${esc(structure.unit)}s · ${structure.weeks} weeks each</div></div>
+          <div><div class="small text-muted">Current ${esc(structure.unit.toLowerCase())}</div><div class="fw-700">${sched.currentQuarter ? sched.currentQuarter.label : "On a break"}</div></div>
+          ${rhythm.holidayMode === "custom"
+            ? `<div><div class="small text-muted">Holidays</div><div class="fw-700">Your own dates</div></div>`
+            : `<div><div class="small text-muted">Holidays</div><div class="fw-700">~${holWeeks} weeks a year</div></div>`}
           <div><div class="small text-muted">Annual celebration</div><div class="fw-700">${fmtDateShort(sched.annualCelebration)}</div></div>
         </div>
         <div class="small text-muted" style="margin-top:10px">Next reflections — Monthly: <strong>${fmtDateShort(sched.nextMonthly)}</strong> · Quarterly: <strong>${fmtDateShort(sched.nextQuarterly)}</strong> · Annual: <strong>${fmtDateShort(sched.nextAnnual)}</strong></div>`;
     };
+
+    /* ---- School holidays: one row per break, either specific dates or a length ---- */
+    const breaksHost = root.querySelector("#ry-breaks");
+    const renderBreaks = () => {
+      if (!breaksHost) return;
+      const custom = rhythm.holidayMode === "custom";
+      const slots = breakSlots(rhythm);
+      const weekOpts = (key, kind) => {
+        const cur = Number(rhythm.breakWeeks?.[key]) || defaultBreakWeeks(kind);
+        const range = kind === "summer" ? [4, 5, 6, 7, 8, 9, 10] : [1, 2, 3];
+        return range.map(w => `<option value="${w}" ${w === cur ? "selected" : ""}>${w} ${w === 1 ? "week" : "weeks"}</option>`).join("");
+      };
+      breaksHost.innerHTML = `
+        <div class="small fw-700 text-muted" style="margin:16px 0 8px">
+          ${custom ? "Enter the exact dates for each break" : "Choose how long each break runs"}
+        </div>
+        <div class="stack" style="gap:10px">
+          ${slots.map(s => custom ? `
+            <div class="ry-break" data-break="${esc(s.key)}">
+              <div class="ry-break__label">${esc(s.label)}</div>
+              <div class="ry-break__ctl row" style="gap:8px;flex-wrap:wrap">
+                <input class="input" type="date" data-bd-start="${esc(s.key)}" aria-label="${esc(s.label)} start" value="${esc(rhythm.breakDates?.[s.key]?.start || "")}"/>
+                <input class="input" type="date" data-bd-end="${esc(s.key)}" aria-label="${esc(s.label)} end" value="${esc(rhythm.breakDates?.[s.key]?.end || "")}"/>
+              </div>
+            </div>` : `
+            <div class="ry-break" data-break="${esc(s.key)}">
+              <div class="ry-break__label">${esc(s.label)}</div>
+              <div class="ry-break__ctl">
+                <select class="input" data-bw="${esc(s.key)}">${weekOpts(s.key, s.kind)}</select>
+              </div>
+            </div>`).join("")}
+        </div>`;
+
+      breaksHost.querySelectorAll("[data-bw]").forEach(sel => {
+        sel.addEventListener("change", () => {
+          rhythm.breakWeeks = { ...(rhythm.breakWeeks || {}), [sel.dataset.bw]: parseInt(sel.value, 10) };
+          paintRhythm(); onChange();
+        });
+      });
+      breaksHost.querySelectorAll("[data-bd-start],[data-bd-end]").forEach(inp => {
+        inp.addEventListener("change", () => {
+          const key = inp.dataset.bdStart || inp.dataset.bdEnd;
+          const cur = { ...(rhythm.breakDates?.[key] || {}) };
+          if (inp.dataset.bdStart) cur.start = inp.value; else cur.end = inp.value;
+          rhythm.breakDates = { ...(rhythm.breakDates || {}), [key]: cur };
+          paintRhythm(); onChange();
+        });
+      });
+    };
+
+    root.querySelector("#ry-structure")?.addEventListener("change", (e) => {
+      rhythm.termStructure = e.target.value;
+      renderBreaks(); paintRhythm(); onChange();
+    });
+    root.querySelector("#ry-holmode")?.addEventListener("change", (e) => {
+      rhythm.holidayMode = e.target.value === "custom" ? "custom" : "auto";
+      renderBreaks(); paintRhythm(); onChange();
+    });
+
     const bindRhythm = (id, key, transform = (v) => v) => {
       const el = root.querySelector(id);
       el?.addEventListener("change", () => { rhythm[key] = transform(el.value); paintRhythm(); });
@@ -486,6 +577,7 @@ export const rhythmSection = {
     bindRhythm("#ry-window", "learningWindow");
     bindRhythm("#ry-start-time", "customStartTime");
     bindRhythm("#ry-end-time", "customEndTime");
+    renderBreaks();
     paintRhythm();
   },
 };
@@ -544,7 +636,7 @@ function relRow(r, i, children = []) {
       <label class="small fw-700">Access Level</label>
       <div class="row" style="gap:18px;margin-top:5px">
         <label class="checkbox" style="cursor:pointer"><input type="radio" name="acc-${i}" data-acc-level="${i}" value="contributor" ${isOwner ? "" : "checked"}/> Contributor</label>
-        <label class="checkbox" style="cursor:pointer"><input type="radio" name="acc-${i}" data-acc-level="${i}" value="owner" ${isOwner ? "checked" : ""}/> Owner</label>
+        <label class="checkbox" style="cursor:pointer"><input type="radio" name="acc-${i}" data-acc-level="${i}" value="owner" ${isOwner ? "checked" : ""}/> Full Access</label>
       </div>
       <span class="hint" data-acc-hint="${i}">${isOwner ? "Full access across your family's environment — the same as you." : "A contributor only sees what you allow — set it below."}</span>
     </div>
@@ -581,7 +673,7 @@ function relRow(r, i, children = []) {
           ` : ""}
         </div>
       </div>
-      <p class="small text-muted" style="margin:10px 0 0">Configuration — Family North Star, Family Settings, Learning Profile, child profile editing, capability setup, billing and permissions — is reserved for Owners and never appears in a Contributor's portal.</p>
+      <p class="small text-muted" style="margin:10px 0 0">Configuration — Family North Star, Family Settings, Learning Profile, child profile editing, capability setup, billing and permissions — is reserved for Full Access adults and never appears in a Contributor's portal.</p>
     </div>
 
     <div class="field" style="margin:14px 0 0">

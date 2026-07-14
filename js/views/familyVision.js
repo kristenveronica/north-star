@@ -62,12 +62,28 @@ export function attachPromptChips(textareaEl, chips) {
   if (!textareaEl || !chips || !chips.length) return;
   const wrap = document.createElement("div");
   wrap.className = "prompt-chips";
+  // Collapsed by default behind a "Need a spark?" dropdown, so the page stays
+  // calm; the caption + chips reveal together when it's opened.
   wrap.innerHTML = `
-    <div class="prompt-chips__cap">Need a spark? Tap any that fit — then make them yours:</div>
-    <div class="prompt-chips__row">
-      ${chips.map(c => `<button type="button" class="prompt-chip" data-chip="${esc(c)}">${esc(c)}</button>`).join("")}
+    <button type="button" class="prompt-chips__toggle" aria-expanded="false">
+      <span class="prompt-chips__chev" aria-hidden="true">&rsaquo;</span>
+      <span>Need a spark?</span>
+    </button>
+    <div class="prompt-chips__panel" hidden>
+      <div class="prompt-chips__cap">Tap any that fit — then make them yours:</div>
+      <div class="prompt-chips__row">
+        ${chips.map(c => `<button type="button" class="prompt-chip" data-chip="${esc(c)}">${esc(c)}</button>`).join("")}
+      </div>
     </div>`;
   textareaEl.insertAdjacentElement("afterend", wrap);
+  const toggle = wrap.querySelector(".prompt-chips__toggle");
+  const panel = wrap.querySelector(".prompt-chips__panel");
+  toggle.addEventListener("click", () => {
+    const opening = panel.hasAttribute("hidden");
+    if (opening) panel.removeAttribute("hidden"); else panel.setAttribute("hidden", "");
+    toggle.setAttribute("aria-expanded", String(opening));
+    toggle.classList.toggle("is-open", opening);
+  });
   wrap.querySelectorAll("[data-chip]").forEach(b => b.addEventListener("click", () => {
     if (b.classList.contains("is-used")) return;
     const cur = textareaEl.value.replace(/\s*$/, "");

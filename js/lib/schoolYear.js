@@ -33,9 +33,41 @@ export function inferHemisphere(country) {
 }
 
 /** Sensible starting rhythm for a family, inferred from their country. */
+/* How a family divides its learning year. ~40 teaching weeks either way. */
+export const TERM_STRUCTURES = [
+  { v: "terms",      count: 4, weeks: 10, unit: "Term",       label: "Terms — 4 × 10 weeks" },
+  { v: "trimesters", count: 3, weeks: 13, unit: "Trimester",  label: "Trimesters — 3 × 13 weeks" },
+  { v: "semesters",  count: 2, weeks: 20, unit: "Semester",   label: "Semesters — 2 × 20 weeks" },
+];
+
+/** Resolve a family's structure (legacy "quarters" == 4 terms). */
+export function termStructureOf(rhythm = {}) {
+  const v = (!rhythm.termStructure || rhythm.termStructure === "quarters") ? "terms" : rhythm.termStructure;
+  return TERM_STRUCTURES.find(t => t.v === v) || TERM_STRUCTURES[0];
+}
+
+/** The holiday slots implied by the structure: a break after each block except
+    the last, plus the long end-of-year (summer) break. */
+export function breakSlots(rhythm = {}) {
+  const st = termStructureOf(rhythm);
+  const slots = [];
+  for (let i = 1; i < st.count; i++) {
+    slots.push({ key: `after-${i}`, label: `After ${st.unit} ${i}`, kind: "between" });
+  }
+  slots.push({ key: "summer", label: "Summer / end-of-year holidays", kind: "summer" });
+  return slots;
+}
+
+export const DEFAULT_BREAK_WEEKS = { between: 2, summer: 6 };
+export const defaultBreakWeeks = (kind) => (kind === "summer" ? DEFAULT_BREAK_WEEKS.summer : DEFAULT_BREAK_WEEKS.between);
+
 export function defaultRhythm(country) {
   const hemisphere = inferHemisphere(country);
-  const base = { hemisphere, termStructure: "quarters", daysPerWeek: 4, hoursPerDay: 3, learningWindow: "morning", customStartTime: "", customEndTime: "" };
+  const base = {
+    hemisphere, termStructure: "terms",
+    holidayMode: "auto", breakWeeks: {}, breakDates: {},
+    daysPerWeek: 4, hoursPerDay: 3, learningWindow: "morning", customStartTime: "", customEndTime: "",
+  };
   return hemisphere === "southern"
     ? { ...base, schoolYearStartMonth: 2, schoolYearEndMonth: 12 }   // Feb → Dec
     : { ...base, schoolYearStartMonth: 9, schoolYearEndMonth: 6 };   // Sep → Jun
@@ -74,21 +106,28 @@ export function currentSchoolYear(rhythm = {}, now = new Date()) {
   return { label, start: win.start, end: win.end, active, startMonth: startM, endMonth: endM };
 }
 
-/** Four quarters dividing the school-year window into equal segments (Q1–Q4). */
-export function quarters(rhythm = {}, now = new Date()) {
+/** The learning blocks dividing the school-year window into equal segments —
+    4 Terms, 3 Trimesters or 2 Semesters, per the family's chosen structure. */
+export function terms(rhythm = {}, now = new Date()) {
   const sy = currentSchoolYear(rhythm, now);
-  const seg = (sy.end - sy.start) / 4;
-  return [0, 1, 2, 3].map(i => ({
+  const st = termStructureOf(rhythm);
+  const seg = (sy.end - sy.start) / st.count;
+  return Array.from({ length: st.count }, (_, i) => ({
     index: i + 1,
-    label: `Q${i + 1}`,
+    label: `${st.unit} ${i + 1}`,
     start: new Date(sy.start.getTime() + i * seg),
     end: new Date(sy.start.getTime() + (i + 1) * seg - 1),
   }));
 }
 
-/** Which quarter `now` falls in (or null if in a break). */
+/** Back-compat alias — the year's blocks (was always 4; now structure-aware). */
+export function quarters(rhythm = {}, now = new Date()) {
+  return terms(rhythm, now);
+}
+
+/** Which block `now` falls in (or null if in a break). */
 export function currentQuarter(rhythm = {}, now = new Date()) {
-  return quarters(rhythm, now).find(q => now >= q.start && now <= q.end) || null;
+  return terms(rhythm, now).find(q => now >= q.start && now <= q.end) || null;
 }
 
 const endOfMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);

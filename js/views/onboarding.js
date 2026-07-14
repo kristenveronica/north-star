@@ -164,6 +164,8 @@ function paint(card) {
     card._draftBound = true;
   }
   if (step === "done") dropDraft(); else persistDraft();
+  // Every step opens at the TOP — never half-way down the previous step's scroll.
+  requestAnimationFrame(() => window.scrollTo(0, 0));
   const indicator = `
     <div class="step-indicator">
       ${STEPS.map((_, i) => `<div class="dot ${i < _step ? "done" : i === _step ? "active" : ""}"></div>`).join("")}
@@ -475,21 +477,10 @@ function paint(card) {
       ${indicator}
       <h1>You're set.</h1>
       <p class="lede">Your family's North Star is saved. Next, add each child's profile, choose your learning style, and we'll help shape their first projects.</p>
-      <div class="card mt-2" style="background:linear-gradient(135deg, var(--primary-soft), var(--card-elev))">
-        <h4>Where to go next</h4>
-        <ol class="text-muted" style="padding-left:20px">
-          <li>Add or edit a child profile</li>
-          <li>Set your Learning Style slider</li>
-          <li>Pick your domains for the term</li>
-          <li>Review the suggested projects + materials</li>
-        </ol>
-      </div>
-      <div class="row mt-3" style="gap:10px">
-        <button class="btn btn-primary btn-lg" id="go-dash">Go to Dashboard</button>
-        <button class="btn" id="go-children">Open Children</button>
+      <div class="row mt-3">
+        <button class="btn btn-primary btn-lg" id="go-children">Add a Child</button>
       </div>
     `;
-    card.querySelector("#go-dash").addEventListener("click", () => navigate("/"));
     card.querySelector("#go-children").addEventListener("click", () => navigate("/children"));
   }
 }

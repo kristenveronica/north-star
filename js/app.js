@@ -156,12 +156,14 @@ export function withParentShell(container, viewFn, params) {
     });
   }
 
-  // Restore this route's main-content scroll position (0 on first visit).
+  // Always land at the TOP of a freshly-loaded page. (Previously we restored the
+  // route's last scroll position, which made a page open half-way down — jarring
+  // when you'd just navigated to it. Expanding a section keeps its own position;
+  // see wireAccordion, which re-pins the header you clicked.)
   initScrollTracking();
-  const savedY = _scrollByPath[location.hash] || 0;
   requestAnimationFrame(() => {
-    window.scrollTo(0, savedY);
-    requestAnimationFrame(() => window.scrollTo(0, savedY));
+    window.scrollTo(0, 0);
+    requestAnimationFrame(() => window.scrollTo(0, 0));
   });
   // Wire sidebar logout (only present when an account exists)
   shell.querySelector("[data-logout]")?.addEventListener("click", async (e) => {

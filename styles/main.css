@@ -4412,8 +4412,20 @@ small, .small { font-size: 13px; color: var(--text-muted); }
    The placeholder examples disappear on first keystroke; these stay, so a parent
    who's short on words always has a wide palette to draw from. */
 .prompt-chips{margin-top:10px;}
+.prompt-chips__toggle{display:inline-flex;align-items:center;gap:7px;background:none;border:none;padding:2px 0;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text-muted);}
+.prompt-chips__toggle:hover{color:var(--primary);}
+.prompt-chips__chev{font-size:15px;line-height:1;color:var(--text-soft);transition:transform .18s ease;}
+.prompt-chips__toggle.is-open .prompt-chips__chev{transform:rotate(90deg);}
+.prompt-chips__panel{padding-top:8px;}
+.prompt-chips__panel[hidden]{display:none;}
 .prompt-chips__cap{font-size:12.5px;color:var(--text-soft);margin-bottom:8px;}
 .prompt-chips__row{display:flex;flex-wrap:wrap;gap:7px;}
+
+/* Family Rhythm — school-holiday break rows */
+.ry-break{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card-elev);}
+.ry-break__label{flex:1;min-width:170px;font-size:13.5px;font-weight:600;color:var(--text);}
+.ry-break__ctl{flex-shrink:0;}
+.ry-break__ctl .input{max-width:200px;}
 .prompt-chip{background:var(--card-elev);border:1px solid var(--border-strong);border-radius:999px;padding:6px 12px;font-size:13px;color:var(--text);cursor:pointer;transition:.15s;}
 .prompt-chip::before{content:"＋ ";color:var(--text-soft);}
 .prompt-chip:hover{border-color:var(--primary);color:var(--primary);}
@@ -4436,7 +4448,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .perm-chips{display:flex;flex-wrap:wrap;gap:8px;}
 /* Clean pill toggles (no clunky checkbox squares). Off = quiet outline;
    on = soft fill with a leading tick. */
-.pchip{display:inline-flex;align-items:center;padding:7px 14px;border-radius:999px;border:1px solid var(--border-strong);background:var(--card);color:var(--text-muted);font-size:13px;cursor:pointer;transition:.15s;user-select:none;}
+.pchip{display:inline-flex;align-items:center;padding:7px 14px;border-radius:999px;border:1px solid var(--border-strong);background:var(--card);color:var(--text-muted);font-size:13px;cursor:pointer;transition:.15s;-webkit-user-select:none;user-select:none;}
 .pchip:hover{border-color:var(--primary);color:var(--text);}
 .pchip.is-on{background:var(--primary-soft);border-color:var(--primary);color:var(--primary-ink);font-weight:600;}
 .pchip.is-on::before{content:"✓";margin-right:6px;font-size:11px;font-weight:800;}
