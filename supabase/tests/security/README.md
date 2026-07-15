@@ -6,7 +6,7 @@ Proves that the Phase 0 authorization holes are **open today** and **closed afte
 
 | File | What it checks | Safe on prod? | Status |
 |---|---|---|---|
-| `config_assertions.sql` | The *shape* of the defences — policies, grants, triggers, function bodies. Read-only catalog inspection. | ✅ Yes (read-only) | **Executed 2026-07-15 — all 10 RED (baseline).** |
+| `config_assertions.sql` | The *shape* of the defences — policies, grants, triggers, function bodies. Read-only catalog inspection. | ✅ Yes (read-only) | **`0025` APPLIED to prod 2026-07-15 — all 10 GREEN on the live DB.** (Was 10 RED before.) |
 | `rls_behavioral.sql` | Real attacker behaviour at the RLS layer — simulates `authenticated` users with forged JWT claims and attempts each exploit. All fixtures synthetic; wrapped in a single `ROLLBACK`. | ✅ Yes (rolled back), but intended for staging | Written; role-sim mechanism validated. **Run in staging during A3.** |
 
 ## How to run
