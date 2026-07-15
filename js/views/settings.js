@@ -84,25 +84,9 @@ export function renderSettings(container) {
         </div>
 
         <div class="card">
-          <h3>Child Insights (premium feature)</h3>
+          <h3>Child Insights</h3>
           <p class="text-muted small">${esc(INSIGHTS_DISCLAIMER)}</p>
-          <label class="checkbox mt-2"><input type="checkbox" id="premium-toggle" ${s.insightsConfig?.premiumEnabled ? "checked" : ""}/> Enable Child Insights & Developmental Intelligence</label>
-          <div id="frameworks-wrap" class="${s.insightsConfig?.premiumEnabled ? "" : "hidden"} mt-2">
-            <div class="divider"></div>
-            <h4>Framework Marketplace</h4>
-            <p class="text-muted small mb-2">Choose which lenses are used to surface observations. Evidence-informed by default; interpretive frameworks are entirely optional and presented as reflective tools, never as objective truth.</p>
-
-            <div class="small text-muted fw-700" style="letter-spacing:0.08em;text-transform:uppercase;margin-top:8px">Evidence-Informed</div>
-            <div class="stack mt-1">
-              ${FRAMEWORKS.filter(f => f.group === "evidence").map(f => frameworkRow(f, s.insightsConfig?.frameworks?.[f.id])).join("")}
-            </div>
-
-            <div class="small text-muted fw-700 mt-3" style="letter-spacing:0.08em;text-transform:uppercase">Interpretive (optional)</div>
-            <p class="small text-muted">These frameworks are for reflection and exploration. Never offered as objective truth.</p>
-            <div class="stack mt-1">
-              ${FRAMEWORKS.filter(f => f.group === "interpretive").map(f => frameworkRow(f, s.insightsConfig?.frameworks?.[f.id])).join("")}
-            </div>
-          </div>
+          <p class="text-muted small mt-2">Child Insights &amp; Developmental Intelligence will arrive with a future plan. There's nothing to configure yet — we'll walk you through it when it's ready.</p>
         </div>
 
         <div class="card">
@@ -240,20 +224,7 @@ export function renderSettings(container) {
     navigate("/login");
   });
 
-  // Insights premium toggle
-  const premiumCb = container.querySelector("#premium-toggle");
-  premiumCb?.addEventListener("change", () => {
-    setInsightsConfig({ premiumEnabled: premiumCb.checked, disclaimerAcknowledged: true });
-    container.querySelector("#frameworks-wrap").classList.toggle("hidden", !premiumCb.checked);
-    toast(premiumCb.checked ? "Child Insights enabled" : "Child Insights disabled", { type: "success" });
-    rerender();
-  });
-  container.querySelectorAll("[data-framework]").forEach(cb => {
-    cb.addEventListener("change", () => {
-      setInsightsConfig({ frameworks: { [cb.dataset.framework]: cb.checked } });
-      toast("Frameworks updated");
-    });
-  });
+  // Child Insights is deferred to a future plan (Sprint 1): no self-serve premium grant.
 
   container.querySelector("#reset").addEventListener("click", async () => {
     const ok = await confirmDialog({

@@ -188,17 +188,12 @@ function renderUpgradeGate(container) {
       <h4>Optional interpretive frameworks</h4>
       <p class="small text-muted">Astrology, Human Design, archetypal patterns — fully optional, presented as reflective tools, never as objective truth.</p>
 
+      <p class="small text-muted mt-2">Child Insights arrives with a future plan. There's nothing to switch on today — we'll guide you through it when it's ready.</p>
       <div class="row mt-2" style="gap:10px">
-        <button class="btn btn-primary btn-lg" id="enable-premium">Enable Child Insights (free for MVP)</button>
-        <a class="btn" href="#/">Maybe later</a>
+        <a class="btn" href="#/">Back to dashboard</a>
       </div>
     </div>
   `;
-  container.querySelector("#enable-premium").addEventListener("click", () => {
-    setInsightsConfig({ premiumEnabled: true, disclaimerAcknowledged: true });
-    toast("Child Insights enabled", { type: "success" });
-    rerender();
-  });
 }
 
 /* ============================================================
