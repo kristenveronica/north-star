@@ -81,19 +81,25 @@ async function billingRow(familyId: string) {
   return data || null;
 }
 
-/** Resolve the caller's user + their family_id from the JWT. */
+/** Resolve the caller's user + their family_id + role/status from the JWT. */
 async function resolveFamily(req: Request) {
   const authHeader = req.headers.get("Authorization") || "";
   const userClient = createClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), {
     global: { headers: { Authorization: authHeader } },
   });
   const { data: { user } } = await userClient.auth.getUser();
-  if (!user) return { user: null, familyId: null, email: "" };
+  if (!user) return { user: null, familyId: null, email: "", role: null, status: null };
   const { data: m } = await userClient
-    .from("family_members").select("family_id")
+    .from("family_members").select("family_id, role, status")
     .eq("user_id", user.id).order("created_at", { ascending: true }).limit(1);
-  return { user, familyId: m?.[0]?.family_id || null, email: user.email || "" };
+  const row = m?.[0];
+  return { user, familyId: row?.family_id || null, email: user.email || "", role: row?.role || null, status: row?.status || null };
 }
+
+// Billing mutations are owner-only. Read-only actions (prices/status/claims) are
+// available to any ACTIVE member. Enforced server-side — never trust the client.
+const OWNER_ONLY = new Set(["create-checkout", "add-seat", "create-portal", "pause", "resume", "cancel", "keep"]);
+const OWNER_ROLES = new Set(["architect", "co_architect"]);
 
 /** Get-or-create the family's Stripe customer + family_billing row. */
 async function ensureCustomer(familyId: string, email: string): Promise<string> {
@@ -471,8 +477,14 @@ Deno.serve(async (req) => {
 
   try {
     const { action, payload } = await req.json();
-    const { user, familyId, email } = await resolveFamily(req);
+    const { user, familyId, email, role, status } = await resolveFamily(req);
     if (!familyId) return json({ error: "Not signed in to a family." }, 401);
+    // A revoked / non-active member has no billing rights of any kind.
+    if ((status || "active") !== "active") return json({ error: "Your access to this family is not active." }, 403);
+    // Only a family owner may start, change, pause, or cancel the subscription.
+    if (OWNER_ONLY.has(action) && !OWNER_ROLES.has(role || "")) {
+      return json({ error: "Only a family owner can manage billing." }, 403);
+    }
 
     if (action === "get-prices")      return await getPrices();
     if (action === "claim-subscription") return await claimSubscription(familyId, email, (payload?.sessionId || "").toString());

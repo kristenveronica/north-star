@@ -3,9 +3,19 @@
 //
 // Sends via Resend if RESEND_API_KEY is set; otherwise returns
 // { sent: false, reason: "no_provider" } so the client falls back to the
-// copyable invite link. Never throws to the caller — invitations are created
-// client-side (RLS-guarded to owners); this only delivers the link.
+// copyable invite link. Never throws to the caller.
+//
+// Authorization: the caller must be a family OWNER and must already own a
+// PENDING invitation in their family for the target email. This prevents the
+// endpoint being used as an open, brand-backed email relay to arbitrary
+// recipients. Rate-limited + logged.
 // ============================================================
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2?target=deno";
+import { resolveCaller, isOwner } from "../_shared/authz.ts";
+import { clientIp, logSecurityEvent, recentCount } from "../_shared/security.ts";
+
+const admin = createClient(Deno.env.get("SUPABASE_URL") || "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -25,6 +35,21 @@ Deno.serve(async (req) => {
   try {
     const { email, link, familyName } = await req.json();
     if (!email || !link) return json({ sent: false, reason: "missing_fields" }, 400);
+
+    // Only a family owner who actually invited this email may trigger the send.
+    const caller = await resolveCaller(req);
+    if (!isOwner(caller)) return json({ sent: false, reason: "not_authorized" }, 403);
+    const { data: invs } = await admin.from("invitations")
+      .select("email").eq("family_id", caller!.familyId).eq("status", "pending");
+    const owns = (invs || []).some((i: { email: string }) => (i.email || "").toLowerCase() === String(email).toLowerCase());
+    if (!owns) {
+      await logSecurityEvent("invite_send_denied", { ip: clientIp(req), identifier: caller!.familyId, meta: { email } });
+      return json({ sent: false, reason: "no_matching_invitation" }, 403);
+    }
+    if (await recentCount("invite_send", { identifier: caller!.familyId }, 3600) >= 20) {
+      return json({ sent: false, reason: "rate_limited" }, 429);
+    }
+    await logSecurityEvent("invite_send", { ip: clientIp(req), identifier: caller!.familyId, meta: { email } });
 
     const key = Deno.env.get("RESEND_API_KEY");
     if (!key) return json({ sent: false, reason: "no_provider" });

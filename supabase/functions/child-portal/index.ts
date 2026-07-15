@@ -16,6 +16,7 @@
 // ============================================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2?target=deno";
+import { clientIp, logSecurityEvent, recentCount } from "../_shared/security.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -28,16 +29,41 @@ const json = (body: unknown, status = 200) =>
 const env = (k: string) => Deno.env.get(k) || "";
 const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
 
-async function login(code: string) {
-  const norm = (code || "").trim();
+// This endpoint is unauthenticated, so the response must never carry a child's
+// PII. Strip the date of birth and any sensitive keys from the profile blob.
+const SENSITIVE_PROFILE_KEYS = ["pin", "birthData", "gender"];
+// deno-lint-ignore no-explicit-any
+function sanitizeChild(child: any): any {
+  const c = { ...child };
+  delete c.birthday;
+  if (c.learning_profile && typeof c.learning_profile === "object") {
+    const lp = { ...c.learning_profile };
+    for (const k of SENSITIVE_PROFILE_KEYS) delete lp[k];
+    c.learning_profile = lp;
+  }
+  return c;
+}
+
+async function login(code: string, ip: string) {
+  // Normalize to the code alphabet only (kills LIKE-wildcard injection like "%").
+  const norm = (code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   if (!norm) return json({ error: "missing_code" }, 400);
 
-  // Match the access code case-insensitively (children type it however).
+  // Brute-force throttle: at most 10 attempts per IP per 5 minutes.
+  if (await recentCount("portal_login_attempt", { ip }, 300) >= 10) {
+    await logSecurityEvent("portal_login_throttled", { ip, identifier: norm });
+    return json({ error: "too_many_attempts" }, 429);
+  }
+  await logSecurityEvent("portal_login_attempt", { ip, identifier: norm });
+
+  // EXACT match — the access code is the credential; no partial/wildcard matching.
   const { data: kids } = await admin
-    .from("children").select("*").ilike("access_code", norm).limit(2);
-  if (!kids || kids.length === 0) return json({ error: "not_found" }, 404);
-  // Fail safe: if a code somehow collides across families, open NEITHER portal
-  // (better to ask for a reset than to ever show the wrong child's data).
+    .from("children").select("*").eq("access_code", norm).limit(2);
+  if (!kids || kids.length === 0) {
+    await logSecurityEvent("portal_login_fail", { ip, identifier: norm });
+    return json({ error: "not_found" }, 404);
+  }
+  // Fail safe: if a code somehow collides, open NEITHER portal.
   if (kids.length > 1) return json({ error: "ambiguous" }, 409);
   const child = kids[0];
 
@@ -52,7 +78,7 @@ async function login(code: string) {
     milestones = ms || [];
   }
 
-  return json({ child, projects: projects || [], milestones });
+  return json({ child: sanitizeChild(child), projects: projects || [], milestones });
 }
 
 Deno.serve(async (req) => {
@@ -60,7 +86,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
   try {
     const { action, payload } = await req.json();
-    if (action === "login") return await login((payload?.code || "").toString());
+    if (action === "login") return await login((payload?.code || "").toString(), clientIp(req));
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (e) {
     console.error("[child-portal] error:", e);

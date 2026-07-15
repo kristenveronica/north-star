@@ -11,6 +11,15 @@
 // families) framework system prompt. Token usage is logged + returned.
 // ============================================================================
 
+import { resolveCaller, isActiveMember, hasPermission } from "../_shared/authz.ts";
+import { logSecurityEvent, recentCount } from "../_shared/security.ts";
+
+// Actions that spend meaningful tokens and require an AI-consuming permission.
+const GENERATIVE_ACTIONS = new Set(["generate-project", "generate-printable", "quickstart-extract", "mentor-turn", "coreword-living"]);
+const REPORT_ACTIONS = new Set(["growth-reflection"]);
+const AI_CALLS_PER_WINDOW = 60;   // per family per 5 minutes (abuse ceiling, not a product quota)
+const AI_WINDOW_SECS = 300;
+
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 const MODEL = "claude-sonnet-4-6";
 
@@ -1130,6 +1139,22 @@ Deno.serve(async (req) => {
 
   try {
     const { action, payload } = await req.json();
+
+    // ---- Authorization + abuse control (server-side; never trust the client) ----
+    const caller = await resolveCaller(req);
+    if (!isActiveMember(caller)) return json({ error: "Not an active member of a family." }, 403);
+    if (await recentCount("ai_call", { identifier: caller!.familyId }, AI_WINDOW_SECS) >= AI_CALLS_PER_WINDOW) {
+      await logSecurityEvent("ai_abuse_throttled", { identifier: caller!.familyId, meta: { action } });
+      return json({ error: "Too many requests — please wait a moment and try again." }, 429);
+    }
+    await logSecurityEvent("ai_call", { identifier: caller!.familyId, meta: { action } });
+    if (GENERATIVE_ACTIONS.has(action) && !hasPermission(caller, "contrib:generate")) {
+      return json({ error: "You don't have permission to generate here." }, 403);
+    }
+    if (REPORT_ACTIONS.has(action) && !hasPermission(caller, "contrib:generate") && !hasPermission(caller, "contrib:reports")) {
+      return json({ error: "You don't have permission to request reports here." }, 403);
+    }
+
     let result;
     if (action === "suggest-core-word") result = await suggestCoreWord(payload, apiKey);
     else if (action === "suggest-vision") result = await suggestVision(payload, apiKey);
