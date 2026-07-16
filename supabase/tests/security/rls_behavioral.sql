@@ -87,4 +87,51 @@ do $$ declare ok boolean; begin
   raise notice '[LEGIT] contributor reads own-family child: %', case when ok then 'GREEN (ok)' else 'RED (unexpectedly blocked)' end;
 exception when others then execute 'reset role'; raise notice '[LEGIT] contributor child read: RED (unexpected error: %)', sqlerrm; end $$;
 
+-- ============================================================================
+-- B2 · Living Family Model substrate (migration 0027) — cross-family isolation.
+-- Seeds one understanding for the victim family (1111) as the privileged runner,
+-- then proves an outsider cannot read or write it, and a member can.
+-- ============================================================================
+insert into understandings (id, family_id, scope, domain, statement, lifespan, status)
+  values ('66666666-6666-6666-6666-666666666666','11111111-1111-1111-1111-111111111111',
+          'family','culture','HARNESS — comes alive building outdoors','seasonal','emerging');
+insert into family_archive (id, family_id, scope, source_type, content, retention_state)
+  values ('77777777-7777-7777-7777-777777777777','11111111-1111-1111-1111-111111111111',
+          'family','note','HARNESS source note','retain_original');
+insert into understanding_evidence (family_id, understanding_id, source_type, source_id, stance)
+  values ('11111111-1111-1111-1111-111111111111','66666666-6666-6666-6666-666666666666',
+          'archive','77777777-7777-7777-7777-777777777777','supporting');
+
+-- [ATTACK LFM-1] outsider reads another family's understanding ----------------
+do $$ declare n int; begin
+  perform pg_temp.as_user('44444444-4444-4444-4444-444444444444');
+  select count(*) into n from understandings where id='66666666-6666-6666-6666-666666666666';
+  execute 'reset role';
+  raise notice '[ATTACK LFM-1] outsider reads understanding: %', case when n>0 then 'RED (leaked '||n||')' else 'GREEN (blocked)' end;
+exception when others then execute 'reset role'; raise notice '[ATTACK LFM-1] outsider reads understanding: GREEN (blocked: %)', sqlerrm; end $$;
+
+-- [ATTACK LFM-2] outsider reads another family's archive ----------------------
+do $$ declare n int; begin
+  perform pg_temp.as_user('44444444-4444-4444-4444-444444444444');
+  select count(*) into n from family_archive where id='77777777-7777-7777-7777-777777777777';
+  execute 'reset role';
+  raise notice '[ATTACK LFM-2] outsider reads archive: %', case when n>0 then 'RED (leaked '||n||')' else 'GREEN (blocked)' end;
+exception when others then execute 'reset role'; raise notice '[ATTACK LFM-2] outsider reads archive: GREEN (blocked: %)', sqlerrm; end $$;
+
+-- [ATTACK LFM-3] outsider injects an understanding into another family --------
+do $$ declare n int; begin
+  perform pg_temp.as_user('44444444-4444-4444-4444-444444444444');
+  insert into understandings (family_id, statement) values ('11111111-1111-1111-1111-111111111111','attacker inject');
+  get diagnostics n = row_count; execute 'reset role';
+  raise notice '[ATTACK LFM-3] outsider injects understanding: %', case when n>0 then 'RED (inserted)' else 'GREEN (blocked)' end;
+exception when others then execute 'reset role'; raise notice '[ATTACK LFM-3] outsider injects understanding: GREEN (blocked: %)', sqlerrm; end $$;
+
+-- [LEGIT] a family member reads their own family's understanding -------------
+do $$ declare n int; begin
+  perform pg_temp.as_user('33333333-3333-3333-3333-333333333333');
+  select count(*) into n from understandings where id='66666666-6666-6666-6666-666666666666';
+  execute 'reset role';
+  raise notice '[LEGIT] member reads own-family understanding: %', case when n=1 then 'GREEN (ok)' else 'RED (saw '||n||')' end;
+exception when others then execute 'reset role'; raise notice '[LEGIT] member understanding read: RED (unexpected error: %)', sqlerrm; end $$;
+
 rollback;  -- nothing above persists

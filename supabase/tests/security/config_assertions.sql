@@ -49,5 +49,31 @@ with checks as (
   union all
   select 'A-M2','accept_invitation NOT executable by anon',
     case when has_function_privilege('anon',(select oid from pg_proc where proname='accept_invitation'),'EXECUTE') then 'RED' else 'GREEN' end
+  -- ---- B2 · Living Family Model substrate (migration 0027) ----
+  union all
+  select 'B-LFM-RLS','LFM tables (family_archive/understandings/understanding_evidence) all have RLS enabled',
+    case when (select bool_and(c.relrowsecurity) from pg_class c
+      where c.relnamespace='public'::regnamespace
+        and c.relname in ('family_archive','understandings','understanding_evidence')) then 'GREEN' else 'RED' end
+  union all
+  select 'B-LFM-POL','each LFM table has a family-scoped policy (is_family_member)',
+    case when (select count(*) from pg_policies
+      where schemaname='public' and tablename in ('family_archive','understandings','understanding_evidence')
+        and qual ilike '%is_family_member%') >= 3 then 'GREEN' else 'RED' end
+  union all
+  select 'B-LFM-ANON','LFM tables NOT readable by anon',
+    case when has_table_privilege('anon','public.understandings','SELECT')
+           or has_table_privilege('anon','public.family_archive','SELECT')
+           or has_table_privilege('anon','public.understanding_evidence','SELECT') then 'RED' else 'GREEN' end
+  union all
+  select 'B-LFM-EVID','understanding_evidence can hold contradicting evidence (stance CHECK includes it)',
+    case when (select pg_get_constraintdef(con.oid) from pg_constraint con join pg_class c on c.oid=con.conrelid
+      where c.relname='understanding_evidence' and con.contype='c' and pg_get_constraintdef(con.oid) ilike '%stance%'
+      limit 1) ilike '%contradicting%' then 'GREEN' else 'RED' end
+  union all
+  select 'B-LFM-SCOPE','understandings scope is not hard-wired to child (family/adult/relationship/project allowed)',
+    case when (select pg_get_constraintdef(con.oid) from pg_constraint con join pg_class c on c.oid=con.conrelid
+      where c.relname='understandings' and con.contype='c' and pg_get_constraintdef(con.oid) ilike '%scope%'
+      limit 1) ilike '%relationship%' then 'GREEN' else 'RED' end
 )
 select id, status, descr from checks order by id;
