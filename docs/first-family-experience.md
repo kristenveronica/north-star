@@ -35,6 +35,22 @@ We draw on real design and psychology — but only where they serve the family, 
 
 ---
 
+## Two governing principles *(product-wide, not just activation)*
+
+Two design laws sit above every interaction in North Star. They are stated here because activation is where they are first proven — but they are binding **everywhere** the product ever touches a family, and belong in the product-wide design canon.
+
+**1 · Every interaction removes emotional debt.**
+Parenting and educating carry a constant, invisible weight — *uncertainty, overwhelm, fear of getting it wrong, decision fatigue, the planning burden, loneliness, self-doubt, the ache of feeling unseen.* North Star's job is to **continually reduce that debt while increasing confidence.** Every stage below names the specific debt it lifts. The test is felt, not measured: **a family should end every session lighter than they began it — and the first fifteen minutes noticeably lighter than they arrived.**
+
+**2 · Every interaction leaves the family more capable.**
+> **Every interaction should leave the family feeling slightly more capable than before it occurred.**
+
+Not more *dependent* — more *capable*. This is the line that separates a guide from a crutch, and it is the truest expression of the Constitution's own measure of success (*"if a family comes to need North Star less than they once did… that, too, is success"*). Emotional debt goes **down**, capability goes **up**, at every single step. If an interaction does neither — if it merely informs, or worse, adds weight — it has no place in North Star, in activation or anywhere else.
+
+*Every stage below is therefore annotated with the emotional debt it removes. Read top to bottom, they should form a ledger that only ever lightens.*
+
+---
+
 ## The first fifteen minutes, stage by stage
 
 Seven stages across fifteen minutes. For each: what the **parent** does, what the **child** does (where involved), what they **feel**, what North Star is **quietly doing**, the **understanding** it gains, the direction of **cognitive load**, and where **trust · delight · confidence · anticipation** are created.
@@ -49,6 +65,7 @@ Seven stages across fifteen minutes. For each: what the **parent** does, what th
 - **Understanding gained:** none yet — and it says so honestly by asking, not assuming.
 - **Cognitive load:** very low, and *lowering the anxiety* they walked in with. No jargon, no choices.
 - **Trust earned:** through restraint — we asked for nothing, showed no clutter, made no demands. The first trust signal is what we *don't* do.
+- **⤓ Emotional debt removed:** **overwhelm** — the braced-for-complexity dread they carried through the door, lifted before they lift a finger.
 
 ### Minute 1–4 · The first question *(spoken, singular)*
 - **Parent:** answers one open, human question — spoken aloud or typed, their choice: *"Tell me about your children — who are they, and what lights them up?"* They talk about their kids, freely, in their own words. It feels nothing like a form.
@@ -59,6 +76,7 @@ Seven stages across fifteen minutes. For each: what the **parent** does, what th
 - **Cognitive load:** low and *decreasing* — the parent realises they don't have to configure anything; they just have to talk about their kids, on which they are the world's foremost expert.
 - **Autonomy & competence:** they answer their way, about their domain. This is where the parent starts to feel *capable* rather than *examined*.
 - **Anticipation:** faint — *where is this going?*
+- **⤓ Emotional debt removed:** **uncertainty / the blank page** — the paralysing "where do I even start?" There is no system to master, no fields to plan; they simply talk about their own children.
 
 ### Minute 4–6 · The reflection *(the first "it heard me")*
 - **Parent:** reads North Star's brief, accurate reflection of what they just said — *"So Noah, 8, is your builder — always taking things apart to see how they work — and Mia, 5, lives inside stories. Have I got that right?"* — and either nods or corrects one detail with a tap.
@@ -69,6 +87,7 @@ Seven stages across fifteen minutes. For each: what the **parent** does, what th
 - **Trust earned:** *strongly, here.* Accuracy plus correctability is the first real proof of competence and benevolence. **This is the first candidate for "this understands my family."**
 - **Delight:** a quiet one — being reflected back accurately is a small, real pleasure.
 - **Confidence:** grows — *I've already given it what it needs, just by talking.*
+- **⤓ Emotional debt removed:** **feeling unseen** — and the quiet loneliness of being the only person who holds every small detail of their child. For the first time, someone else sees their family, accurately.
 
 ### Minute 6–9 · The offer *(it proposes; you decide)*
 - **Parent:** hears an offer, not a command: *"Would you like me to design Noah's first project — something that fits how he learns?"* One tap to say yes.
@@ -77,6 +96,7 @@ Seven stages across fifteen minutes. For each: what the **parent** does, what th
 - **Cognitive load:** low — a single, clear yes/no, phrased warmly.
 - **Trust earned:** by *asking permission* rather than autoplaying — the parent leads, North Star serves.
 - **Anticipation:** *created deliberately here* — a short, honest wait for something genuinely worth seeing (not a withheld reward; a real thing being made).
+- **⤓ Emotional debt removed:** **decision fatigue** — the endless, wearying "what should they do next?" is lifted from the parent's shoulders and carried by North Star.
 
 ### Minute 9–12 · The reveal *(the peak)*
 - **Parent:** reads the first project — and recognises their *own child* in it. Not a generic template with a name slotted in; a project that clearly fits *Noah* — his love of building, pitched at his level, carried by a Guide who speaks to an eight-year-old.
@@ -88,6 +108,7 @@ Seven stages across fifteen minutes. For each: what the **parent** does, what th
 - **Peak–End:** **this is the peak.** Delight fused with "it understands my child."
 - **Delight & the child's moment:** the first genuine family delight lands here — ideally experienced *together*, parent and child looking at the same screen. **This is "this was made for me" for the child.**
 - **Confidence:** *"I can actually do this"* begins here — because North Star did the hard part (designing meaningful learning), leaving the parent only the joyful part (doing it with their child).
+- **⤓ Emotional debt removed:** **self-doubt** — the fear that they are not qualified to give their child a rich education. North Star has just shown the expertise is handled, and that they, as a parent, are *enough.*
 
 ### Minute 12–14 · The first step *(competence made real)*
 - **Parent:** sees one simple, immediate next action — not a checklist: *"Here's the first thing to try together. About twenty minutes, and you already have everything you need."* (DIY-first; uses what the family owns; nothing to buy, nothing to prepare.) They can start now or save it — no pressure either way.
@@ -97,6 +118,7 @@ Seven stages across fifteen minutes. For each: what the **parent** does, what th
 - **Cognitive load:** low, and the parent's *life* load just dropped — North Star absorbed the preparation.
 - **Trust earned:** *"it reduces my work"* — the most constitutional signal of all. **This is the first clear "this is easier than I expected."**
 - **Competence:** the step is designed to be genuinely achievable, so the family's first *action* is a success, not a struggle.
+- **⤓ Emotional debt removed:** **the planning burden** *and* **the fear of getting it wrong** — no prep, no shopping, and a first step engineered to succeed, so the family cannot fall at the first hurdle.
 
 ### Minute 14–15 · The close *(the end that lingers)*
 - **Parent:** receives a calm, warm close that (1) affirms what North Star has learned, (2) sets a gentle, honest anticipation for what's ahead, and (3) then *gets out of the way*: *"That's all I need for now. As you and Noah do things together, I'll keep learning what helps your family — and I'll only ever suggest what's worth your time. I'll be here when you're ready."*
@@ -105,6 +127,7 @@ Seven stages across fifteen minutes. For each: what the **parent** does, what th
 - **Cognitive load:** ends low and settled — no open loops, no anxiety, no "finish setting up."
 - **Peak–End:** **this is the end** — warm, forward-looking, and free of any hook. The lasting after-image is *hope*, not obligation.
 - **Anticipation:** created for the *relationship to come* — not a streak to protect, but a future worth looking forward to.
+- **⤓ Emotional debt removed:** **loneliness** — the sense of carrying their family's future alone, and the dread of *"one more thing to keep up with."* Both are replaced by a guide that walks alongside and asks nothing of them.
 
 ---
 
@@ -121,6 +144,24 @@ The exact moment each belief should first land:
 | Family: **first genuine delight** | **Minute 9–12, the reveal, experienced together** | Parent and child, side by side, seeing their family recognised and something worth doing appear. The peak is shared. |
 
 Note they cluster around **minutes 4–14** — the reflection, the reveal, the first step. That is the emotional spine of activation. Everything before it exists to earn the right to arrive there calmly; everything after exists to leave it intact.
+
+---
+
+## The emotional-debt ledger
+
+The two governing principles, made visible across the fifteen minutes. The debt column should only ever *lighten*; the capability column should only ever *grow*. If any stage failed to do both, it would be the stage to redesign.
+
+| Stage | ⤓ Emotional debt removed | ⤒ Capability gained |
+|---|---|---|
+| Threshold (0–1) | overwhelm | *"I can approach this calmly."* |
+| First question (1–4) | uncertainty / the blank page | *"I already know everything I need to begin — it's my own kids."* |
+| Reflection (4–6) | feeling unseen · loneliness | *"I can make myself understood here."* |
+| Offer (6–9) | decision fatigue | *"I don't have to figure out what's next alone."* |
+| Reveal (9–12) | self-doubt | *"I can give my child something genuinely good."* |
+| First step (12–14) | planning burden · fear of getting it wrong | *"I can actually start — today, with what I have."* |
+| Close (14–15) | loneliness · fear of another obligation | *"I can keep going, with a guide beside me — on my terms."* |
+
+**The net of the fifteen minutes:** a family that arrived braced and heavy leaves **lighter and more capable** — carrying less fear and more belief than when they sat down. That single before/after delta — not features seen, not steps completed — is the true measure of whether activation worked.
 
 ---
 
@@ -172,7 +213,7 @@ Every interaction, tested against the five questions. Where an interaction risks
 
 Everything above rests on one thing: **the first generated project must be true.** Warmth, calm, restraint, and good pacing set the stage — but the moment of belief is the moment a parent sees their real child in what North Star made. Get that right and the fifteen minutes creates a believer. Get it generic and no amount of polish saves it. This is the tightest possible link between this experience and the engineering sequence: **Activation cannot ship until the loop reliably produces a genuinely specific first project (Epic D), and we should validate that it lands as "understood" and not "Barnum" with real families (Epic E) before a founding family ever pays to feel it.**
 
-The measure of success is not a completed onboarding or an activated account. It is a family who closes the laptop after fifteen minutes and says something to each other about *their own children* — more hopeful, more capable, and more excited about their family's future than when they sat down. We are not designing an onboarding. **We are designing the first fifteen minutes of a relationship a family will hopefully keep for years — and the first, quiet proof that choosing North Star was choosing to feel a little more understood.**
+The measure of success is not a completed onboarding or an activated account. It is a family who closes the laptop after fifteen minutes and says something to each other about *their own children* — **lighter, more capable, more hopeful,** and more excited about their family's future than when they sat down. Emotional debt down, confidence up: that delta is the product. We are not designing an onboarding. **We are designing the first fifteen minutes of a relationship a family will hopefully keep for years — and the first, quiet proof that choosing North Star was choosing to feel a little more understood.**
 
 Features can be discovered later. This is where we earn belief.
 
