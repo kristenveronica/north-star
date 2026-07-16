@@ -1130,6 +1130,82 @@ Accuracy on NAMES and AGES matters most — a project addressed to the wrong chi
   return { parsed, usage };
 }
 
+// ---- Action: family-reflection — North Star's FIRST unforgettable moment ----
+// The Living Family Model's first spoken understanding. Given what a family shared
+// in onboarding, offer ONE genuine, specific, humble observation — or honestly none
+// when the signal is too thin. Governed by docs/observation-framework.md; the
+// honest-silence fallback is what makes the moment EARNED rather than generated.
+const FAMILY_REFLECTION_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["sufficient", "observation", "domain", "basis", "confidence", "invitation"],
+  properties: {
+    sufficient: { type: "boolean" },              // clears all five tests?
+    observation: { type: "string" },              // the observation, in NS's humble voice ("" if not sufficient)
+    domain: { type: "string" },                   // short free-text label (family culture / how they learn / …)
+    basis: { type: "array", items: { type: "string" } }, // the specific things they said it rests on (provenance)
+    confidence: { type: "number" },               // 0–1, honest
+    invitation: { type: "string" },               // short confirm/correct close ("" if not sufficient)
+  },
+};
+
+function reflectionContext(payload: any): string {
+  const f = payload?.family || {};
+  const kids = Array.isArray(payload?.children) ? payload.children : [];
+  const asList = (v: any) => Array.isArray(v) ? v.join(", ") : (v || "");
+  const lines: string[] = [];
+  if (f.familyName) lines.push(`Family name: ${f.familyName}`);
+  if (f.values) lines.push(`Values they named: ${asList(f.values)}`);
+  if (f.passions) lines.push(`Shared passions / activities: ${asList(f.passions)}`);
+  if (f.coreWord) lines.push(`Core word: ${f.coreWord}`);
+  if (f.motto) lines.push(`Family credo: ${f.motto}`);
+  if (payload?.vision) lines.push(`Deeper vision:\n${visionLines(payload.vision)}`);
+  kids.forEach((k: any, i: number) => {
+    const head = [k.name || `Child ${i + 1}`, k.age != null ? `age ${k.age}` : ""].filter(Boolean).join(", ");
+    const detail = [
+      k.passions ? `passions: ${asList(k.passions)}` : "",
+      k.strengths ? `strengths: ${asList(k.strengths)}` : "",
+      k.howTheyLearn ? `how they learn: ${k.howTheyLearn}` : "",
+    ].filter(Boolean).join("; ");
+    lines.push(`- ${head}${detail ? ` — ${detail}` : ""}`);
+  });
+  const structured = lines.join("\n");
+  const freeform = (payload?.freeform || "").toString().slice(0, 6000);
+  return (freeform ? `In their own words:\n${freeform}\n\n` : "") + (structured ? `What they shared:\n${structured}` : "");
+}
+
+async function familyReflection(payload: any, apiKey: string) {
+  const system = `TASK: This family has just shared who they are with North Star for the first time. Offer them ONE genuine observation — the single most true, specific and quietly meaningful thing you notice about them AS A FAMILY. This is their first experience of being *understood*, and it matters more than anything else North Star will ever say to them. Aim, above all, for one reaction: the parent pauses and thinks "…I hadn't quite put that into words — but that is exactly us."
+
+WHAT A GOOD OBSERVATION IS
+- A THROUGH-LINE, not a fact they already told you. Connect several things they shared into one pattern they likely haven't consciously named (e.g. a child's interest + a value they hold + when they described their family coming alive → "the things that light your family up are all hands-on and made together, more than anything on a page"). A single restated fact is NOT enough.
+- Grounded entirely in what they ACTUALLY said. Never invent; never guess at a hidden psychology.
+- Specific to THIS family — something that would NOT be equally true of most families.
+
+THE FIVE TESTS — the observation must pass ALL five, or you return nothing:
+1. TRUTH — is there real support for it in what they shared? A hunch fails.
+2. SPECIFICITY — would most other families receive the same sentence? If yes it is a Barnum line ("you clearly love your children", "you value connection") and it FAILS. Generic warmth is worthless here.
+3. USEFULNESS — does it give them language for their own family, illuminate something that matters?
+4. HUMILITY — hold it as something you *noticed* and could be wrong about; phrase it tentatively and make it correctable.
+5. TIMING — this is the very first reflection. One observation only. Warm, brief, light.
+
+IF YOU CANNOT CLEAR ALL FIVE — if what they shared is too thin, too generic, or contradictory to support a specific, true, non-obvious observation — set "sufficient" to false and leave "observation" empty. SILENCE IS BETTER THAN A WEAK OBSERVATION: a single generic or wrong one does more damage to trust than ten good ones build. Never force it. This honesty is the whole point — the moment must be EARNED, never manufactured.
+
+WHAT IT IS NOT: not advice (tell them nothing to do), not praise or flattery (aim for accuracy, not making them feel good), not a label on any child, not a prediction, not a summary of what they said.
+
+VOICE: warm, plain, humble, second person. Begin naturally ("I've noticed…", "It seems like…", "There's a thread I think I can see…"). Two to four sentences at most. Do not include the invitation inside "observation" — it has its own field.
+
+OUTPUT FIELDS:
+- sufficient: true only if the observation clears all five tests.
+- observation: the observation itself, in the voice above (empty string if not sufficient).
+- domain: a short lowercase label for what it is about (e.g. "family culture", "how they learn", "what they value", "a child's interest", "relationships").
+- basis: 2–4 SHORT quotes or paraphrases of the specific things they said that this observation rests on — so it can always be explained, and later checked.
+- confidence: 0–1, honestly.
+- invitation: one short sentence inviting them to confirm or gently correct it — they lead, you are only offering what you noticed (empty string if not sufficient).`;
+  const userText = `Here is everything this family shared during their first onboarding. Read it for MEANING; it may be messy or voice-transcribed.\n\n${reflectionContext(payload)}`;
+  return callClaude(system, userText, FAMILY_REFLECTION_SCHEMA, apiKey);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -1166,6 +1242,7 @@ Deno.serve(async (req) => {
     else if (action === "mentor-turn") result = await mentorTurn(payload, apiKey);
     else if (action === "generate-printable") result = await generatePrintable(payload, apiKey);
     else if (action === "quickstart-extract") result = await quickstartExtract(payload, apiKey);
+    else if (action === "family-reflection") result = await familyReflection(payload, apiKey);
     else return json({ error: `Unknown action: ${action}` }, 400);
 
     console.log(`[ai] ${action} usage:`, JSON.stringify(result.usage));
