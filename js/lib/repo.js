@@ -241,6 +241,10 @@ function toChildRow(c, familyId) {
       pin: c.pin || "",
       printPermission: c.printPermission || "approval",
       birthData: c.birthData || null,
+      // Friendly, hyphenated presentation of access_code (e.g. "sunny-otter-47").
+      // access_code itself stays the normalized [A-Z0-9] match form; this is the
+      // display twin. Lives here (no dedicated column) like the fields above.
+      accessCodeDisplay: c.accessCodeDisplay || "",
     },
     // jsonb (migration 0024). Send a real object or null — never a stringified blob.
     mobility_profile: asObj(c.mobilityProfile),
@@ -267,6 +271,7 @@ export function fromChildRow(r) {
     notes: r.notes || "",
     avatarIndex: r.avatar_index ?? 1,
     accessCode: r.access_code,
+    accessCodeDisplay: (r.learning_profile && !Array.isArray(r.learning_profile) ? r.learning_profile.accessCodeDisplay : "") || "",
     domains: normDomains(r.domains),
     insightsConfig: r.insights_config || {},
     guideId: r.guide_id || null,

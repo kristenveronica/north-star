@@ -116,7 +116,7 @@ export function renderChildLogin(container) {
         <p class="lede">Enter the access code your parent gave you.</p>
         <div class="field">
           <label>Access code</label>
-          <input class="input" id="code" placeholder="e.g. NOAH12" style="font-size:18px;letter-spacing:0.1em;text-transform:uppercase;text-align:center"/>
+          <input class="input" id="code" placeholder="e.g. sunny-otter-47" autocapitalize="none" autocomplete="off" spellcheck="false" style="font-size:18px;letter-spacing:0.04em;text-align:center"/>
         </div>
         <div class="field">
           <label>PIN <span class="text-muted small">(if your parent set one)</span></label>

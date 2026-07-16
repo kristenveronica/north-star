@@ -4,6 +4,8 @@
    can replace it without changing call sites.
    ============================================================ */
 
+import { generateAccessCode as _genAccessCode, normalizeAccessCode } from "./lib/accessCode.js";
+
 const STORAGE_KEY = "northstar::v1";
 
 const DEFAULT_STATE = {
@@ -427,7 +429,7 @@ export function addChild(child) {
     faithTradition: "",
     notes: "",
     avatarIndex: ((_state.children.length) % 5) + 1,
-    accessCode: generateAccessCode(),
+    ...newAccessCode(),   // { accessCode, accessCodeDisplay } — a matched pair
     learningStyle: _state.family?.learningStyleDefault ?? 5,
     diyMaterials: _state.family?.diyMaterialsPreference ?? 5,
     domains: [],
@@ -464,35 +466,21 @@ export function getChild(id) {
   return _state.children.find(c => c.id === id);
 }
 export function getChildByCode(code) {
-  return _state.children.find(c => c.accessCode === code);
+  // Match on the normalized form so a friendly/typed variant (hyphens, case,
+  // spaces) resolves to the same child as the stored normalized code.
+  const norm = normalizeAccessCode(code);
+  return _state.children.find(c => normalizeAccessCode(c.accessCode) === norm);
 }
 
-/* Derive an INTENTIONAL 3-letter prefix from the child's name:
-   - 3+ word names → initials (e.g. "Mary Jane Smith" → "MJS")
-   - 1–2 word names → first three letters (e.g. "Noah" → "NOA", "Jetty" → "JET")
-   Returns null when the name has no usable letters (caller falls back to random). */
-function deriveCodeLetters(name) {
-  const clean = String(name || "").toUpperCase().replace(/[^A-Z\s]/g, "").trim();
-  if (!clean) return null;
-  const words = clean.split(/\s+/).filter(Boolean);
-  const letters = words.length >= 3
-    ? words.slice(0, 3).map(w => w[0]).join("")
-    : clean.replace(/\s+/g, "").slice(0, 3);
-  return (letters + "XX").slice(0, 3);   // pad very short names
-}
-function randomLetters(n) {
-  const pool = "BCDFGHJKLMNPQRSTVWXYZ";   // consonants only → never an accidental word
-  let out = "";
-  for (let i = 0; i < n; i++) out += pool[Math.floor(Math.random() * pool.length)];
-  return out;
-}
-/* Access code = meaningful 3-letter prefix (from the name, or random) + 3 digits.
-   Digits use 2–9 (no 0/1 to avoid O/I confusion) and keep each code unique. */
-export function generateAccessCode(name = "") {
-  const digitPool = "23456789";
-  let digits = "";
-  for (let i = 0; i < 3; i++) digits += digitPool[Math.floor(Math.random() * digitPool.length)];
-  return (deriveCodeLetters(name) || randomLetters(3)) + digits;
+/* Access code = two memorable words + a 2-digit number (e.g. "sunny-otter-47").
+   High-entropy, identity-safe, child-friendly — see js/lib/accessCode.js. Returns
+   a matched pair { accessCode (normalized), accessCodeDisplay (friendly) },
+   retrying on the rare local collision so no two of a family's children clash. */
+export function newAccessCode() {
+  const existing = new Set((_state.children || []).map(c => normalizeAccessCode(c.accessCode)));
+  let pair = _genAccessCode();
+  for (let i = 0; i < 8 && existing.has(pair.code); i++) pair = _genAccessCode();
+  return { accessCode: pair.code, accessCodeDisplay: pair.display };
 }
 
 /* ---------------- Projects ---------------- */

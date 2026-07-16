@@ -2,7 +2,8 @@
    children.js — List + detail/edit for each child.
    ============================================================ */
 
-import { getState, update, addChild, updateChild, removeChild, getChild, getChildStats, ageOf, generateAccessCode } from "../store.js";
+import { getState, update, addChild, updateChild, removeChild, getChild, getChildStats, ageOf, newAccessCode } from "../store.js";
+import { displayAccessCode, normalizeAccessCode } from "../lib/accessCode.js";
 import { attachCityAutocomplete } from "../lib/cities.js";
 import { esc, toast, icon, openModal, confirmDialog } from "../components/ui.js";
 import { navigate } from "../router.js";
@@ -238,7 +239,7 @@ function childTile(c) {
       </div>
       <div class="divider"></div>
       <div class="row-between" style="gap:12px;flex-wrap:wrap">
-        <span class="small text-muted">Access code: <span class="kbd">${esc(c.accessCode)}</span></span>
+        <span class="small text-muted">Access code: <span class="kbd" style="text-transform:lowercase">${esc(displayAccessCode(c))}</span></span>
         <button class="btn-portal avatar-${c.avatarIndex}" data-kid-link="${c.accessCode}" style="width:auto;padding:8px 16px">${icon("child")} Open ${esc(c.name)}'s portal →</button>
       </div>
     </div>
@@ -286,6 +287,11 @@ function openChildModal(childId = null) {
   const arr = (v) => Array.isArray(v) ? v.join(", ") : v || "";
   const lsDesc = describeLearningStyle(draft.learningStyle ?? 5);
   const diyDesc = describeDIY(draft.diyMaterials ?? 5);
+  // The child always has a code: keep an existing one, otherwise mint a fresh
+  // word-pair now so the field is never blank (no more name-derived codes).
+  const seedCode = draft.accessCode
+    ? { accessCode: draft.accessCode, accessCodeDisplay: draft.accessCodeDisplay || "" }
+    : newAccessCode();
 
   const body = document.createElement("div");
   body.innerHTML = `
@@ -375,11 +381,13 @@ function openChildModal(childId = null) {
     </div>
     <div class="field">
       <label>Access code <span class="text-muted small" style="font-weight:400">— what ${esc(draft.name || "your child")} types to open their portal</span></label>
-      <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
-        <input class="input" id="f-access" maxlength="8" value="${esc(draft.accessCode || "")}" placeholder="${existing ? "" : "auto from name"}" style="max-width:180px;letter-spacing:0.18em;text-transform:uppercase;font-weight:700;text-align:center"/>
-        <button class="btn btn-sm" type="button" id="f-access-name">↻ From name</button>
+      <div class="row" style="gap:10px;align-items:center;flex-wrap:wrap">
+        <span class="kbd" id="f-access-chip" style="font-size:16px;padding:8px 14px;letter-spacing:0.03em;text-transform:lowercase">${esc(seedCode.accessCodeDisplay || seedCode.accessCode || "")}</span>
+        <button class="btn btn-sm" type="button" id="f-access-new">↻ New code</button>
+        <input type="hidden" id="f-access" value="${esc(seedCode.accessCode || "")}"/>
+        <input type="hidden" id="f-access-display" value="${esc(seedCode.accessCodeDisplay || "")}"/>
       </div>
-      <span class="hint">Make the first letters mean something to you — ${esc(draft.name || "your child")}'s initials, or a little trio that's special to your family (like your core word). The digits keep it unique. <span class="text-muted">e.g. NOA274.</span></span>
+      <span class="hint">Two friendly words and a number — easy for ${esc(draft.name || "your child")} to remember, hard for anyone else to guess. Tap <strong>↻ New code</strong> for a different one; they can type it with or without the dashes.</span>
     </div>
   `;
 
@@ -432,29 +440,25 @@ function openChildModal(childId = null) {
     navigate(`/children/${existing.id}/profile`);
   });
 
-  // Access code: keep it tidy (UPPERCASE, letters+digits), let the parent derive
-  // a meaningful code from the name, and auto-fill a blank one on name blur.
-  const accessInput = body.querySelector("#f-access");
-  accessInput.addEventListener("input", () => {
-    accessInput.value = accessInput.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+  // Access code: a generated word-pair the parent can reroll — never hand-typed
+  // (that reintroduced weak, guessable, identity-leaking codes).
+  body.querySelector("#f-access-new").addEventListener("click", () => {
+    const p = newAccessCode();
+    body.querySelector("#f-access").value = p.accessCode;
+    body.querySelector("#f-access-display").value = p.accessCodeDisplay;
+    body.querySelector("#f-access-chip").textContent = p.accessCodeDisplay;
+    autosaveChild();
   });
-  body.querySelector("#f-access-name").addEventListener("click", () => {
-    accessInput.value = generateAccessCode(body.querySelector("#f-name").value.trim());
-  });
-  if (!existing) {
-    body.querySelector("#f-name").addEventListener("blur", () => {
-      if (!accessInput.value.trim()) accessInput.value = generateAccessCode(body.querySelector("#f-name").value.trim());
-    });
-  }
 
   // Read the whole form into a child patch.
   const gatherPatch = () => {
     const birthday = body.querySelector("#f-birthday").value || null;
-    // Only include accessCode when the field has a value, so a mid-edit blank
-    // never wipes an existing code (and a new child falls back to name-derived).
-    const codeVal = (body.querySelector("#f-access")?.value || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+    // Carry the generated code pair. Only include it when present, so a mid-edit
+    // state never wipes an existing code.
+    const codeVal = normalizeAccessCode(body.querySelector("#f-access")?.value || "");
+    const codeDisplay = (body.querySelector("#f-access-display")?.value || "").trim();
     return {
-      ...(codeVal ? { accessCode: codeVal } : {}),
+      ...(codeVal ? { accessCode: codeVal, accessCodeDisplay: codeDisplay } : {}),
       name: body.querySelector("#f-name").value.trim(),
       gender: body.querySelector("#f-gender")?.value || "",
       age: ageOf({ birthday }),
@@ -507,17 +511,18 @@ function openChildModal(childId = null) {
     clearTimeout(autosaveTimer);
     const patch = gatherPatch();
     if (!patch.name) { toast("Name is required", { type: "warning" }); return; }
-    // Guard against two children in this family sharing an access code.
-    if (patch.accessCode && getState().children.some(c => c.id !== existing?.id && (c.accessCode || "").toUpperCase() === patch.accessCode)) {
-      toast("That access code is already used by another child — change the letters or tap ↻ From name.", { type: "warning", duration: 4000 });
-      return;
+    // Guard against two children in this family sharing an access code (rare —
+    // generated codes are unique by construction; tap ↻ New code for another).
+    if (patch.accessCode && getState().children.some(c => c.id !== existing?.id && normalizeAccessCode(c.accessCode) === patch.accessCode)) {
+      const p = newAccessCode();
+      patch.accessCode = p.accessCode; patch.accessCodeDisplay = p.accessCodeDisplay;
     }
     if (existing) {
       updateChild(existing.id, patch);
       toast(`${patch.name} updated`, { type: "success" });
     } else {
-      // New child with no chosen code → derive a meaningful one from the name.
-      if (!patch.accessCode) patch.accessCode = generateAccessCode(patch.name);
+      // Safety net: a child must always leave here with a code pair.
+      if (!patch.accessCode) Object.assign(patch, newAccessCode());
       addChild(patch);
       toast(`${patch.name} added`, { type: "success" });
     }
@@ -633,7 +638,7 @@ function renderChildOverview(panel, child) {
         <h3 class="mb-2">Access</h3>
         <div class="small text-muted">Share this code with ${esc(child.name)} to open their portal:</div>
         <div class="row mt-1" style="gap:8px">
-          <span class="kbd" style="font-size:18px;padding:6px 12px">${esc(child.accessCode)}</span>
+          <span class="kbd" style="font-size:18px;padding:6px 12px;text-transform:lowercase">${esc(displayAccessCode(child))}</span>
           <button class="btn btn-sm" id="copy-code">Copy</button>
         </div>
         <div class="divider"></div>
@@ -655,7 +660,7 @@ function renderChildOverview(panel, child) {
   `;
 
   panel.querySelector("#copy-code").addEventListener("click", () => {
-    navigator.clipboard?.writeText(child.accessCode);
+    navigator.clipboard?.writeText(displayAccessCode(child));
     toast("Access code copied", { type: "success" });
   });
   panel.querySelectorAll('input[name="print-perm"]').forEach(r => {
