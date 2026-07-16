@@ -121,4 +121,43 @@ Secure it (done). **Make it work and prove it's worth remembering (D + E).** *Th
 
 ---
 
+## Addendum — Epic C reframed: *Founding Family Activation* (resolved with the founder)
+
+The founder pushed back on one recommendation, correctly. I proposed making payments **manual/concierge** to avoid the plumbing. That was a mistake — it optimised for engineering convenience and, in doing so, would have **discarded a validation signal.** Revised position:
+
+**Payment is not billing infrastructure. It is a commitment mechanism.** A family that pays behaves differently from a beta tester — they engage more deliberately, expect more, and either stay or leave for real reasons. **That behaviour is part of what we need to validate**, so the payment must be *real*, not comped or invoiced by hand. This changes my recommendation: keep Epic C — but shrink it from "Commercial Architecture" to the smallest **real** commitment loop.
+
+### Epic C, reframed: the objective is a funnel, not a billing system
+> Can a family **discover → purchase → onboard → experience the magic loop → and remain subscribed?**
+
+Nothing more. Everything that isn't on that path is cut.
+
+**Three implications I'd add to the founder's framing (strengthening it, not just accepting it):**
+
+1. **The charge must be non-zero.** A 100%-off founding comp validates *nothing* about commitment — it recreates the beta dynamic we're trying to escape. Founding pricing can be generous, even steeply discounted, but it must be **real money** or the commitment signal doesn't exist. *(This is a commercial/pricing call — yours — but the validation design depends on it, so I flag it.)*
+2. **The paying cohort and the validation cohort must be the same families.** Then Epic E observes commitment, engagement depth, *and* "do they feel understood" from one group — and the retention question ("remain subscribed") becomes the single truest signal of whether the whole thesis holds. One funnel, three answers, from the same 25 families. That is capital-efficient company-building.
+3. **"Discover" is mostly a commercial surface, not an engineering one.** Acquisition/positioning is yours; engineering's job is that *once a family arrives*, purchase → onboard → loop → stay is frictionless and durable. I'll own the funnel from the buy button inward.
+
+### What "just enough commerce" means technically (deliberately tiny)
+- **Keep:** one Founding plan, a **real** checkout (a Stripe Payment Link or minimal Checkout session — real card charge, minimal build), an **idempotent** webhook that flips the family to *active*, capacity that actually binds (C1 — and note B1 found it currently *doesn't*: `child_profile_limit` defaults to 10), and the ability to observe retention (they can cancel; we can see it).
+- **Cut, unchanged from the review:** entitlement engine, `plans` table beyond one row, tiers, disclosure engine, upgrade/downgrade/proration, adult-seat flows, the registry (C3/C4).
+- The difference from my earlier "manual" idea: **real self-serve payment, minimally built** — not hand-invoicing. Small, but genuine.
+
+### The sequence I would now choose
+
+The cleanest structure merges the loop and the commitment into **one measurable outcome**, with validation observing it:
+
+1. **Activation (Epic D + the thin Epic C, as one deliverable).** Build order within it:
+   - **First, the loop (D1–D4)** — you cannot sell entry to a loop with dead ends. This is the bulk of the engineering and it fills the B2 substrate with real signal.
+   - **Then the thin commitment bracket around it** — real single-plan checkout + idempotent webhook → active, capacity binding, existing beta families handled. Acceptance = **one real family completes discover → pay → onboard → loop → still subscribed a week later.**
+2. **Validation (Epic E), in parallel, observing the *activated* families** — now measuring commitment behaviour and retention alongside "does context improve generation" and "do observations feel understood." The paid cohort *is* the experiment.
+3. **Then Sprint 2 — the LFM engine** (memory-aware generation), gated on E's go/no-go.
+
+### Why this is the right shape for a *company*, not just software
+The engineering roadmap and the commercial roadmap now reinforce each other instead of running as separate tracks. The same funnel that proves the *product* works (the loop) also proves the *business* works (a family will pay and stay) and de-risks the *moat* (E observes whether paying families feel understood). We learn willingness-to-pay, commitment behaviour, and the validity of the entire LFM thesis **from one cohort, in one motion.** That is the tightest possible coupling of build and business — which is exactly what a company this small should want.
+
+**Net change to my recommendation:** I withdraw "make payments manual and late." The revised recommendation is: **build the loop and a thin, real commitment bracket as one Activation epic, run validation over the paying cohort in parallel, keep automated *commercial architecture* (tiers/registry) deferred until retention is proven.** Epic C doesn't disappear — it becomes the smallest real thing that turns a user into a committed family.
+
+---
+
 *This review serves the Constitution, not the roadmap. If the roadmap ever stops serving a family's flourishing — or an engineering month's leverage — we change it. This is one of those moments, in a small but real way.*
