@@ -6,7 +6,7 @@ workflow. Fill `verified` only after `scripts/smoke-test.sh` is green.
 
 | Date (UTC) | Frontend SHA | Latest migration | Edge fns deployed | Surfaces | Verified |
 |------------|--------------|------------------|-------------------|----------|----------|
-| 2026-07-17 | _pending merge of `chore/release-workflow`_ | 0027_living_family_record | — (none this release) | frontend | ⏳ after merge+deploy |
+| 2026-07-17 | 803ef0a | 0027_living_family_record | — (none this release) | frontend | ✅ smoke 9/9, live commit asserted; first deploy carrying build stamp |
 | 2026-07-17 | 326e296 | 0027_living_family_record | ai (Reflection engine, earlier) | frontend | ✅ smoke 7/8 (pre-build-stamp); frontend caught up to backend after 75-commit gap |
 
 ## Notes
