@@ -215,7 +215,7 @@ function renderChildSliders(child) {
           <div class="slider-wrap">
             <input type="range" min="1" max="10" value="${child.diyMaterials}" id="diy-slider" class="slider"/>
             <div class="slider-scale">
-              <span>1 · Buy everything</span><span>5 · Balanced</span><span>10 · Make most things</span>
+              <span>1 · Make everything</span><span>5 · Balanced</span><span>10 · Buy everything</span>
             </div>
           </div>
           <div class="card mt-2" style="background:var(--card-elev);padding:16px">

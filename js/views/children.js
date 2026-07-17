@@ -251,12 +251,11 @@ const NEW_CHILD_DRAFT = "child-new";
 
 // Per-child permissions the parent explicitly grants. Project generation stays
 // within these boundaries (see supabase/functions/ai generateProject rules).
-// Gender — used so the AI uses the right pronouns; "" = not specified (neutral they/them).
+// Gender — used so the AI uses the right pronouns.
 const GENDER_OPTIONS = [
-  { value: "", label: "Prefer not to say" },
-  { value: "girl", label: "Girl (she/her)" },
-  { value: "boy", label: "Boy (he/him)" },
-  { value: "nonbinary", label: "Non-binary (they/them)" },
+  { value: "boy", label: "Boy" },
+  { value: "girl", label: "Girl" },
+  { value: "nonbinary", label: "Non-binary" },
 ];
 
 const MOBILITY_OPTIONS = [
@@ -339,9 +338,9 @@ function openChildModal(childId = null) {
         <div class="small text-muted" style="margin-top:6px"><span class="fw-700" id="f-ls-label">${esc(lsDesc.label)}</span> — <span id="f-ls-summary">${esc(lsDesc.summary)}</span></div>
       </div>
       <div class="field" style="margin-top:14px">
-        <label class="small">DIY materials <span class="text-muted">— buy ↔ make your own</span></label>
+        <label class="small">DIY materials <span class="text-muted">— make your own ↔ buy</span></label>
         <input type="range" min="1" max="10" value="${draft.diyMaterials ?? 5}" id="f-diy" class="slider"/>
-        <div class="slider-scale"><span>1 · Buy everything</span><span>5 · Balanced</span><span>10 · Make most things</span></div>
+        <div class="slider-scale"><span>1 · Make everything</span><span>5 · Balanced</span><span>10 · Buy everything</span></div>
         <div class="small text-muted" style="margin-top:6px"><span class="fw-700" id="f-diy-label">${esc(diyDesc.label)}</span> — <span id="f-diy-summary">${esc(diyDesc.summary)}</span></div>
       </div>
       ${existing

@@ -40,11 +40,14 @@ export function describeLearningStyle(value) {
     || LEARNING_STYLE_LEVELS[2];
 }
 
+// Scale: 1 = make everything (world-is-the-classroom) → 10 = buy everything
+// (ready-made curriculum). Runs the same direction as the learning-style scale:
+// Explorer/unschooling tends to make; Traditional tends to buy.
 export function describeDIY(value) {
   if (value <= 3) return {
-    label: "Ready-made",
-    summary: "Buy most materials ready-made. Save time, plug-and-play.",
-    bias: "buy",
+    label: "Hands-on maker",
+    summary: "Make most things yourself. Cheaper, deeper, takes more time.",
+    bias: "diy",
   };
   if (value <= 7) return {
     label: "Balanced",
@@ -52,9 +55,9 @@ export function describeDIY(value) {
     bias: "mixed",
   };
   return {
-    label: "Hands-on maker",
-    summary: "Make most things yourself. Cheaper, deeper, takes more time.",
-    bias: "diy",
+    label: "Ready-made",
+    summary: "Buy most materials ready-made. Save time, plug-and-play.",
+    bias: "buy",
   };
 }
 
