@@ -422,11 +422,26 @@ export const rhythmSection = {
     const structure = termStructureOf(rhythm);
     const holMode = rhythm.holidayMode === "custom" ? "custom" : "auto";
     const monthOpts = (sel) => MONTHS.map((m, i) => `<option value="${i + 1}" ${(+sel) === (i + 1) ? "selected" : ""}>${m}</option>`).join("");
+    // Optional day-of-month. Blank = default (1st of the start month / last day of
+    // the end month), so families who don't care never have to touch it.
+    const dayOpts = (sel, placeholder) => `<option value="">${placeholder}</option>` +
+      Array.from({ length: 31 }, (_, i) => i + 1)
+        .map(d => `<option value="${d}" ${(+sel) === d ? "selected" : ""}>${d}</option>`).join("");
     return `
       <p class="ns-acc__intro">How learning naturally fits into your family's life. North Star uses this to time reflections, shape the calendar and (soon) scale project workload to your week — never to overfill it. You're not scheduling lessons; you're telling North Star your family's capacity.</p>
       <div class="grid grid-2" style="gap:14px">
-        <div class="field" style="margin:0"><label>School year starts</label><select class="input" id="ry-start">${monthOpts(rhythm.schoolYearStartMonth)}</select></div>
-        <div class="field" style="margin:0"><label>School year ends</label><select class="input" id="ry-end">${monthOpts(rhythm.schoolYearEndMonth)}</select></div>
+        <div class="field" style="margin:0"><label>School year starts</label>
+          <div style="display:flex;gap:8px">
+            <select class="input" id="ry-start" style="flex:1">${monthOpts(rhythm.schoolYearStartMonth)}</select>
+            <select class="input" id="ry-start-day" style="max-width:96px" title="Day of month (optional)">${dayOpts(rhythm.schoolYearStartDay, "1st")}</select>
+          </div>
+        </div>
+        <div class="field" style="margin:0"><label>School year ends</label>
+          <div style="display:flex;gap:8px">
+            <select class="input" id="ry-end" style="flex:1">${monthOpts(rhythm.schoolYearEndMonth)}</select>
+            <select class="input" id="ry-end-day" style="max-width:96px" title="Day of month (optional)">${dayOpts(rhythm.schoolYearEndDay, "Last")}</select>
+          </div>
+        </div>
         <div class="field" style="margin:0"><label>Hemisphere</label>
           <select class="input" id="ry-hemi">
             <option value="auto" ${!fam.rhythm?.hemisphere ? "selected" : ""}>Auto — from your location</option>
@@ -572,6 +587,8 @@ export const rhythmSection = {
     });
     bindRhythm("#ry-start", "schoolYearStartMonth", (v) => parseInt(v, 10));
     bindRhythm("#ry-end", "schoolYearEndMonth", (v) => parseInt(v, 10));
+    bindRhythm("#ry-start-day", "schoolYearStartDay", (v) => v === "" ? null : parseInt(v, 10));
+    bindRhythm("#ry-end-day", "schoolYearEndDay", (v) => v === "" ? null : parseInt(v, 10));
     bindRhythm("#ry-days", "daysPerWeek", (v) => parseInt(v, 10));
     bindRhythm("#ry-hours", "hoursPerDay", (v) => Number(v));
     bindRhythm("#ry-window", "learningWindow");

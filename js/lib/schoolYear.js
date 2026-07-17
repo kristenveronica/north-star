@@ -87,10 +87,25 @@ export function currentSchoolYear(rhythm = {}, now = new Date()) {
   const endM = clampMonth(rhythm.schoolYearEndMonth, rhythm.hemisphere === "southern" ? 12 : 6);
   const crosses = startM > endM; // e.g. Sep(9) → Jun(6) spans two calendar years
 
-  const windowFor = (startYear) => ({
-    start: new Date(startYear, startM - 1, 1, 0, 0, 0, 0),
-    end: new Date(startYear + (crosses ? 1 : 0), endM, 0, 23, 59, 59, 999), // day 0 = last day of endM
-  });
+  // Optional day-of-month; blank/invalid falls back to the 1st (start) and the
+  // last day of the end month — the original behaviour. Clamped to the month's
+  // real length so e.g. "31" in a 30-day month lands on the 30th.
+  const daysIn = (y, m1) => new Date(y, m1, 0).getDate();
+  const pickDay = (v, last, fallback) => {
+    const n = parseInt(v, 10);
+    return (n >= 1 && n <= last) ? n : fallback;
+  };
+  const windowFor = (startYear) => {
+    const endYear = startYear + (crosses ? 1 : 0);
+    const startLast = daysIn(startYear, startM);
+    const endLast = daysIn(endYear, endM);
+    const startDay = pickDay(rhythm.schoolYearStartDay, startLast, 1);
+    const endDay = pickDay(rhythm.schoolYearEndDay, endLast, endLast);
+    return {
+      start: new Date(startYear, startM - 1, startDay, 0, 0, 0, 0),
+      end: new Date(endYear, endM - 1, endDay, 23, 59, 59, 999),
+    };
+  };
 
   const candidates = [now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(windowFor);
   let win = candidates.find(w => now >= w.start && now <= w.end);
