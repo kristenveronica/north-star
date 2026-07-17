@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# North Star pre-push hook — a gentle local warning when a feature branch has
+# drifted materially ahead of main. Non-blocking (never rejects a push); it
+# just nudges toward smaller release boundaries. Install with:
+#   ./scripts/install-hooks.sh
+git fetch origin main --quiet 2>/dev/null || true
+AHEAD=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo 0)
+if [ "$AHEAD" -gt 15 ]; then
+  printf "\033[33m⚠ This branch is %s commits ahead of main (>15).\033[0m\n" "$AHEAD" >&2
+  printf "  Consider opening a PR and merging before it grows further — long-lived\n" >&2
+  printf "  branches are how frontend/backend production drift creeps in.\n" >&2
+fi
+exit 0

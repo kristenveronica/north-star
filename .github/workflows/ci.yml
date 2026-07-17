@@ -1,0 +1,55 @@
+name: CI
+
+# Lightweight release-boundary checks. Runs on every PR into main (the release
+# boundary) and on pushes to feature branches. Fast, deterministic, no secrets.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need full history for the branch-ahead check
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Frontend syntax check (node --check on all JS)
+        run: |
+          set -e
+          find js -name '*.js' -print0 | xargs -0 -n1 node --check
+          echo "All JS modules parse."
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Edge function type-check (deno check)
+        run: |
+          set -e
+          for d in supabase/functions/*/; do
+            f="${d}index.ts"
+            if [ -f "$f" ]; then
+              echo "checking $f"
+              deno check "$f"
+            fi
+          done
+
+      - name: Migration lint
+        run: node scripts/lint-migrations.mjs
+
+      - name: Branch-ahead warning
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin main --quiet || true
+          AHEAD=$(git rev-list --count origin/main..HEAD || echo 0)
+          echo "This PR is $AHEAD commit(s) ahead of main."
+          if [ "$AHEAD" -gt 15 ]; then
+            echo "::warning title=Large release boundary::Branch is $AHEAD commits ahead of main (threshold 15). Prefer smaller, short-lived branches so production stays observable."
+          fi
