@@ -129,9 +129,30 @@ export function renderSettings(container) {
           <li>Domain balancing engine</li>
           <li>Child portals with PIN-style access</li>
         </ul>
+        <div class="divider"></div>
+        <h4>Build</h4>
+        <p class="text-muted small" id="build-id" style="font-variant-numeric:tabular-nums">Checking…</p>
       </div>
     </div>
   `;
+
+  // Which frontend commit is live. Fetched from build-info.json, which is
+  // stamped at deploy time (scripts/gen-build-info.mjs). Absent in local dev,
+  // so we degrade gracefully. Lets anyone confirm production identity at a glance.
+  (async () => {
+    const el = container.querySelector("#build-id");
+    if (!el) return;
+    try {
+      const r = await fetch("/build-info.json", { cache: "no-store" });
+      if (!r.ok) throw new Error(String(r.status));
+      const b = await r.json();
+      const when = b.builtAt ? fmtDate(b.builtAt) : "—";
+      const ctx = b.context && b.context !== "production" ? ` · ${esc(b.context)}` : "";
+      el.innerHTML = `<code>${esc(b.commitShort || "unknown")}</code> · ${esc(b.branch || "—")}${ctx}<br>deployed ${esc(when)}`;
+    } catch {
+      el.textContent = "local / dev (no deploy stamp)";
+    }
+  })();
 
   const savePrefs = () => setFamily({
     parentName: container.querySelector("#parentName").value.trim(),

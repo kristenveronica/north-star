@@ -1,8 +1,14 @@
-# North Star — static SPA, no build step required.
+# North Star — static SPA. The only "build" step stamps the deploy with its
+# identity (build-info.json) so we can confirm which commit is live.
 # Hash-based routing means no SPA fallback rule is needed.
 
 [build]
   publish = "."
+  # Writes build-info.json from Netlify's build env (COMMIT_REF, BRANCH,
+  # CONTEXT…). Runs in every context — production, deploy previews and branch
+  # deploys — so each surface carries its true commit. The generator is
+  # best-effort and never throws, so it can't fail a deploy.
+  command = "node scripts/gen-build-info.mjs"
 
 [[headers]]
   for = "/*"
