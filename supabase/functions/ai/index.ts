@@ -12,7 +12,7 @@
 // ============================================================================
 
 import { resolveCaller, isActiveMember, hasPermission } from "../_shared/authz.ts";
-import { logSecurityEvent, recentCount } from "../_shared/security.ts";
+import { logSecurityEvent, recentCount, logAiUsage } from "../_shared/security.ts";
 
 // Actions that spend meaningful tokens and require an AI-consuming permission.
 const GENERATIVE_ACTIONS = new Set(["generate-project", "generate-printable", "quickstart-extract", "mentor-turn", "coreword-living"]);
@@ -77,7 +77,20 @@ Mentorship, Family, Community, Faith, Technology.
 Learning style is a 1–10 spectrum: 1 = Explorer/unschooling (open-ended, child-led), 10 = Traditional
 Academic (structured). Tune the project's structure to where the family sits.`;
 
-async function callClaude(system: string, userText: string, schema: object, apiKey: string) {
+// opts.rules, when provided, is a LARGE STATIC instruction block (identical across
+// calls) sent as its own cached prefix after SOUL — so a heavy action's fixed rules
+// are billed at cache-read rates, while only its per-call `system`/`userText` (the
+// dynamic family/child data) is charged as fresh input. See docs/ai-cost-audit.md.
+async function callClaude(
+  system: string,
+  userText: string,
+  schema: object,
+  apiKey: string,
+  opts: { rules?: string; maxTokens?: number } = {},
+) {
+  const systemBlocks: any[] = [{ type: "text", text: SOUL, cache_control: { type: "ephemeral" } }];
+  if (opts.rules) systemBlocks.push({ type: "text", text: opts.rules, cache_control: { type: "ephemeral" } });
+  systemBlocks.push({ type: "text", text: system });
   const res = await fetch(ANTHROPIC_URL, {
     method: "POST",
     headers: {
@@ -87,11 +100,8 @@ async function callClaude(system: string, userText: string, schema: object, apiK
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 8000,
-      system: [
-        { type: "text", text: SOUL, cache_control: { type: "ephemeral" } },
-        { type: "text", text: system },
-      ],
+      max_tokens: opts.maxTokens ?? 8000,
+      system: systemBlocks,
       output_config: { format: { type: "json_schema", schema } },
       messages: [{ role: "user", content: userText }],
     }),
@@ -515,9 +525,13 @@ ${requestedDomains.length
   ? `REQUESTED CAPABILITY DOMAINS: The parent has chosen the Capability Domains this quest should develop: ${requestedDomains.join(", ")}. Treat this as the DESIRED SET — genuinely develop each one through the missions (don't just tag it), and don't lean on domains they didn't pick. These should be your capabilityMap.primary, and "domains" must include exactly this set.`
   : ""}
 
-${focusLines ? `PARENT'S FOCUS FOR THIS QUEST (weight the design toward these, without ignoring the whole child):\n${focusLines}` : ""}
+${focusLines ? `PARENT'S FOCUS FOR THIS QUEST (weight the design toward these, without ignoring the whole child):\n${focusLines}` : ""}`;
 
-WELL-ROUNDED & CREATIVE DESIGN: Deliberately balance THREE ingredients so the quest is whole, not one-note:
+  // The invariant design rules — identical for every child, so they ride as a
+  // cached prefix (see callClaude opts.rules). Keep this block free of per-call
+  // values (child name, avoid-titles, etc. live in `system`/userText) so the
+  // string stays byte-identical and the cache actually hits.
+  const PROJECT_RULES = `WELL-ROUNDED & CREATIVE DESIGN: Deliberately balance THREE ingredients so the quest is whole, not one-note:
 1) DELIGHT — something that genuinely lights this child up (their real passions/interests).
 2) GROWTH — something they (or their parents) want to develop, woven in so it feels earned, not bolted on.
 3) STRETCH — at least one mission that challenges them just past their comfort zone (a brave ask, a harder
@@ -530,7 +544,7 @@ business/market stall). Reach across different pathways (Service, Science, Arts,
 Technology, Community, Faith, Enterprise, Self-Reliance, Health, Family, Mentorship) and real-world formats
 (an exhibition, a field study, a repair, a performance, a teach-back, an expedition, a published piece, an
 event, an experiment, a collection, an interview series). Pick something fresh and a little surprising.
-${avoidTitles.length ? `This child has ALREADY done these quests — make this one clearly DIFFERENT in theme, pathway and format from every one of them: ${avoidTitles.join("; ")}.` : ""}
+Make this quest clearly DIFFERENT in theme, pathway and format from any quests this child has already done (any that exist are listed under CONSTRAINTS below).
 
 EVERY MILESTONE ("mission") MUST BE:
 - MEASURABLE — a clear done / not-done outcome (not vague "learn about X").
@@ -571,7 +585,7 @@ REAL-WORLD & SAFETY RULES (from the family's Settings — use ONLY what is provi
 - TOOL PROGRESSION & UNLOCKS: Tools and equipment the child has earned/owns (see RESOURCES ALREADY OWNED) UNLOCK more advanced work — escalate project complexity accordingly (e.g. once they have a drill or toolbox, design real woodworking/repair builds). A reward can unlock a whole capability; lean into newly-unlocked capabilities next.
 - CHARACTER, IDENTITY & WISDOM: When the family owns character/values resources (see RESOURCES ALREADY OWNED — e.g. Share Tree or values cards, conversation cards, gratitude or reflection journals, family discussion games, family meeting kits), actively BUILD RITUALS around them inside projects: a weekly reflection ritual with the cards, an after-dinner values discussion, gratitude reflections woven into milestones, a weekly conversation/family-meeting night tied to the current Capability Domains. These are not academic add-ons — they are how the family's MISSION, CORE WORD and MOTTO (see FAMILY NORTH STAR) become lived daily rather than words on a page. Over time, treat the resources that have become meaningful to this family as part of their culture and keep weaving them into projects, celebrations, reflections and conversations.
 - LEARN FROM THIS FAMILY: If FAMILY LEARNING SIGNALS are present below, honour them — gravitate toward the kinds of projects they've accepted and steer clear of the reasons they've rejected before (e.g. too screen-based, too expensive, too much travel, too much parent involvement). This is how North Star gets to know each family over time.
-- CAPABILITY-FIRST (core principle): Personalise to each capability area in the LEARNING PROFILE, NOT chronological age. A child may read above age level yet need gentler maths — pitch each part of the quest to the child's actual current level in that specific area. Honour the learning style (how to package learning), build on the stated strengths, gently strengthen the chosen growth areas. Read the parent's "How ${c.name || "this child"} learns" observations as PATTERNS to design around — NEVER as clinical diagnoses or deficits. If they note "concentrates better after movement" → build in movement breaks; "reads years above age" → use reading material by ability not age; "hates handwriting but loves talking" → favour voice recordings, presentations and typing; "overwhelmed in noisy places" → calmer, quieter settings. Use the parent's "about" description to set the tone and the hooks that will genuinely engage this child.
+- CAPABILITY-FIRST (core principle): Personalise to each capability area in the LEARNING PROFILE, NOT chronological age. A child may read above age level yet need gentler maths — pitch each part of the quest to the child's actual current level in that specific area. Honour the learning style (how to package learning), build on the stated strengths, gently strengthen the chosen growth areas. Read the parent's "How this child learns" observations as PATTERNS to design around — NEVER as clinical diagnoses or deficits. If they note "concentrates better after movement" → build in movement breaks; "reads years above age" → use reading material by ability not age; "hates handwriting but loves talking" → favour voice recordings, presentations and typing; "overwhelmed in noisy places" → calmer, quieter settings. Use the parent's "about" description to set the tone and the hooks that will genuinely engage this child.
 - ACADEMIC FLEXIBILITY: If the family follows any traditional curriculum (listed under ACADEMIC & CURRICULUM below), weave it in as a natural ingredient of the quest — don't sit it outside North Star. Reference specific workbooks/pages, this week's lesson, province/state requirements or upcoming tests inside real missions (e.g. "Complete pages 34–36 of your maths workbook", "Run a practical experiment tied to this week's science lesson", "Write a reflection connected to today's reading"). Blend structured academics with real-world capability wherever it fits.
 - EXTERNAL LEARNING ECOSYSTEM: North Star is the intelligence layer ABOVE the family's existing learning — music teachers, sports coaches, language tutors, dance schools, coding programs, Duolingo, reading apps, YouTube, courses, museums, mentors. NEVER try to replace excellent resources the child already uses (listed under "Existing learning, mentors & tools"). Instead extend and deepen them: design missions that build ON top of what's already happening (e.g. "Apply this week's piano lesson by performing for a relative", "Use your Duolingo Spanish in a real conversation at the market").
 - NO PASSIVE CONSUMPTION (core design principle): NEVER recommend watching/listening/reading as an endpoint. Every resource MUST be paired with reflection, application or creation. Watch a documentary → create a presentation. Listen to a podcast → interview someone about the topic. Watch a TED Talk → apply one idea this week. Complete a Duolingo lesson → use the language for real. Watch a tutorial → build the thing. Always move the child from consuming information to creating capability.
@@ -581,7 +595,7 @@ REAL-WORLD & SAFETY RULES (from the family's Settings — use ONLY what is provi
 
 PROPOSAL FIELDS (fill ALL — this is the proposal the parent reviews before accepting; make it trustworthy and complete):
 - "description": a clear summary for the PARENT of what this quest involves.
-- "childDescription": the same quest spoken directly TO ${c.name || "the child"} — warm, exciting and age-appropriate, their invitation into the adventure ("You are about to…").
+- "childDescription": the same quest spoken directly TO the child — warm, exciting and age-appropriate, their invitation into the adventure ("You are about to…").
 - "purpose": why this quest fits THIS child right now (their interest, stage, and what it grows).
 - "reasonSuggested": "Why North Star suggested this" — 1–2 plain-language sentences explaining the design logic: how it builds on their interest while quietly balancing capabilities (e.g. "This builds on Noah's mountain-biking passion while strengthening measurement, planning and resilience, and balances his recent science-heavy work with practical maths and reflective writing."). Keep it short and useful — this is what earns the parent's trust.
 - "academicSkills": the academic skills woven in (e.g. measurement, persuasive writing, data handling) — concrete, short items.
@@ -745,7 +759,7 @@ ${prevSummary ? `\n${prevSummary}\n\nPARENT'S REQUESTED CHANGES (apply these): "
 ${refine
   ? `Return the AMENDED quest for ${c.name || "this child"} — the same quest, revised per the parent's requested changes above, with ${c.name || "the child"} still as the hero.`
   : `Design one quest tailored to ${c.name || "this child"}, with ${c.name || "the child"} as the hero.`}`;
-  return callClaude(system, userText, PROJECT_SCHEMA, apiKey);
+  return callClaude(system, userText, PROJECT_SCHEMA, apiKey, { rules: PROJECT_RULES });
 }
 
 // ---- Action: growth-reflection (quarterly report, framed by the family vision) ----
@@ -1233,6 +1247,7 @@ Deno.serve(async (req) => {
       return json({ error: "You don't have permission to request reports here." }, 403);
     }
 
+    const t0 = Date.now();
     let result;
     if (action === "suggest-core-word") result = await suggestCoreWord(payload, apiKey);
     else if (action === "suggest-vision") result = await suggestVision(payload, apiKey);
@@ -1248,6 +1263,8 @@ Deno.serve(async (req) => {
     else return json({ error: `Unknown action: ${action}` }, 400);
 
     console.log(`[ai] ${action} usage:`, JSON.stringify(result.usage));
+    // Persist token usage + cost (best-effort; never blocks or breaks the call).
+    await logAiUsage({ action, familyId: caller!.familyId, usage: result.usage, durationMs: Date.now() - t0 });
     return json({ data: result.parsed, usage: result.usage });
   } catch (e) {
     console.error("[ai] error:", e);

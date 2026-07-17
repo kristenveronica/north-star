@@ -30,6 +30,49 @@ export async function logSecurityEvent(
   }
 }
 
+// Anthropic per-1M-token pricing. Extend when we add models.
+const AI_PRICING: Record<string, { in: number; out: number; cacheRead: number; cacheWrite: number }> = {
+  "claude-sonnet-4-6": { in: 3, out: 15, cacheRead: 0.30, cacheWrite: 3.75 },
+};
+
+/**
+ * Persist one AI call's token usage + computed cost. Best-effort: a logging
+ * failure must never affect the caller. Skips when there was no real API call
+ * (usage null). See public.ai_usage_log / docs/ai-cost-audit.md.
+ */
+export async function logAiUsage(opts: {
+  action: string;
+  familyId?: string | null;
+  model?: string;
+  usage: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number } | null;
+  durationMs?: number | null;
+}): Promise<void> {
+  try {
+    if (!opts.usage) return; // no API call happened (e.g. empty-input shortcut)
+    const u = opts.usage;
+    const model = opts.model || "claude-sonnet-4-6";
+    const inTok = u.input_tokens ?? 0;
+    const outTok = u.output_tokens ?? 0;
+    const cacheRead = u.cache_read_input_tokens ?? 0;
+    const cacheWrite = u.cache_creation_input_tokens ?? 0;
+    const p = AI_PRICING[model] || AI_PRICING["claude-sonnet-4-6"];
+    const cost = (inTok * p.in + outTok * p.out + cacheRead * p.cacheRead + cacheWrite * p.cacheWrite) / 1_000_000;
+    await admin.from("ai_usage_log").insert({
+      action: opts.action,
+      family_id: opts.familyId ?? null,
+      model,
+      input_tokens: inTok,
+      output_tokens: outTok,
+      cache_read_tokens: cacheRead,
+      cache_creation_tokens: cacheWrite,
+      cost_usd: Number(cost.toFixed(6)),
+      duration_ms: opts.durationMs ?? null,
+    });
+  } catch (_e) {
+    // Never let telemetry break a request.
+  }
+}
+
 /** Count events of a type for an ip/identifier within the last windowSecs. */
 export async function recentCount(
   event_type: string,
