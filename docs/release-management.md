@@ -9,11 +9,45 @@ bureaucracy.*
 **`main` is production.** A task is not done because it is built or committed.
 For customer-facing or production-dependent work, **done** means the whole chain:
 
-> built → tested → pushed → reviewed in preview (where appropriate) → merged to `main` → deployed → **verified live**
+> built → tested → pushed → reviewed in preview (where appropriate) → merged to `main` → deployed → **verified** → **observed**
 
 Use those words literally in engineering updates. Never say *shipped / complete /
-done* unless the intended surfaces are deployed and verified — or say plainly that
-the work is **intentionally dark / unreleased**.
+done* unless the intended surfaces are deployed, verified **and observed** — or say
+plainly that the work is **intentionally dark / unreleased**.
+
+### verified vs observed
+
+These are two different claims and must not be collapsed:
+
+- **verified** — *at the moment of deploy*, the release is live and correct: the
+  smoke test is green, the build stamp shows the merged commit, the intended change
+  is present. A point-in-time proof.
+- **observed** — *after the release has run for a while*, production is healthy: no
+  new error spikes, no regressions reported, edge-function and DB logs look normal.
+  A duration proof. A release can be **verified but not yet observed** — that's the
+  normal state for the first minutes/hours after deploy, and reports should say so.
+
+**How we observe** (lightweight — check, don't build a monitoring platform):
+`get_advisors` (security + performance) and `get_logs` for the touched surface
+(`api`, `postgres`, or the specific edge function), plus a quick scan of
+`security_events`. If nothing unhealthy after a sensible window for the change,
+mark it **observed** in `docs/RELEASES.md`.
+
+## The authoritative-repository rule
+
+> **Production infrastructure must never know something that the repository does not.**
+
+The repository is the single, authoritative description of production. This applies
+to **every** surface, not just code:
+
+- database schema & migrations · edge functions · configuration & env vars ·
+  deployment settings (netlify.toml, build commands) · scheduled jobs / crons.
+
+If you change production, the change lands in the repo in the same motion — never
+"apply it now, commit it later." A production object with no repository origin is a
+defect to reconcile, exactly like the missing `0024` migration was. When you must
+touch prod directly to unblock something, treat the un-committed change as an open
+incident until the repo describes it.
 
 ## The three deployment surfaces
 
@@ -45,7 +79,8 @@ short-lived feature branch
   → review preview  (for any customer-facing UX change)
   → merge to main   (frontend auto-deploys)
   → deploy backend  (run release-check.sh first — must say SAFE)
-  → smoke-test.sh   (earns "verified live")
+  → smoke-test.sh   (earns "verified")
+  → observe         (get_advisors + get_logs after a sensible window — earns "observed")
   → log it in docs/RELEASES.md
 ```
 
@@ -92,8 +127,21 @@ live from either end:
 - **CLI:** `curl -s https://northstar-family.com/build-info.json`
 - **Assert a specific commit:** `EXPECT_SHA=<sha> ./scripts/smoke-test.sh`
 
-## Known drift to reconcile
+## Reconciliation log
 
-- **Migration `0024` is applied to prod but its `.sql` is not in the repo** (see
-  memory: mobility_profile). `lint-migrations.mjs` flags the gap. Recover the SQL
-  from the Supabase migration history and commit it so the repo is authoritative.
+- **Migration `0024` — RESOLVED (2026-07-17).** Was applied to prod but never
+  committed. Recovered verbatim from `supabase_migrations.schema_migrations`
+  (version `20260704212047`), verified against the live schema
+  (`children.mobility_profile` is `jsonb`), committed as
+  `0024_children_mobility_profile_jsonb.sql`. Lint now clean.
+- **Repo ↔ prod schema alignment — VERIFIED (2026-07-17).** Table-level: exact
+  37/37 match, no table in prod that a repo migration doesn't create and none the
+  other way. Column-level: all 237 distinct prod columns appear in repo migration
+  text (no out-of-band column additions). With `0024` committed, a clean rebuild
+  from the repo reproduces production's schema.
+- **Known-benign nuance:** prod's internal `schema_migrations` *ledger* has fewer
+  rows than the repo has migration files (migrations 0010–0020 were applied via the
+  MCP/dashboard, which doesn't write timestamped ledger rows). This is a
+  mechanism artifact, not a schema difference — the repo files remain the source of
+  truth for a clean rebuild. If we ever adopt `supabase db push`, repair the ledger
+  first (`supabase migration repair --status applied`).

@@ -96,6 +96,14 @@ For each principle: **what** it is, and — more importantly — **why** it exis
 
 *In practice:* the whole six-month thesis — spend on the flywheel, not on breadth.
 
+### 13. The repository is the truth about production
+
+**What.** Production infrastructure must never know something the repository does not. Schema, migrations, edge functions, configuration, deployment settings, scheduled jobs — all of it lives in the repo, and a change to production and its commit to the repo are the *same act*, never "apply now, commit later."
+
+**Why.** The moment production drifts from the repo, every future decision is made against a map that lies. We hit this twice: a frontend served 75 commits behind its backend, and a migration (`0024`) that shaped production but existed nowhere in the repo. Both were invisible until they bit. A repo that fully describes production is what makes a clean rebuild trustworthy, makes review meaningful, and lets a small team reason about the system without archaeology. See [release-management.md](release-management.md).
+
+*In practice:* if you must touch prod directly to unblock something, the un-committed change is an open incident until the repo describes it.
+
 ---
 
 ## The question before every merge
