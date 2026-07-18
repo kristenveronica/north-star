@@ -25,9 +25,6 @@ Distillation v1 (migration 0032) produces only **interest** (inferred) and **cir
 - **Parent-requested-modification meaning** — an edit's `requestedChange` free text is direct evidence of a preference, but extracting *what* preference needs the **bounded AI classification step** (the one place AI is genuinely warranted). v1 stays fully deterministic; add the AI step when rejection/edit signal is needed by generation.
 - **Confirmed interests** are produced by the Observation Engine's confirm flow, not distillation; distillation only *respects* them.
 
-### G3 · Distillation invocation is not wired
-`distill_family` exists and is verified, and `runDistillation()` (js/lib/lfm.js) can call it, but nothing invokes it automatically yet. Wire to a natural checkpoint (after a project decision, or a periodic sweep) — a small next step, intentionally not bundled into the rules slice.
-
 ### G4 · Freshness / decay not implemented
 Understanding confidence does not yet decay with time (the `last_reinforced_at` half-life from data-model §6). Interests that go quiet remain until contradicted. Add when the Observation Engine / rhythm work needs it.
 
@@ -38,4 +35,5 @@ Distillation has only been proven on controlled evidence. Backfilling the 3 live
 
 ## Closed
 
-*(none yet)*
+### G3 · Distillation invocation *(closed 2026-07-18)*
+Wired at the natural checkpoint: after a project accept/edit/decline, `fireArchive` (js/views/projects.js) records the Archive entry then calls `runDistillation(family, child)` — deferred/background, non-blocking, failure-isolated from the Archive write. The next generation reads fresh Understanding. (Milestone completions don't trigger distillation — they carry no domain signal for the current categories; revisit if completion-based Understanding is added.)
