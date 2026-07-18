@@ -134,4 +134,38 @@ do $$ declare n int; begin
   raise notice '[LEGIT] member reads own-family understanding: %', case when n=1 then 'GREEN (ok)' else 'RED (saw '||n||')' end;
 exception when others then execute 'reset role'; raise notice '[LEGIT] member understanding read: RED (unexpected error: %)', sqlerrm; end $$;
 
+-- [ATTACK LFM-4] outsider injects an ARCHIVE project-decision into another family
+do $$ declare n int; begin
+  perform pg_temp.as_user('44444444-4444-4444-4444-444444444444');
+  insert into family_archive (family_id, scope, subject_id, source_type, title)
+    values ('11111111-1111-1111-1111-111111111111','child','55555555-5555-5555-5555-555555555555','project_decision','attacker inject');
+  get diagnostics n = row_count; execute 'reset role';
+  raise notice '[ATTACK LFM-4] outsider injects archive project-decision: %', case when n>0 then 'RED (inserted)' else 'GREEN (blocked)' end;
+exception when others then execute 'reset role'; raise notice '[ATTACK LFM-4] outsider injects archive: GREEN (blocked: %)', sqlerrm; end $$;
+
+-- [LEGIT] member records a project-decision via INSERT…RETURNING (the real write
+-- path; also re-verifies the 0030 gotcha does NOT bite family_archive) ---------
+do $$ declare n int; begin
+  perform pg_temp.as_user('33333333-3333-3333-3333-333333333333');
+  insert into family_archive (id, family_id, scope, subject_id, source_type, title, metadata)
+    values ('88888888-8888-4888-8888-000000000001','11111111-1111-1111-1111-111111111111','child',
+            '55555555-5555-5555-5555-555555555555','project_decision','The Gear Inventor','{"event":"accepted"}'::jsonb)
+    on conflict (id) do update set title = excluded.title
+    returning 1 into n;   -- RETURNING must pass the SELECT policy
+  execute 'reset role';
+  raise notice '[LEGIT] member records project-decision (insert…returning): %', case when n=1 then 'GREEN (ok)' else 'RED (blocked)' end;
+exception when others then execute 'reset role'; raise notice '[LEGIT] member records project-decision: RED (unexpected error: %)', sqlerrm; end $$;
+
+-- [LEGIT] idempotent retry: upserting the SAME deterministic id keeps ONE row ---
+do $$ declare n int; begin
+  perform pg_temp.as_user('33333333-3333-3333-3333-333333333333');
+  insert into family_archive (id, family_id, scope, subject_id, source_type, title)
+    values ('88888888-8888-4888-8888-000000000001','11111111-1111-1111-1111-111111111111','child',
+            '55555555-5555-5555-5555-555555555555','project_decision','The Gear Inventor (retry)')
+    on conflict (id) do update set title = excluded.title;
+  select count(*) into n from family_archive where id='88888888-8888-4888-8888-000000000001';
+  execute 'reset role';
+  raise notice '[LEGIT] idempotent retry (upsert same id) → rows: %', case when n=1 then 'GREEN (1 row)' else 'RED ('||n||' rows)' end;
+exception when others then execute 'reset role'; raise notice '[LEGIT] idempotent retry: RED (unexpected error: %)', sqlerrm; end $$;
+
 rollback;  -- nothing above persists

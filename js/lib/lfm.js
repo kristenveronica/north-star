@@ -65,19 +65,27 @@ const orNull = (v) => (v === undefined || v === "" ? null : v);
    =========================================================================== */
 
 /** Record one Archive entry (a Moment, a Reflection, a decision, feedback…).
- *  The atomic write of the learning loop — the raw truth Understanding rises from. */
+ *  The atomic write of the learning loop — the raw truth Understanding rises from.
+ *
+ *  Idempotency: pass a stable `id` (derived from the event's natural key) and the
+ *  write upserts on it, so a retry or double-submit cannot create duplicate
+ *  evidence. Omit `id` for genuinely new, non-deduplicated events (a fresh uid). */
 export async function recordArchive(familyId, {
-  scope = SCOPE.FAMILY, subjectId = null, relatedSubjectId = null,
+  id = null, scope = SCOPE.FAMILY, subjectId = null, relatedSubjectId = null,
   sourceType = SOURCE.NOTE, title = null, content = null, summary = null,
   occurredAt = null, metadata = {}, createdBy = null,
 } = {}) {
   const row = {
-    id: uid(), family_id: familyId, scope, subject_id: subjectId,
+    id: id || uid(), family_id: familyId, scope, subject_id: subjectId,
     related_subject_id: relatedSubjectId, source_type: sourceType,
     title: orNull(title), content: orNull(content), summary: orNull(summary),
     occurred_at: occurredAt || nowIso(), metadata: metadata || {}, created_by: createdBy,
   };
-  const { data, error } = await supabase.from("family_archive").insert(row).select().single();
+  // Deterministic id → upsert (idempotent); random id → plain insert.
+  const q = id
+    ? supabase.from("family_archive").upsert(row, { onConflict: "id" })
+    : supabase.from("family_archive").insert(row);
+  const { data, error } = await q.select().single();
   if (error) throw error;
   return fromArchiveRow(data);
 }

@@ -5,10 +5,13 @@
 import {
   getState, getProject, addProject, updateProject, removeProject,
   addMilestone, updateMilestone, completeMilestone, getMilestonesForProject,
-  addReflection, getReflectionsForProject, uid, recordPreferenceSignal, addNotification,
+  addReflection, getReflectionsForProject, uid, addNotification,
 } from "../store.js";
 import { aiGenerateProject } from "../lib/ai.js";
 import { summarizePreferences } from "../lib/preferences.js";
+import { recordArchive } from "../lib/lfm.js";
+import { buildAcceptedArchive, buildEditedArchive, buildDeclinedArchive } from "../lib/projectArchive.js";
+import { currentUserId } from "../auth.js";
 import { techAgreementForAI } from "../lib/techAgreement.js";
 import { ownedResourceKeys } from "../lib/resources.js";
 import { INVENTORY_CATEGORIES } from "../lib/inventoryCatalog.js";
@@ -137,11 +140,34 @@ function openGeneratorModal() {
   let size = "auto";          // quest length: auto | small | medium | large
   let refinementsLeft = 3;    // 3 AI refinements before accepting
   let current = null;         // the proposed project being reviewed
+  let resolved = false;       // true once accepted or saved-as-draft (so close ≠ decline)
+
+  // Fire-and-forget canonical Archive write for a project decision (accept/edit/
+  // decline). Idempotent by deterministic id, so a retry can't duplicate evidence.
+  // Non-blocking: a generated-project decision is evidence, not user data — a
+  // failed write must never interrupt the parent's flow.
+  const fireArchive = (payload) => {
+    const fid = getState().family?.id;
+    if (!fid || !payload) return;
+    recordArchive(fid, payload).catch((e) =>
+      console.warn("[archive] project-decision write failed", e?.message || e));
+  };
 
   const body = document.createElement("div");
   const foot = document.createElement("div");
   foot.style.cssText = "display:flex;gap:10px;width:100%;justify-content:flex-end;flex-wrap:wrap";
-  const modal = openModal({ title: "✨ Generate a project", body, footer: foot });
+  const modal = openModal({
+    title: "✨ Generate a project", body, footer: foot,
+    // Closing with a proposal on screen that was neither accepted nor saved = a decline.
+    onClose: () => {
+      if (current && !resolved) {
+        fireArchive(buildDeclinedArchive({
+          familyId: getState().family?.id, childId,
+          actingUserId: currentUserId(), proposed: projectSnapshot(current),
+        }));
+      }
+    },
+  });
 
   const child = () => getState().children.find(c => c.id === childId) || s.children[0];
   const childName = () => child()?.name || "your child";
@@ -248,7 +274,12 @@ function openGeneratorModal() {
   async function doRefine() {
     const refine = (body.querySelector("#refine-text")?.value || "").trim();
     if (!refine) { toast("Tell North Star what to change", { type: "warning" }); return; }
-    recordPreferenceSignal({ type: "edited", childId, note: refine, projectSnapshot: projectSnapshot(current) });
+    // The edit is its own high-value evidence — preserve the DELTA (what they asked
+    // to change + the proposal as it stood before). Never collapsed into "accepted".
+    fireArchive(buildEditedArchive({
+      familyId: getState().family?.id, childId, actingUserId: currentUserId(),
+      preEdit: projectSnapshot(current), refineText: refine, sequence: 3 - refinementsLeft,
+    }));
     body.innerHTML = generatingHtml("Refining");
     foot.innerHTML = "";
     try {
@@ -282,13 +313,19 @@ function openGeneratorModal() {
     if (refineBtn) refineBtn.addEventListener("click", doRefine);
 
     foot.querySelector("#accept").addEventListener("click", () => {
-      recordPreferenceSignal({ type: "accepted", childId, projectSnapshot: projectSnapshot(current) });
       const p = createProjectFromTemplate(current, child(), "active");
+      resolved = true;   // set before close() so onClose does not read this as a decline
+      // Record accept AFTER the project exists, so the Archive id keys off p.id (stable).
+      fireArchive(buildAcceptedArchive({
+        familyId: getState().family?.id, childId, projectId: p.id,
+        actingUserId: currentUserId(), proposed: projectSnapshot(current),
+      }));
       modal.close();
       toast(`"${current.title}" added — now fully editable`, { type: "success" });
       navigate("/projects/" + p.id);
     });
     foot.querySelector("#save-draft").addEventListener("click", () => {
+      resolved = true;   // kept, not declined
       const p = createProjectFromTemplate(current, child(), "draft");
       modal.close();
       toast("Saved as a draft", { type: "success" });
