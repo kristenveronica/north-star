@@ -120,6 +120,34 @@ test("recent projects → domain balance (top 3) + titles to avoid", () => {
   assert.match(balanceLine, /leaned on science/);
 });
 
+/* ---------- regression fixture: the human-reviewed "Kai" scenario ----------
+   Protects the exact behaviour a parent-tester validated end-to-end (2026-07-18):
+   an active injury circumstance must render a concrete low-strain BUILD constraint,
+   and an inferred interest must stay a gentle nudge (never turn the brief into that
+   single topic). If a future change drops the constraint or promotes the inference,
+   this fails. See the live counterfactual (with-wrist small/cardboard vs no-wrist
+   medium/handsaw) in the session report. */
+test("regression (Kai): injury → low-strain build constraint; inferred interest stays gentle", () => {
+  const ctx = buildGenerationContext({
+    understandings: [
+      u({ domain: "interest", provenance: "inferred", statement: "Shows repeated interest in science", metadata: { interestDomain: "science", eventCount: 2 } }),
+      u({ domain: "circumstance", provenance: "declared", status: "established", statement: "Broken right wrist", review_at: "2026-08-15T00:00:00Z", metadata: { momentKind: "injury" } }),
+    ],
+    recentProjects: [], rhythm: { daysPerWeek: 4, hoursPerDay: 3 }, nowIso: NOW,
+  });
+  const { understandingBlock } = renderContextBlocks(ctx, "Kai");
+  // circumstance became an actionable constraint, not just a note
+  assert.match(understandingBlock, /two hands|low-strain|physical/);
+  // the injury is stated in ONE place (the circumstance line), not repeated everywhere
+  assert.equal((understandingBlock.match(/wrist/gi) || []).length, 1);
+  // science is present but explicitly gentle/provisional, never "rely on"
+  assert.match(understandingBlock, /science/);
+  assert.match(understandingBlock, /GENTLE nudge/);
+  assert.doesNotMatch(understandingBlock, /rely on these.*science/);
+  // rhythm bounds scope
+  assert.match(understandingBlock, /12h\/week/);
+});
+
 /* ---------- rhythm capacity ---------- */
 test("rhythm setting → weekly capacity line", () => {
   const ctx = buildGenerationContext({ understandings: [], recentProjects: [], rhythm: { daysPerWeek: 3, hoursPerDay: 2 }, nowIso: NOW });

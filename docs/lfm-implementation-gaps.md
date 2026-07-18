@@ -25,6 +25,9 @@ Distillation v1 (migration 0032) produces only **interest** (inferred) and **cir
 - **Parent-requested-modification meaning** — an edit's `requestedChange` free text is direct evidence of a preference, but extracting *what* preference needs the **bounded AI classification step** (the one place AI is genuinely warranted). v1 stays fully deterministic; add the AI step when rejection/edit signal is needed by generation.
 - **Confirmed interests** are produced by the Observation Engine's confirm flow, not distillation; distillation only *respects* them.
 
+### G6 · Rhythm capacity is total, not allocated *(priority: high — likely the next substantive product problem)*
+Generation knows the child's **total** weekly capacity (e.g. "about 12h/week across 4 days") and uses it only to bound a single project's scope and prep burden. It does **not** know the child's **allocated share** of that capacity across concurrent projects. So North Star can generate three projects that each "fit the rhythm" but collectively provide either 2 hours or 30 hours of work. To close this, Generation (with the Rhythm Engine) must eventually understand: how many concurrent active projects the child has; how much weekly capacity is already allocated; how much of the remaining capacity a new project should occupy; expected session duration; expected project duration; and whether the generated milestones actually contain enough substantive work. Deferred deliberately — do not solve inside the LFM cleanup arc. This is the first big Rhythm/Generation integration problem after `preference_signals` teardown.
+
 ### G4 · Freshness / decay not implemented
 Understanding confidence does not yet decay with time (the `last_reinforced_at` half-life from data-model §6). Interests that go quiet remain until contradicted. Add when the Observation Engine / rhythm work needs it.
 
