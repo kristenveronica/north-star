@@ -452,6 +452,55 @@ export function fromMilestoneRow(r) {
   };
 }
 
+// MILESTONE EVIDENCE — flat cloud table <-> nested milestone.evidence[].
+// A file's bytes live in Storage; here we persist only the pointer + metadata.
+function toEvidenceRow(e, milestoneId, childId, familyId) {
+  return {
+    id: e.id,
+    milestone_id: milestoneId,
+    child_id: childId,
+    family_id: familyId,
+    kind: e.kind || "upload",           // note | upload | voice
+    text: e.text || null,
+    file_path: e.storagePath || null,   // path in the family-media bucket
+    file_name: e.fileName || null,
+    file_type: e.fileType || null,
+    file_size: e.fileSize || null,
+  };
+}
+
+function fromEvidenceRow(r) {
+  return {
+    id: r.id,
+    kind: r.kind,
+    text: r.text || "",
+    fileName: r.file_name || null,
+    fileType: r.file_type || null,
+    fileSize: r.file_size || null,
+    storagePath: r.file_path || null,
+    createdAt: r.created_at,
+  };
+}
+
+// Flatten evidence off every milestone into cloud rows. Skips legacy base64-only
+// items (no storagePath, not a note) and anything whose child can't be resolved
+// (child_id is required by the table).
+function flattenEvidence(state, familyId) {
+  const childByProject = new Map((state.projects || []).map((p) => [p.id, p.childId]));
+  const rows = [];
+  (state.milestones || []).forEach((m) => {
+    const childId = childByProject.get(m.projectId) || null;
+    if (!childId) return;
+    (m.evidence || []).forEach((e) => {
+      const hasFile = !!e.storagePath;
+      const isNote = e.kind === "note" && (e.text || "").trim();
+      if (!hasFile && !isNote) return;
+      rows.push(toEvidenceRow(e, m.id, childId, familyId));
+    });
+  });
+  return rows;
+}
+
 // REFLECTION (child-owned)
 function toReflectionRow(r, familyId) {
   return {
@@ -772,7 +821,8 @@ async function _doEnsureFamilyAndHydrate() {
   // Load everything for this family in parallel.
   const [fam, prof, children, projects, milestones, reflections, materials,
          reflectionReports, mediaAssets, calendarEvents, preferenceSignals, inventory,
-         allMembers, memberAccess, observations, selfAssessments, growthReports] =
+         allMembers, memberAccess, observations, selfAssessments, growthReports,
+         milestoneEvidence] =
     await Promise.all([
       supabase.from("families").select("*").eq("id", familyId).single(),
       supabase.from("family_profiles").select("*").eq("family_id", familyId).single(),
@@ -796,6 +846,8 @@ async function _doEnsureFamilyAndHydrate() {
       supabase.from("parent_observations").select("*").eq("family_id", familyId),
       supabase.from("child_self_assessments").select("*").eq("family_id", familyId),
       supabase.from("growth_reports").select("*").eq("family_id", familyId),
+      // Milestone evidence — durable pointers to files in Storage (migration 0029).
+      supabase.from("milestone_evidence").select("*").eq("family_id", familyId),
     ]);
 
   const state = freshState();
@@ -817,6 +869,19 @@ async function _doEnsureFamilyAndHydrate() {
   state.childSelfAssessments = (selfAssessments.data || []).map(fromSelfAssessmentRow);
   state.growthReports = (growthReports.data || []).map(fromGrowthReportRow);
   state.meta.onboarded = !!prof.data?.onboarded;
+
+  // Nest milestone evidence (a flat cloud table) back onto each milestone.
+  {
+    const byMs = new Map();
+    (milestoneEvidence.data || []).forEach((r) => {
+      if (!byMs.has(r.milestone_id)) byMs.set(r.milestone_id, []);
+      byMs.get(r.milestone_id).push(fromEvidenceRow(r));
+    });
+    state.milestones.forEach((m) => {
+      const ev = byMs.get(m.id);
+      if (ev) m.evidence = ev.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    });
+  }
 
   // ---- Anti-clobber: never lose locally-created-but-unsynced rows ----
   // A re-hydrate (token refresh, tab focus, second sign-in event) replaces the
@@ -841,6 +906,16 @@ async function _doEnsureFamilyAndHydrate() {
     state.children = mergeLocalOnly(state.children, local.children);
     state.projects = mergeLocalOnly(state.projects, local.projects);
     state.milestones = mergeLocalOnly(state.milestones, local.milestones);
+    // Evidence just added to an EXISTING milestone but not yet synced — the file
+    // is already safe in Storage; keep its pointer row from being clobbered too.
+    const localMsById = new Map((local.milestones || []).map((m) => [m.id, m]));
+    state.milestones.forEach((m) => {
+      const lm = localMsById.get(m.id);
+      if (!lm || !Array.isArray(lm.evidence) || !lm.evidence.length) return;
+      const have = new Set((m.evidence || []).map((e) => e.id));
+      const extras = lm.evidence.filter((e) => e && e.id && !have.has(e.id));
+      if (extras.length) { m.evidence = [...(m.evidence || []), ...extras]; preserved += extras.length; }
+    });
   }
   state.meta.activeChildId = state.children[0]?.id || null;
 
@@ -896,6 +971,9 @@ export async function syncCore(state) {
       ["parent_observations", (state.parentObservations || []).filter((o) => o.childId).map((o) => toObservationRow(o, familyId))],
       ["child_self_assessments", (state.childSelfAssessments || []).filter((a) => a.childId).map((a) => toSelfAssessmentRow(a, familyId))],
       ["growth_reports", (state.growthReports || []).filter((r) => r.childId).map((r) => toGrowthReportRow(r, familyId))],
+      // Milestone evidence — flattened from each milestone (migration 0029). Only
+      // rows with real content: a note's text, or an uploaded file's storage path.
+      ["milestone_evidence", flattenEvidence(state, familyId)],
     ];
     for (const [table, rows] of upserts) {
       if (!rows.length) continue;

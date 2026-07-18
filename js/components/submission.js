@@ -10,10 +10,12 @@
    ============================================================ */
 
 import { esc, toast, openModal } from "./ui.js";
+import { getState } from "../store.js";
+import { uploadFamilyMedia, MAX_FILE_BYTES } from "../lib/storage.js";
 
 const MAX_IMAGE_PX = 1400;
 const IMG_QUALITY = 0.8;
-const HARD_CAP_BYTES = 2.5 * 1024 * 1024;  // 2.5 MB per file (after compression for images)
+const HARD_CAP_BYTES = MAX_FILE_BYTES;  // 50 MB per file (also enforced server-side on the bucket)
 
 /**
  * Open the submission modal for one milestone.
@@ -42,7 +44,7 @@ export function openSubmissionModal({ milestone, project, onSubmit, onSkip }) {
         <div class="upload-zone-inner">
           <div class="upload-zone-icon">⌃</div>
           <div class="fw-700">Drop files here or click to upload</div>
-          <div class="small text-muted">Images get auto-resized. Each file under 2.5 MB.</div>
+          <div class="small text-muted">Images are resized automatically · up to 50 MB each · saved privately to your family's cloud.</div>
         </div>
       </div>
       <div id="sub-files-preview" class="upload-list mt-1"></div>
@@ -62,7 +64,9 @@ export function openSubmissionModal({ milestone, project, onSubmit, onSkip }) {
   });
 
   // ----- file handling -----
-  const pending = []; // { id, kind, fileName, fileType, fileSize, dataUrl }
+  // Files are held locally (as blobs + object-URL previews) and only uploaded to
+  // Storage on submit — so nothing is orphaned if the parent cancels.
+  const pending = []; // { id, kind, blob, fileName, fileType, fileSize, previewUrl }
   const previewHost = body.querySelector("#sub-files-preview");
   const fileInput = body.querySelector("#sub-files");
   const dropZone = body.querySelector("#sub-drop");
@@ -74,8 +78,8 @@ export function openSubmissionModal({ milestone, project, onSubmit, onSkip }) {
     }
     previewHost.innerHTML = pending.map(p => `
       <div class="upload-item" data-pid="${p.id}">
-        ${p.fileType?.startsWith("image/") && p.dataUrl
-          ? `<img src="${p.dataUrl}" alt="${esc(p.fileName)}"/>`
+        ${p.fileType?.startsWith("image/") && p.previewUrl
+          ? `<img src="${p.previewUrl}" alt="${esc(p.fileName)}"/>`
           : `<span class="upload-thumb">${fileTypeLabel(p.fileType)}</span>`}
         <div style="flex:1;min-width:0">
           <div class="fw-700" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.fileName)}</div>
@@ -87,7 +91,10 @@ export function openSubmissionModal({ milestone, project, onSubmit, onSkip }) {
     previewHost.querySelectorAll("[data-remove]").forEach(b => {
       b.addEventListener("click", () => {
         const idx = pending.findIndex(p => p.id === b.dataset.remove);
-        if (idx >= 0) pending.splice(idx, 1);
+        if (idx >= 0) {
+          try { URL.revokeObjectURL(pending[idx].previewUrl); } catch { /* ignore */ }
+          pending.splice(idx, 1);
+        }
         repaintPreview();
       });
     });
@@ -95,22 +102,20 @@ export function openSubmissionModal({ milestone, project, onSubmit, onSkip }) {
 
   const acceptFile = async (file) => {
     try {
-      let dataUrl, fileSize = file.size, fileType = file.type, fileName = file.name;
-      if (fileType.startsWith("image/")) {
-        const compressed = await compressImage(file);
-        dataUrl = compressed.dataUrl;
-        fileSize = compressed.size;
-      } else {
-        if (file.size > HARD_CAP_BYTES) {
-          toast(`"${file.name}" is too big (${humanSize(file.size)}). Cap is 2.5 MB.`, { type: "warning", duration: 4000 });
-          return;
-        }
-        dataUrl = await fileToDataURL(file);
+      let blob = file, fileType = file.type, fileSize = file.size, fileName = file.name;
+      if (file.type.startsWith("image/")) {
+        const c = await compressImage(file);   // resize big photos before upload
+        blob = c.blob; fileType = c.type; fileSize = c.size; fileName = c.name;
+      }
+      if (fileSize > HARD_CAP_BYTES) {
+        toast(`"${file.name}" is too big (${humanSize(fileSize)}). The limit is 50 MB.`, { type: "warning", duration: 4200 });
+        return;
       }
       pending.push({
         id: "p_" + Math.random().toString(36).slice(2, 9),
         kind: "upload",
-        fileName, fileType, fileSize, dataUrl,
+        blob, fileName, fileType, fileSize,
+        previewUrl: URL.createObjectURL(blob),
       });
       repaintPreview();
     } catch (err) {
@@ -139,21 +144,43 @@ export function openSubmissionModal({ milestone, project, onSubmit, onSkip }) {
     modal.close();
     onSkip?.();
   });
-  foot.querySelector("[data-submit]").addEventListener("click", () => {
+  foot.querySelector("[data-submit]").addEventListener("click", async () => {
+    const submitBtn = foot.querySelector("[data-submit]");
     const text = body.querySelector("#sub-text").value.trim();
-    const evidence = pending.map(p => ({
-      kind: "upload",
-      fileName: p.fileName,
-      fileType: p.fileType,
-      fileSize: p.fileSize,
-      dataUrl: p.dataUrl,
-    }));
-    if (text) evidence.unshift({ kind: "note", text });
-    modal.close();
-    onSubmit?.({
-      submission: text ? { text } : null,
-      evidence,
-    });
+    const familyId = getState()?.family?.id;
+    const childId = project?.childId || null;
+
+    if (pending.length && !familyId) {
+      toast("Please make sure you're signed in before uploading files.", { type: "warning" });
+      return;
+    }
+
+    submitBtn.disabled = true;
+    const original = submitBtn.innerHTML;
+    try {
+      const evidence = [];
+      if (text) evidence.push({ kind: "note", text });
+      for (let i = 0; i < pending.length; i++) {
+        const p = pending[i];
+        submitBtn.textContent = pending.length > 1 ? `Uploading ${i + 1}/${pending.length}…` : "Uploading…";
+        const fileObj = new File([p.blob], p.fileName, { type: p.fileType });
+        const up = await uploadFamilyMedia(fileObj, { familyId, childId });
+        evidence.push({
+          kind: "upload",
+          fileName: up.fileName,
+          fileType: p.fileType,
+          fileSize: p.fileSize,
+          storagePath: up.path,   // durable cloud reference — never base64
+        });
+      }
+      pending.forEach(p => { try { URL.revokeObjectURL(p.previewUrl); } catch { /* ignore */ } });
+      modal.close();
+      onSubmit?.({ submission: text ? { text } : null, evidence });
+    } catch (err) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = original;
+      toast("Couldn't upload your files just now: " + (err.message || err) + " — please try again.", { type: "error", duration: 5000 });
+    }
   });
 
   // Focus the text box
@@ -177,34 +204,38 @@ function fileTypeLabel(type) {
   return type.split("/")[1]?.toUpperCase().slice(0, 4) || "FILE";
 }
 
-function fileToDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
-
+// Resize an oversized photo and return a JPEG blob ready to upload. Falls back to
+// the original file if anything goes wrong — never blocks a submission over this.
 async function compressImage(file) {
-  const original = await fileToDataURL(file);
-  const img = await new Promise((res, rej) => {
-    const i = new Image();
-    i.onload = () => res(i);
-    i.onerror = rej;
-    i.src = original;
-  });
-  let { width, height } = img;
-  const max = Math.max(width, height);
-  if (max > MAX_IMAGE_PX) {
-    const scale = MAX_IMAGE_PX / max;
-    width = Math.round(width * scale);
-    height = Math.round(height * scale);
+  const objUrl = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = objUrl;
+    });
+    let { width, height } = img;
+    const max = Math.max(width, height);
+    if (max > MAX_IMAGE_PX) {
+      const scale = MAX_IMAGE_PX / max;
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = width; canvas.height = height;
+    canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+    const blob = await new Promise((res) => canvas.toBlob(res, "image/jpeg", IMG_QUALITY));
+    if (!blob) return { blob: file, type: file.type, size: file.size, name: file.name };
+    return {
+      blob,
+      type: "image/jpeg",
+      size: blob.size,
+      name: (file.name.replace(/\.[^.]+$/, "") || "image") + ".jpg",
+    };
+  } catch {
+    return { blob: file, type: file.type, size: file.size, name: file.name };
+  } finally {
+    URL.revokeObjectURL(objUrl);
   }
-  const canvas = document.createElement("canvas");
-  canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, width, height);
-  const dataUrl = canvas.toDataURL("image/jpeg", IMG_QUALITY);
-  return { dataUrl, size: Math.round(dataUrl.length * 0.75) };
 }
