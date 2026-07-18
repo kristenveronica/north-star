@@ -96,6 +96,7 @@ const DEFAULT_STATE = {
 let _state = load();
 const _subs = new Set();
 sortChildren(); // canonical oldest-first ordering from the very first render
+ensureChildAccessCodes(); // heal any code-less legacy children before first sync
 
 /* ---------- cloud sync hook ----------
    The store stays UI-synchronous; the cloud (Supabase) is written behind it.
@@ -157,7 +158,11 @@ export function hydrateState(state) {
   _state = state;
   sortChildren();
   _cloudEnabled = true;
+  // Heal legacy code-less children now that we're cloud-enabled; if anything was
+  // fixed, push it so those children (and everything hanging off them) can sync.
+  const healed = ensureChildAccessCodes();
   persist();
+  if (healed) scheduleCloudSync();
   _subs.forEach(cb => cb(_state));
 }
 
@@ -197,6 +202,33 @@ function sortChildren() {
     if (ab == null) return -1;
     return ab - aa; // descending age = oldest first
   });
+}
+
+/**
+ * Heal any child missing an access_code. Children created under the OLD scheme
+ * (codes were derived from the name on the fly, never stored) have no accessCode
+ * — and access_code is NOT NULL in the cloud, so those children silently fail to
+ * sync, which cascades: their projects, milestones and evidence can't sync either.
+ * Backfilling a valid, collision-free code here repairs the whole chain.
+ * Returns true if anything changed (so the caller can trigger a sync).
+ */
+function ensureChildAccessCodes() {
+  const kids = _state.children || [];
+  const used = new Set(kids.map(c => normalizeAccessCode(c.accessCode)).filter(Boolean));
+  let changed = false;
+  kids.forEach(c => {
+    if (c.accessCode && normalizeAccessCode(c.accessCode)) {
+      if (!c.accessCodeDisplay) { c.accessCodeDisplay = c.accessCode; changed = true; }
+      return;
+    }
+    let pair;
+    do { pair = _genAccessCode(); } while (used.has(normalizeAccessCode(pair.code)));
+    used.add(normalizeAccessCode(pair.code));
+    c.accessCode = pair.code;
+    c.accessCodeDisplay = pair.display;
+    changed = true;
+  });
+  return changed;
 }
 
 export function update(fn) {
