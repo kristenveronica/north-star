@@ -105,9 +105,13 @@ ensureChildAccessCodes(); // heal any code-less legacy children before first syn
 let _cloudSync = null;     // (state) => Promise<void>
 let _cloudEnabled = false;
 let _syncTimer = null;
+// Sink for factual LFM Archive events (kept out of store.js's imports to avoid a
+// cycle into lfm.js/auth.js; the wiring layer resolves the actor and writes).
+let _archiveSink = null;   // (event) => void
 
 export function setCloudSync(fn) { _cloudSync = fn; }
 export function setCloudEnabled(b) { _cloudEnabled = !!b; }
+export function setArchiveSink(fn) { _archiveSink = fn; }
 
 function scheduleCloudSync() {
   if (!_cloudEnabled || !_cloudSync) return;
@@ -645,25 +649,33 @@ export function getMilestonesForProject(projectId) {
  * Also bumps the parent project's earned tallies.
  */
 export function completeMilestone(milestoneId) {
-  let justCompletedProject = null;   // capture for the learning loop (recorded after the update)
+  let event = null;   // the factual Archive event, emitted after the state update
   update(s => {
     const m = s.milestones.find(x => x.id === milestoneId);
     if (!m) return;
+    const p = s.projects.find(p => p.id === m.projectId);
+    const familyId = s.family?.id || null;
+    const childId = p?.childId || null;
     if (m.completed) {
-      // un-complete (kid mis-clicked)
+      // un-complete (mistake recovery) — a first-class factual event, not a delete.
+      const previousCompletedAt = m.completedAt;
       m.completed = false;
       m.completedAt = null;
       m.starEarned = false;
-      const p = s.projects.find(p => p.id === m.projectId);
       if (p) {
         p.starsEarned = Math.max(0, p.starsEarned - 1);
         p.momentumPointsEarned = Math.max(0, p.momentumPointsEarned - (m.momentumPoints || 0));
       }
+      event = {
+        kind: "milestone_uncompleted", familyId, childId, projectId: m.projectId,
+        milestoneId: m.id, milestoneTitle: m.title,
+        undoneAt: new Date().toISOString(), previousCompletedAt,
+      };
     } else {
       m.completed = true;
       m.completedAt = new Date().toISOString();
       m.starEarned = true;
-      const p = s.projects.find(p => p.id === m.projectId);
+      let finalMilestone = false;   // did this completion finish the project's milestones?
       if (p) {
         p.starsEarned += 1;
         p.momentumPointsEarned += (m.momentumPoints || 0);
@@ -671,25 +683,20 @@ export function completeMilestone(milestoneId) {
         if (allDone && p.status === "active") {
           // wait for reflection before marking fully complete; we mark "ready"
           p.status = "ready-for-reflection";
-          justCompletedProject = p;
+          finalMilestone = true;
         }
       }
+      event = {
+        kind: "milestone_completed", familyId, childId, projectId: m.projectId,
+        milestoneId: m.id, milestoneTitle: m.title, momentumPoints: m.momentumPoints,
+        estimatedProjectDurationDays: p?.durationDays ?? null, finalMilestone,
+        completedAt: m.completedAt,
+      };
     }
   });
-  // Implicit learning signal: this child just finished a project.
-  if (justCompletedProject) {
-    recordPreferenceSignal({
-      type: "completed",
-      childId: justCompletedProject.childId,
-      projectId: justCompletedProject.id,
-      projectSnapshot: {
-        title: justCompletedProject.title,
-        domains: justCompletedProject.domains || [],
-        pathway: justCompletedProject.pathway || null,
-        sizeBand: justCompletedProject.sizeBand || null,
-        durationDays: justCompletedProject.durationDays ?? null,
-      },
-    });
+  // Factual completion evidence → Archive (via the sink; actor resolved there).
+  if (event && _archiveSink) {
+    try { _archiveSink(event); } catch (e) { console.error("[store] archive sink", e); }
   }
 }
 

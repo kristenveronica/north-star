@@ -168,4 +168,32 @@ do $$ declare n int; begin
   raise notice '[LEGIT] idempotent retry (upsert same id) → rows: %', case when n=1 then 'GREEN (1 row)' else 'RED ('||n||' rows)' end;
 exception when others then execute 'reset role'; raise notice '[LEGIT] idempotent retry: RED (unexpected error: %)', sqlerrm; end $$;
 
+-- [LFM-6] milestone completion history: member writes complete→undo→re-complete
+-- as THREE distinct factual rows; a retry of the first completion de-dupes ------
+do $$ declare n int; begin
+  perform pg_temp.as_user('33333333-3333-3333-3333-333333333333');
+  -- complete @ T1, undo @ T2, re-complete @ T3 (distinct deterministic ids)
+  insert into family_archive (id, family_id, scope, subject_id, source_type, title, metadata) values
+    ('a1111111-1111-4111-8111-000000000001','11111111-1111-1111-1111-111111111111','child','55555555-5555-5555-5555-555555555555','milestone_progress','Build the frame','{"event":"milestone_completed"}'::jsonb),
+    ('a2222222-2222-4222-8222-000000000002','11111111-1111-1111-1111-111111111111','child','55555555-5555-5555-5555-555555555555','milestone_progress','Build the frame','{"event":"milestone_uncompleted"}'::jsonb),
+    ('a3333333-3333-4333-8333-000000000003','11111111-1111-1111-1111-111111111111','child','55555555-5555-5555-5555-555555555555','milestone_progress','Build the frame','{"event":"milestone_completed"}'::jsonb);
+  -- retry of the FIRST completion (same id) — must not add a 4th row
+  insert into family_archive (id, family_id, scope, subject_id, source_type, title, metadata)
+    values ('a1111111-1111-4111-8111-000000000001','11111111-1111-1111-1111-111111111111','child','55555555-5555-5555-5555-555555555555','milestone_progress','Build the frame','{"event":"milestone_completed"}'::jsonb)
+    on conflict (id) do update set title = excluded.title;
+  select count(*) into n from family_archive where source_type='milestone_progress'
+    and family_id='11111111-1111-1111-1111-111111111111';
+  execute 'reset role';
+  raise notice '[LFM-6] completion history (complete/undo/recomplete, retry de-dupes) → rows: %', case when n=3 then 'GREEN (3 distinct)' else 'RED ('||n||')' end;
+exception when others then execute 'reset role'; raise notice '[LFM-6] completion history: RED (unexpected error: %)', sqlerrm; end $$;
+
+-- [ATTACK LFM-5] outsider injects a milestone_progress row into another family --
+do $$ declare n int; begin
+  perform pg_temp.as_user('44444444-4444-4444-4444-444444444444');
+  insert into family_archive (family_id, scope, subject_id, source_type, title, metadata)
+    values ('11111111-1111-1111-1111-111111111111','child','55555555-5555-5555-5555-555555555555','milestone_progress','ATTACK','{"event":"milestone_completed"}'::jsonb);
+  get diagnostics n = row_count; execute 'reset role';
+  raise notice '[ATTACK LFM-5] outsider injects milestone_progress: %', case when n>0 then 'RED (inserted)' else 'GREEN (blocked)' end;
+exception when others then execute 'reset role'; raise notice '[ATTACK LFM-5] outsider injects milestone_progress: GREEN (blocked: %)', sqlerrm; end $$;
+
 rollback;  -- nothing above persists

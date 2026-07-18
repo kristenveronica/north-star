@@ -11,6 +11,7 @@ import { aiGenerateProject } from "../lib/ai.js";
 import { summarizePreferences } from "../lib/preferences.js";
 import { recordArchive } from "../lib/lfm.js";
 import { buildAcceptedArchive, buildEditedArchive, buildDeclinedArchive } from "../lib/projectArchive.js";
+import { buildProjectCompleted } from "../lib/milestoneArchive.js";
 import { currentUserId } from "../auth.js";
 import { techAgreementForAI } from "../lib/techAgreement.js";
 import { ownedResourceKeys } from "../lib/resources.js";
@@ -744,6 +745,15 @@ export function renderProjectDetail(container, params) {
     completeBtn.addEventListener("click", () => {
       const open = openReflectionModal(project, null, () => {
         updateProject(project.id, { status: "completed" });
+        // Project completion is a distinct, separately-triggered event (reflection
+        // submitted) — record it factually, idempotent by (project, completedAt).
+        const fid = getState().family?.id;
+        if (fid) {
+          recordArchive(fid, buildProjectCompleted({
+            familyId: fid, childId: project.childId, projectId: project.id,
+            actor: currentUserId(), completedAt: new Date().toISOString(), trigger: "reflection",
+          })).catch((e) => console.warn("[archive] project-completed write failed", e?.message || e));
+        }
         toast("🏅 Project complete!", { type: "success", duration: 3500 });
         rerender();
       });

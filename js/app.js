@@ -5,8 +5,11 @@
    - Re-renders when state changes.
    ============================================================ */
 
-import { getState, setCloudSync, resetToLoggedOut } from "./store.js";
+import { getState, setCloudSync, setArchiveSink, resetToLoggedOut } from "./store.js";
 import { syncCore, ensureFamilyAndHydrate, setPendingCheckout, isOnboardingParked } from "./lib/repo.js";
+import { recordArchive } from "./lib/lfm.js";
+import { buildMilestoneCompleted, buildMilestoneUncompleted } from "./lib/milestoneArchive.js";
+import { currentUserId } from "./auth.js";
 import { mountRouter, registerRoute, currentPath, navigate } from "./router.js";
 import { renderSidebar } from "./components/sidebar.js";
 import { startCountdownTicker, esc } from "./components/ui.js";
@@ -263,6 +266,23 @@ const app = document.getElementById("app");
 
 // Wire write-behind cloud sync into the store.
 setCloudSync(syncCore);
+
+// Wire milestone completion events → canonical Archive. The store emits factual
+// events; here we resolve the actor and write. Fire-and-forget + idempotent (a
+// retry can't duplicate evidence); no-ops without a family in context (e.g. a
+// child-portal-only session, which cannot write family_archive under RLS anyway).
+setArchiveSink((ev) => {
+  const familyId = ev.familyId || getState().family?.id;
+  if (!familyId || !ev) return;
+  const actor = currentUserId() || null;
+  let payload = null;
+  if (ev.kind === "milestone_completed") payload = buildMilestoneCompleted({ ...ev, actor });
+  else if (ev.kind === "milestone_uncompleted") payload = buildMilestoneUncompleted({ ...ev, actor });
+  if (payload) {
+    recordArchive(familyId, payload).catch((e) =>
+      console.warn("[archive] milestone event write failed", e?.message || e));
+  }
+});
 
 // If we returned from the public pricing-page checkout, stash the Stripe session
 // id (survives the sign-up flow) so the next hydrate links the paid subscription

@@ -29,6 +29,7 @@ export const SOURCE = Object.freeze({
   CHILD_SELF_ASSESSMENT: "child_self_assessment",
   REFLECTION: "reflection",
   PROJECT_DECISION: "project_decision",   // accept/edit of a generated quest
+  MILESTONE_PROGRESS: "milestone_progress", // milestone completed/uncompleted, project completed
   FEEDBACK: "feedback",                   // decline reason, too_easy/wanted_more, time_vs_estimate…
   CONVERSATION: "conversation",
   NOTE: "note",
