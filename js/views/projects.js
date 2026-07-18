@@ -8,8 +8,7 @@ import {
   addReflection, getReflectionsForProject, uid, addNotification,
 } from "../store.js";
 import { aiGenerateProject } from "../lib/ai.js";
-import { summarizePreferences } from "../lib/preferences.js";
-import { recordArchive } from "../lib/lfm.js";
+import { recordArchive, runDistillation } from "../lib/lfm.js";
 import { buildAcceptedArchive, buildEditedArchive, buildDeclinedArchive } from "../lib/projectArchive.js";
 import { buildProjectCompleted } from "../lib/milestoneArchive.js";
 import { currentUserId } from "../auth.js";
@@ -150,8 +149,14 @@ function openGeneratorModal() {
   const fireArchive = (payload) => {
     const fid = getState().family?.id;
     if (!fid || !payload) return;
-    recordArchive(fid, payload).catch((e) =>
-      console.warn("[archive] project-decision write failed", e?.message || e));
+    // Record the decision, THEN distil (G3) so the NEXT generation sees fresh
+    // Understanding. Deferred/background — never blocks the parent. Distillation
+    // failure is caught separately and cannot corrupt the already-committed Archive
+    // write; an Archive failure skips distillation entirely.
+    recordArchive(fid, payload)
+      .then(() => runDistillation(fid, childId).catch((e) =>
+        console.warn("[distill] after project decision (non-fatal)", e?.message || e)))
+      .catch((e) => console.warn("[archive] project-decision write failed", e?.message || e));
   };
 
   const body = document.createElement("div");
@@ -173,24 +178,14 @@ function openGeneratorModal() {
   const child = () => getState().children.find(c => c.id === childId) || s.children[0];
   const childName = () => child()?.name || "your child";
 
-  // This child's recent project domains → quiet capability balance signal.
-  function recentDomains() {
-    const counts = {};
-    (getState().projects || []).filter(p => p.childId === childId)
-      .forEach(p => (p.domains || []).forEach(d => { counts[d] = (counts[d] || 0) + 1; }));
-    return counts;
-  }
-  function existingTitles() {
-    return [...new Set((getState().projects || [])
-      .filter(p => p.childId === childId).map(p => p.title).filter(Boolean))];
-  }
+  // Generation v2: recent-domain balance, avoid-titles and preferences are now
+  // assembled SERVER-SIDE from canonical Understanding + project history (the ai
+  // function reads them by family + child). The client sends only the spark, the
+  // size, the tech agreement, and what the family owns.
   function genConstraints(extra = {}) {
     return {
       intent,
       size,
-      recentDomains: recentDomains(),
-      avoidTitles: existingTitles(),
-      preferences: summarizePreferences(getState(), childId),
       technology: techAgreementForAI(child()),
       ...ownedAndInventory(getState()),
       ...extra,

@@ -11,7 +11,8 @@
 // families) framework system prompt. Token usage is logged + returned.
 // ============================================================================
 
-import { resolveCaller, isActiveMember, hasPermission } from "../_shared/authz.ts";
+import { resolveCaller, isActiveMember, hasPermission, admin } from "../_shared/authz.ts";
+import { buildGenerationContext, renderContextBlocks } from "../_shared/generationContext.js";
 import { logSecurityEvent, recentCount, logAiUsage } from "../_shared/security.ts";
 
 // Actions that spend meaningful tokens and require an AI-consuming permission.
@@ -459,7 +460,7 @@ function previousQuestSummary(prev: any): string {
 ${ms || "   (none)"}`;
 }
 
-async function generateProject(payload: any, apiKey: string) {
+async function generateProject(payload: any, apiKey: string, familyId?: string) {
   const f = payload?.family || {};
   const c = payload?.child || {};
   const constraints = payload?.constraints || {};
@@ -473,13 +474,40 @@ async function generateProject(payload: any, apiKey: string) {
   // The parent's free-text "spark" — the heart of the redesigned generator. The
   // parent describes real life; the AI does the educational design around it.
   const intent: string = (constraints.intent || "").toString().trim();
-  // Quiet capability balance: domains this child's recent projects leaned on.
-  const recent = (constraints.recentDomains && typeof constraints.recentDomains === "object" && !Array.isArray(constraints.recentDomains)) ? constraints.recentDomains : {};
-  const recentTop = Object.entries(recent as Record<string, number>)
-    .sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 3).map(([d]) => d);
-  const balanceLine = recentTop.length
-    ? `QUIET CAPABILITY BALANCE: this child's recent projects have leaned on ${recentTop.join(", ")}. Without ever overriding the child's interest, if it fits naturally, gently weave in a capability area that's been lighter lately. Interest is the doorway; balance is woven through — never forced.`
-    : "";
+
+  // ---- Generation v2: assemble canonical context SERVER-SIDE (docs/project-generation-v2.md).
+  // Replaces the client-marshalled preferences/recentDomains/focus with provenance-aware
+  // Understanding + active temporary circumstances + rhythm, read from the family's real
+  // history. Sparse or absent Understanding → the blocks are empty and generation falls
+  // back to the declared child/family data already in the prompt (the removable fallback).
+  let genCtx: any = {
+    confirmed: [], inferredInterests: [], circumstances: [],
+    recentDomains: [], recentTitles: [], rhythmCapacity: null, hasUnderstanding: false,
+  };
+  if (familyId && c.id) {
+    try {
+      const [uRes, pRes, fpRes] = await Promise.all([
+        admin.from("understandings").select("*").eq("family_id", familyId).or(`subject_id.eq.${c.id},scope.eq.family`),
+        admin.from("projects").select("domains,title,status").eq("family_id", familyId).eq("child_id", c.id).order("created_at", { ascending: false }).limit(12),
+        admin.from("family_profiles").select("rhythm").eq("family_id", familyId).maybeSingle(),
+      ]);
+      genCtx = buildGenerationContext({
+        understandings: uRes.data || [],
+        recentProjects: pRes.data || [],
+        rhythm: (fpRes.data as any)?.rhythm || null,
+        nowIso: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.error("[ai] generation context assembly failed; using sparse fallback", e);
+    }
+  }
+  const rendered = renderContextBlocks(genCtx, c.name || "this child");
+  // Recent-domain balance: server-assembled, falling back to any client-sent recentDomains.
+  const clientRecent = (constraints.recentDomains && typeof constraints.recentDomains === "object" && !Array.isArray(constraints.recentDomains)) ? constraints.recentDomains : {};
+  const recentTop: string[] = genCtx.recentDomains.length
+    ? genCtx.recentDomains
+    : Object.entries(clientRecent as Record<string, number>).sort((a, b) => (b[1] as number) - (a[1] as number)).slice(0, 3).map(([d]) => d);
+  const balanceLine = rendered.balanceLine;
 
   // Parent-chosen focus for THIS quest (subset of the child's profile to emphasise).
   const focus = constraints.focus || {};
@@ -495,15 +523,15 @@ async function generateProject(payload: any, apiKey: string) {
     focusGoals.length ? `  - Move toward these goals: ${focusGoals.join(", ")}` : "",
     focusCapabilities.length ? `  - Build these real-world capabilities (reflect them in capabilitiesDeveloped): ${focusCapabilities.join(", ")}` : "",
   ].filter(Boolean).join("\n");
-  // Titles of this child's existing quests, so we can avoid repeating themes.
-  const avoidTitles: string[] = Array.isArray(constraints.avoidTitles) ? constraints.avoidTitles : [];
-  // The family learning loop — explicit + implicit signals from past decisions.
-  const prefs = constraints.preferences || {};
-  const prefsBlock = prefs.hasSignal ? `
-FAMILY LEARNING SIGNALS (from this family's past project decisions — lean in / avoid accordingly)
-${prefs.preferredDomains?.length ? `- Tends to accept projects in: ${prefs.preferredDomains.join(", ")}` : ""}
-${prefs.topRejectionReasons?.length ? `- Has rejected projects because: ${prefs.topRejectionReasons.join("; ")}` : ""}
-${prefs.recentNotes?.length ? `- Recent parent feedback: ${prefs.recentNotes.map((n: string) => `"${n}"`).join(" · ")}` : ""}` : "";
+  // Titles of this child's existing quests, so we can avoid repeating themes
+  // (server-assembled; falls back to client-sent titles when Understanding is sparse).
+  const avoidTitles: string[] = genCtx.recentTitles.length
+    ? genCtx.recentTitles
+    : (Array.isArray(constraints.avoidTitles) ? constraints.avoidTitles : []);
+  // What North Star REMEMBERS about this child — provenance-aware Understanding + active
+  // temporary circumstances + rhythm. Replaces the old client-marshalled "learning signals"
+  // (summarizePreferences). Empty when Understanding is sparse.
+  const understandingBlock = rendered.understandingBlock;
   const system = `TASK: ${refine
     ? `AMEND an existing real-world QUEST for this specific child according to the parent's requested changes below. Keep the parts that already work (the core idea, anything they didn't ask to change) and weave in their amendments naturally. Re-balance milestones, points, materials and reward so the whole quest stays coherent.`
     : `Design ONE meaningful, real-world QUEST for this specific child`} — framed as an
@@ -741,7 +769,7 @@ ${academicBlock}
 ${settingsBlock}
 ${inventoryBlock}
 ${technologyBlock}
-${prefsBlock}
+${understandingBlock}
 
 CONSTRAINTS (optional)
 - Parent's request / spark (PRIMARY — design around this): ${intent ? `"${intent}"` : "(none — design for the whole child)"}
@@ -1253,7 +1281,7 @@ Deno.serve(async (req) => {
     else if (action === "suggest-vision") result = await suggestVision(payload, apiKey);
     else if (action === "tidy-text") result = await tidyText(payload, apiKey);
     else if (action === "suggest-focus") result = await suggestFocus(payload, apiKey);
-    else if (action === "generate-project") result = await generateProject(payload, apiKey);
+    else if (action === "generate-project") result = await generateProject(payload, apiKey, caller!.familyId);
     else if (action === "growth-reflection") result = await growthReflection(payload, apiKey);
     else if (action === "coreword-living") result = await coreWordLiving(payload, apiKey);
     else if (action === "mentor-turn") result = await mentorTurn(payload, apiKey);

@@ -6,7 +6,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2?target=deno";
 
 const env = (k: string) => Deno.env.get(k) || "";
-const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
+// Service-role client for server-side reads/writes that RLS would otherwise gate.
+// Exported so generation can assemble canonical context server-side.
+export const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
 
 export type Caller = {
   userId: string;
