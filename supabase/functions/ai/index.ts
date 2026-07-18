@@ -565,7 +565,7 @@ family and child below to do the educational design they did NOT spell out — c
 academic skills, practical-life skills, real experiences, materials and milestones that best serve this
 child. The parent brought the spark; YOU build the pathway.\n` : ""}
 ${balanceLine ? balanceLine + "\n" : ""}
-${sizeGuidance(constraints.size, c.age ?? null)}
+${sizeGuidance(capacity.effectiveSize, c.age ?? null)}
 
 ${requestedDomains.length
   ? `REQUESTED CAPABILITY DOMAINS: The parent has chosen the Capability Domains this quest should develop: ${requestedDomains.join(", ")}. Treat this as the DESIRED SET — genuinely develop each one through the missions (don't just tag it), and don't lean on domains they didn't pick. These should be your capabilityMap.primary, and "domains" must include exactly this set.`
@@ -793,7 +793,7 @@ ${capacityBlock}
 CONSTRAINTS (optional)
 - Parent's request / spark (PRIMARY — design around this): ${intent ? `"${intent}"` : "(none — design for the whole child)"}
 - Recent capability focus (for gentle balance): ${recentTop.length ? recentTop.join(", ") : "(no recent projects)"}
-- Requested quest size: ${constraints.size || "(you choose the best-fitting scope)"}
+- Quest size to build: ${capacity.effectiveSize}${capacity.effectiveSize !== capacity.requestedSize ? ` (parent asked for ${capacity.requestedSize}; current capacity supports ${capacity.effectiveSize} — build a genuine ${capacity.effectiveSize} quest)` : ""}
 - Requested domains to incorporate: ${requestedDomains.join(", ") || "(parent's choice)"}
 - Parent's focus picks: ${focusLines ? "\n" + focusLines : "(none — design for the whole child)"}
 - Quests already done (avoid repeating these themes/formats): ${avoidTitles.join("; ") || "(none yet)"}
@@ -808,18 +808,24 @@ ${refine
   : `Design one quest tailored to ${c.name || "this child"}, with ${c.name || "the child"} as the hero.`}`;
   const first = await callClaude(system, userText, PROJECT_SCHEMA, apiKey, { rules: PROJECT_RULES });
 
-  // ---- G6 substance check: does the generated work roughly match the allocation? ----
-  // Wide tolerance (±50%) — only GROSS thin/large triggers ONE targeted regeneration.
-  // We never demand precision from estimates built on momentum-point proxies.
+  // ---- G6 substance check ----
+  // effectiveSize has already resolved the DETERMINISTIC size↔capacity mismatch
+  // before this call, so a well-behaved draft is normally in-band on the FIRST try.
+  // Regeneration is now the EXCEPTION (the model genuinely mis-sized), not the tool
+  // we use to fight an impossible size — and it fires at most once. A result that is
+  // still out of band after the retry is returned with an explicit mismatch status,
+  // never silently relabelled as compliant (requirement #7).
   let result = first;
   let substance = substanceCheck(first.parsed || {}, capacity);
+  let regenerated = false;
   if (!refine && (substance.verdict === "thin" || substance.verdict === "large")) {
     const targetHours = Math.round((capacity.targetTotalMinutes / 60) * 10) / 10;
     const dir = substance.verdict === "thin"
-      ? `SCOPE CORRECTION: the previous draft was too light for the time available. Add genuine depth — more substantive milestones or richer steps — so the quest totals roughly ${targetHours} hours of real work across about ${capacity.expectedProjectWeeks} week(s). Keep it engaging, never busywork.`
-      : `SCOPE CORRECTION: the previous draft was too heavy for the time available. Trim to roughly ${targetHours} hours of real work across about ${capacity.expectedProjectWeeks} week(s) — fewer, meatier milestones.`;
+      ? `SCOPE CORRECTION: the previous draft was too light. Add genuine depth so the quest totals roughly ${targetHours} hours across about ${capacity.expectedProjectWeeks} week(s). Never busywork.`
+      : `SCOPE CORRECTION: the previous draft was too heavy for a ${capacity.effectiveSize} quest. Trim to roughly ${targetHours} hours across about ${capacity.expectedProjectWeeks} week(s) — fewer, meatier milestones.`;
     try {
       const retry = await callClaude(system, userText + "\n\n" + dir, PROJECT_SCHEMA, apiKey, { rules: PROJECT_RULES });
+      regenerated = true;
       const retrySub = substanceCheck(retry.parsed || {}, capacity);
       const closer = Math.abs((retrySub.ratio ?? 99) - 1) < Math.abs((substance.ratio ?? 99) - 1);
       if (retrySub.verdict === "ok" || closer) {
@@ -830,7 +836,17 @@ ${refine
       console.error("[ai] substance regeneration failed; keeping first draft", e);
     }
   }
-  console.log("[ai] capacity", JSON.stringify(capacity), "| substance", JSON.stringify(substance));
+
+  // Honest, non-silent status attached to the returned project.
+  if (result.parsed) {
+    result.parsed.substanceStatus = substance.verdict;                 // ok | thin | large | unknown — never hidden
+    result.parsed.substanceInTolerance = substance.verdict === "ok";
+    // Parent-facing, non-judgmental note when the project was shaped smaller than asked.
+    if (capacity.effectiveSize !== capacity.requestedSize) {
+      result.parsed.sizeNote = `Based on ${c.name || "your child"}'s current week and active projects, North Star has shaped this as a ${capacity.effectiveSize} project.`;
+    }
+  }
+  console.log("[ai] capacity", JSON.stringify({ requested: capacity.requestedSize, effective: capacity.effectiveSize, targetTotalMinutes: capacity.targetTotalMinutes, remainingWeeklyMinutes: capacity.remainingWeeklyMinutes }), "| substance", JSON.stringify(substance), "| regenerated", regenerated);
   return result;
 }
 
