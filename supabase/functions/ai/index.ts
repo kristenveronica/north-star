@@ -13,6 +13,7 @@
 
 import { resolveCaller, isActiveMember, hasPermission, admin } from "../_shared/authz.ts";
 import { buildGenerationContext, renderContextBlocks } from "../_shared/generationContext.js";
+import { buildProjectCapacity, activeProjectCount, substanceCheck, renderCapacityBlock } from "../_shared/projectCapacity.js";
 import { logSecurityEvent, recentCount, logAiUsage } from "../_shared/security.ts";
 
 // Actions that spend meaningful tokens and require an AI-consuming permission.
@@ -484,17 +485,22 @@ async function generateProject(payload: any, apiKey: string, familyId?: string) 
     confirmed: [], inferredInterests: [], circumstances: [],
     recentDomains: [], recentTitles: [], rhythmCapacity: null, hasUnderstanding: false,
   };
+  let rhythm: any = null;
+  let allProjects: any[] = [];
   if (familyId && c.id) {
     try {
-      const [uRes, pRes, fpRes] = await Promise.all([
+      const [uRes, pRes, fpRes, apRes] = await Promise.all([
         admin.from("understandings").select("*").eq("family_id", familyId).or(`subject_id.eq.${c.id},scope.eq.family`),
         admin.from("projects").select("domains,title,status").eq("family_id", familyId).eq("child_id", c.id).order("created_at", { ascending: false }).limit(12),
         admin.from("family_profiles").select("rhythm").eq("family_id", familyId).maybeSingle(),
+        admin.from("projects").select("status").eq("family_id", familyId).eq("child_id", c.id),
       ]);
+      rhythm = (fpRes.data as any)?.rhythm || null;
+      allProjects = apRes.data || [];
       genCtx = buildGenerationContext({
         understandings: uRes.data || [],
         recentProjects: pRes.data || [],
-        rhythm: (fpRes.data as any)?.rhythm || null,
+        rhythm,
         nowIso: new Date().toISOString(),
       });
     } catch (e) {
@@ -502,6 +508,18 @@ async function generateProject(payload: any, apiKey: string, familyId?: string) 
     }
   }
   const rendered = renderContextBlocks(genCtx, c.name || "this child");
+
+  // ---- G6: realistic capacity allocation for THIS new project ----
+  // Total capacity from rhythm, committed from active-project count (fallback), a
+  // 30% open reserve, size intent, and any capacity-reducing circumstance → a
+  // deterministic target that shapes the quest's total time, sessions and substance.
+  const capacity = buildProjectCapacity({
+    rhythm: rhythm || {},
+    activeProjectCount: activeProjectCount(allProjects),
+    size: constraints.size || "auto",
+    capacityCircumstanceKinds: (genCtx.circumstances || []).map((x: any) => x.kind).filter(Boolean),
+  });
+  const capacityBlock = renderCapacityBlock(capacity, c.name || "this child");
   // Recent-domain balance: server-assembled, falling back to any client-sent recentDomains.
   const clientRecent = (constraints.recentDomains && typeof constraints.recentDomains === "object" && !Array.isArray(constraints.recentDomains)) ? constraints.recentDomains : {};
   const recentTop: string[] = genCtx.recentDomains.length
@@ -770,6 +788,7 @@ ${settingsBlock}
 ${inventoryBlock}
 ${technologyBlock}
 ${understandingBlock}
+${capacityBlock}
 
 CONSTRAINTS (optional)
 - Parent's request / spark (PRIMARY — design around this): ${intent ? `"${intent}"` : "(none — design for the whole child)"}
@@ -787,7 +806,32 @@ ${prevSummary ? `\n${prevSummary}\n\nPARENT'S REQUESTED CHANGES (apply these): "
 ${refine
   ? `Return the AMENDED quest for ${c.name || "this child"} — the same quest, revised per the parent's requested changes above, with ${c.name || "the child"} still as the hero.`
   : `Design one quest tailored to ${c.name || "this child"}, with ${c.name || "the child"} as the hero.`}`;
-  return callClaude(system, userText, PROJECT_SCHEMA, apiKey, { rules: PROJECT_RULES });
+  const first = await callClaude(system, userText, PROJECT_SCHEMA, apiKey, { rules: PROJECT_RULES });
+
+  // ---- G6 substance check: does the generated work roughly match the allocation? ----
+  // Wide tolerance (±50%) — only GROSS thin/large triggers ONE targeted regeneration.
+  // We never demand precision from estimates built on momentum-point proxies.
+  let result = first;
+  let substance = substanceCheck(first.parsed || {}, capacity);
+  if (!refine && (substance.verdict === "thin" || substance.verdict === "large")) {
+    const targetHours = Math.round((capacity.targetTotalMinutes / 60) * 10) / 10;
+    const dir = substance.verdict === "thin"
+      ? `SCOPE CORRECTION: the previous draft was too light for the time available. Add genuine depth — more substantive milestones or richer steps — so the quest totals roughly ${targetHours} hours of real work across about ${capacity.expectedProjectWeeks} week(s). Keep it engaging, never busywork.`
+      : `SCOPE CORRECTION: the previous draft was too heavy for the time available. Trim to roughly ${targetHours} hours of real work across about ${capacity.expectedProjectWeeks} week(s) — fewer, meatier milestones.`;
+    try {
+      const retry = await callClaude(system, userText + "\n\n" + dir, PROJECT_SCHEMA, apiKey, { rules: PROJECT_RULES });
+      const retrySub = substanceCheck(retry.parsed || {}, capacity);
+      const closer = Math.abs((retrySub.ratio ?? 99) - 1) < Math.abs((substance.ratio ?? 99) - 1);
+      if (retrySub.verdict === "ok" || closer) {
+        result = retry; substance = retrySub;
+        if (result.usage && first.usage) for (const k of Object.keys(first.usage)) result.usage[k] = (result.usage[k] || 0) + (first.usage[k] || 0);
+      }
+    } catch (e) {
+      console.error("[ai] substance regeneration failed; keeping first draft", e);
+    }
+  }
+  console.log("[ai] capacity", JSON.stringify(capacity), "| substance", JSON.stringify(substance));
+  return result;
 }
 
 // ---- Action: growth-reflection (quarterly report, framed by the family vision) ----

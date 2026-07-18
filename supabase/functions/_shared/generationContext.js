@@ -69,6 +69,7 @@ export function buildGenerationContext({ understandings = [], recentProjects = [
       const kind = u.metadata && u.metadata.momentKind;
       return {
         statement: u.statement,
+        kind: kind || null,                 // raw kind — capacity allocation reads this
         constraint: (kind && CIRCUMSTANCE_CONSTRAINT[kind]) || null,
         reviewAt: u.review_at || null,
       };
