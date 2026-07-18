@@ -13,7 +13,7 @@ import { techAgreementForAI } from "../lib/techAgreement.js";
 import { ownedResourceKeys } from "../lib/resources.js";
 import { INVENTORY_CATEGORIES } from "../lib/inventoryCatalog.js";
 import { availableDomains, domainShort, REFLECTION_PROMPTS } from "../seed.js";
-import { esc, icon, toast, openModal, confirmDialog, renderCountdown, fmtDate, sparkle, DOMAIN_COLOR_CLASS } from "../components/ui.js";
+import { esc, icon, toast, openModal, confirmDialog, renderCountdown, fmtDate, sparkle, DOMAIN_COLOR_CLASS, childColor } from "../components/ui.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
@@ -96,13 +96,14 @@ function projectCard(p, state) {
   const ms = getMilestonesForProject(p.id);
   const done = ms.filter(m => m.completed).length;
   const pct = ms.length ? Math.round((done / ms.length) * 100) : 0;
+  const col = childColor(child?.avatarIndex);
   return `
-    <div class="card card-hover" data-open="${p.id}" style="cursor:pointer">
+    <div class="card card-hover" data-open="${p.id}" style="cursor:pointer;border-left:4px solid ${col}">
       <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px">
         ${(p.domains || []).map(d => `<span class="tag ${DOMAIN_COLOR_CLASS[d] || ""}">${esc(domainName(d))}</span>`).join("")}
       </div>
       <h3 style="font-family:var(--font-serif);font-size:18px">${esc(p.title)}</h3>
-      <div class="small text-muted mb-2">${child ? esc(child.name) : ""} ${p.passionConnection ? "· " + esc(p.passionConnection) : ""}</div>
+      <div class="small mb-2"><span style="color:${col};font-weight:600">${child ? esc(child.name) : ""}</span>${p.passionConnection ? ` <span class="text-muted">· ${esc(p.passionConnection)}</span>` : ""}</div>
       <p class="small">${esc((p.description || "").slice(0, 140))}${(p.description || "").length > 140 ? "…" : ""}</p>
       <div class="divider"></div>
       <div class="row-between mb-1">

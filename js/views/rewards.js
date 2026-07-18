@@ -2,7 +2,7 @@
    rewards.js — Per-project rewards + tolls overview.
    ============================================================ */
 
-import { getState, updateProject } from "../store.js";
+import { getState, updateProject, setFamilyRhythm } from "../store.js";
 import { suggestRewards, REWARD_TYPE_META } from "../lib/rewards.js";
 import { REWARD_TYPES } from "../lib/resourceCatalog.js";
 import { domainShort } from "../seed.js";
@@ -16,8 +16,27 @@ const TOLL_IDEAS = [
   "Lose access to next reward until current project is complete",
 ];
 
-let _frequency = "per-project"; // per-project | monthly | quarterly | custom
 let _rewardChildId = null;
+
+// The reward rhythm is a family setting (persisted + cloud-synced inside
+// family.rhythm.rewards). "custom" opens editable controls below.
+function getRewardRhythm() {
+  const r = (getState().family && getState().family.rhythm && getState().family.rhythm.rewards) || {};
+  return {
+    frequency: r.frequency || "per-project",   // per-project | monthly | quarterly | custom
+    customScope: r.customScope || "every",     // every | long | milestone
+    customTolls: r.customTolls !== false,      // default on
+  };
+}
+function saveRewardRhythm(patch) {
+  setFamilyRhythm({ rewards: { ...getRewardRhythm(), ...patch } });
+}
+
+const SCOPE_LABELS = [
+  ["every", "Every project"],
+  ["long", "Only longer projects"],
+  ["milestone", "Every milestone"],
+];
 
 export function renderRewards(container) {
   const s = getState();
@@ -31,15 +50,33 @@ export function renderRewards(container) {
       </div>
     </div>
 
+    ${(() => {
+      const rhythm = getRewardRhythm();
+      return `
     <div class="card mb-2">
       <h3 class="mb-2">Reward rhythm</h3>
-      <div class="row" style="gap:8px">
+      <div class="row" style="gap:8px;flex-wrap:wrap">
         ${["per-project","monthly","quarterly","custom"].map(f => `
-          <button class="chip ${_frequency === f ? "selected" : ""}" data-freq="${f}">${esc(f.replace("-", " "))}</button>
+          <button class="chip ${rhythm.frequency === f ? "selected" : ""}" data-freq="${f}">${esc(f.replace("-", " "))}</button>
         `).join("")}
       </div>
-      <p class="text-muted small mt-2">How often the celebration ritual lands. Per-project is the default — the reward is tied to actually finishing.</p>
-    </div>
+      ${rhythm.frequency !== "custom" ? `
+        <p class="text-muted small mt-2">How often the celebration ritual lands. Per-project is the default — the reward is tied to actually finishing.</p>
+      ` : `
+        <div class="mt-2" style="border-top:1px solid var(--border);padding-top:12px">
+          <div class="fw-600 small mb-1">Give a reward for…</div>
+          <div class="row" style="gap:8px;flex-wrap:wrap">
+            ${SCOPE_LABELS.map(([v, l]) => `<button class="chip ${rhythm.customScope === v ? "selected" : ""}" data-cscope="${v}">${esc(l)}</button>`).join("")}
+          </div>
+          <label class="checkbox mt-2" style="display:flex;gap:9px;align-items:center;cursor:pointer">
+            <input type="checkbox" id="c-tolls" ${rhythm.customTolls ? "checked" : ""}/>
+            <span class="small">Also set a toll — a natural responsibility — on these</span>
+          </label>
+          <p class="text-muted small mt-2" style="margin-bottom:0">North Star will suggest rewards ${rhythm.customScope === "long" ? "for longer projects" : rhythm.customScope === "milestone" ? "at each milestone" : "on every project"}${rhythm.customTolls ? ", each paired with a fitting toll" : ""}.</p>
+        </div>
+      `}
+    </div>`;
+    })()}
 
     ${rewardSuggestions(s)}
 
@@ -59,8 +96,13 @@ export function renderRewards(container) {
   `;
 
   container.querySelectorAll("[data-freq]").forEach(b => {
-    b.addEventListener("click", () => { _frequency = b.dataset.freq; rerender(); });
+    b.addEventListener("click", () => { saveRewardRhythm({ frequency: b.dataset.freq }); rerender(); });
   });
+  container.querySelectorAll("[data-cscope]").forEach(b => {
+    b.addEventListener("click", () => { saveRewardRhythm({ customScope: b.dataset.cscope }); rerender(); });
+  });
+  const cTolls = container.querySelector("#c-tolls");
+  if (cTolls) cTolls.addEventListener("change", () => saveRewardRhythm({ customTolls: cTolls.checked }));
   container.querySelectorAll("[data-save]").forEach(b => {
     b.addEventListener("click", () => {
       const id = b.dataset.save;
