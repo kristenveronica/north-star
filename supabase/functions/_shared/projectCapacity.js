@@ -25,16 +25,18 @@ const RESERVE_FRACTION = 0.30;
 const MAX_COMMITTED_FRACTION = 0.75;    // existing projects never claim >75% of allocatable
 const NOMINAL_SESSION_MIN = 40;
 
-// Size bands in MEASURABLE total-minutes terms (NON-OVERLAPPING). minTotal is the
-// FLOOR that makes a project of that size worthwhile — the structural reality the
-// generator already enforces (a "medium" is ≥ ~6 missions ≈ 4h, which is why a
-// 2h "medium" was impossible). maxTotal caps it so more capacity ⇒ more/other
-// projects, not one bloated quest. No "micro": below small's floor we produce a
-// minimal small and flag it, rather than inventing a label with no product meaning.
+// Size bands in MEASURABLE total-minutes terms, CALIBRATED to what the generator
+// actually produces (a small quest = ~3–6 missions ≈ 4–6h; a medium ≈ 6–10 missions
+// ≈ ~12h; a large ≈ 8–14 missions ≈ ~23h). This is the structural reality — a "2h
+// medium" is impossible, which is why capacity must pick the BAND, not shrink a
+// label. Within a band the target is the band's TYPICAL size: capacity chooses the
+// size; extra capacity means MORE/other projects, not one bloated quest. `floor`
+// is the minimum slot-total below which that size can't be sustained (used for the
+// down-shift). No "micro": below small's floor we build a minimal small and flag it.
 const SIZE = {
-  small:  { weeks: 2, minTotal: 60,  maxTotal: 240 },   // 1–4h,  ~3–6 missions
-  medium: { weeks: 4, minTotal: 240, maxTotal: 600 },   // 4–10h, ~6–10 missions
-  large:  { weeks: 8, minTotal: 600, maxTotal: 1500 },  // 10–25h, ~8–14 missions
+  small:  { weeks: 2, floor: 200,  typical: 350 },   // ~3–6 missions
+  medium: { weeks: 4, floor: 450,  typical: 750 },   // ~6–10 missions
+  large:  { weeks: 8, floor: 900,  typical: 1400 },  // ~8–14 missions
 };
 const ORDER = ["small", "medium", "large"];
 const CAPACITY_MULTIPLIER = { capacity: 0.6, illness: 0.6, travel: 0.75, move: 0.75, hard_season: 0.75 };
@@ -78,13 +80,17 @@ export function buildProjectCapacity({ rhythm = {}, activeProjectCount = 0, size
   // ---- DETERMINISTIC effectiveSize: step DOWN from requested until the slot can
   // sustain that size's floor over its weeks. Never up-shift beyond the request. ----
   let effIdx = ORDER.indexOf(requestedSize);
-  while (effIdx > 0 && weeklySlot * SIZE[ORDER[effIdx]].weeks < SIZE[ORDER[effIdx]].minTotal) effIdx--;
+  while (effIdx > 0 && weeklySlot * SIZE[ORDER[effIdx]].weeks < SIZE[ORDER[effIdx]].floor) effIdx--;
   const effectiveSize = ORDER[effIdx];
   const band = SIZE[effectiveSize];
-  const belowSmallFloor = weeklySlot * band.weeks < band.minTotal;   // even small can't reach its floor
+  const belowSmallFloor = weeklySlot * band.weeks < band.floor;   // even small can't reach its floor
 
+  // Target = the band's TYPICAL size (capacity chose the band; it does not scale the
+  // size up with surplus). Below the small floor, target the small floor — the
+  // minimum worthwhile project — so the check doesn't demand an impossible sub-floor
+  // size and trigger a pointless regeneration.
   const expectedProjectWeeks = band.weeks;
-  const targetTotalMinutes = r0(clamp(weeklySlot * expectedProjectWeeks, band.minTotal, band.maxTotal));
+  const targetTotalMinutes = belowSmallFloor ? band.floor : band.typical;
   const targetWeeklyMinutesForProject = r0(targetTotalMinutes / expectedProjectWeeks);
   const targetSessionsPerWeek = clamp(Math.round(targetWeeklyMinutesForProject / NOMINAL_SESSION_MIN), 1, Math.max(1, days));
   const targetSessionMinutes = r0(targetWeeklyMinutesForProject / targetSessionsPerWeek);

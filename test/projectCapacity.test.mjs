@@ -44,7 +44,7 @@ test("requested medium DOWN-SHIFTS to small under scarcity (Scenario C)", () => 
   const c = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "medium" });
   assert.equal(c.effectiveSize, "small");
   assert.equal(c.expectedProjectWeeks, 2);                 // structure follows effectiveSize
-  assert.ok(c.targetTotalMinutes <= 240, "small band cap");
+  assert.ok(c.targetTotalMinutes <= 350, "small band size");
 });
 test("requested large DOWN-SHIFTS appropriately under scarcity", () => {
   const c = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "large" });
@@ -68,9 +68,10 @@ test("size bands map to distinct total-minute ranges", () => {
   const s = buildProjectCapacity({ rhythm: R12, activeProjectCount: 0, size: "small" });
   const m = buildProjectCapacity({ rhythm: R12, activeProjectCount: 0, size: "medium" });
   const l = buildProjectCapacity({ rhythm: { daysPerWeek: 6, hoursPerDay: 4 }, activeProjectCount: 0, size: "large" });
-  assert.ok(s.targetTotalMinutes <= 240);
-  assert.ok(m.targetTotalMinutes > 240 && m.targetTotalMinutes <= 600);
-  assert.ok(l.targetTotalMinutes > 600 && l.targetTotalMinutes <= 1500);
+  assert.ok(s.targetTotalMinutes <= 350);
+  assert.ok(m.targetTotalMinutes > 350 && m.targetTotalMinutes <= 900);
+  assert.ok(l.targetTotalMinutes > 900 && l.targetTotalMinutes <= 2000);
+  assert.ok(s.targetTotalMinutes < m.targetTotalMinutes && m.targetTotalMinutes < l.targetTotalMinutes);
 });
 
 /* ---------- capacity math invariants ---------- */
