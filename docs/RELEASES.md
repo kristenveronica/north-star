@@ -7,6 +7,7 @@ workflow. `verified` = smoke green at deploy; `observed` = healthy after a windo
 
 | Date (UTC) | Frontend SHA | Latest migration | Edge fns deployed | Surfaces | Verified | Observed |
 |------------|--------------|------------------|-------------------|----------|----------|----------|
+| 2026-07-17 | 4f1da6c | **0029_family_media_storage** | — | frontend + migration + Storage bucket | ✅ smoke 9/9; **cross-family isolation test passed** (A sees own=1, other=0; predicate true/false); bucket private, 50MB, 4 RLS policies | ⏳ live: needs a signed-in end-to-end upload (upload → reload → still there) |
 | 2026-07-17 | 9146f9c | **0028_ai_usage_log** | **ai** (usage logging + project-prompt caching) | migration + edge fn | ✅ migration applied, fn deployed, table structurally correct (RLS on, service-role-only, ready) | ⏳ live: next `generate-project` should write a row + show `cache_read_tokens>0` on 2nd call |
 | 2026-07-17 | (repo-only) | 0024 recovered | — | repo reconciliation | ✅ table 37/37 + 237 cols traced; 0024 committed | ✅ no schema regressions |
 | 2026-07-17 | 803ef0a | 0027_living_family_record | — (none this release) | frontend | ✅ smoke 9/9, live commit asserted; first deploy carrying build stamp | ⚠️ see RLS-denial burst note |
