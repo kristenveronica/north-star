@@ -280,6 +280,23 @@ export function fromReportRow(r) {
   };
 }
 
+/* ===========================================================================
+   DISTILLATION — Archive → Understanding (server-side; deterministic; migration 0032)
+   =========================================================================== */
+
+/** Run distillation for a family (optionally one child). Server-side rules live
+ *  in the SECURITY-DEFINER `distill_family` Postgres function (is_family_member-
+ *  gated, idempotent). Returns the number of Understanding rows written/updated.
+ *  NOTE: not yet auto-invoked anywhere — wiring it to a natural checkpoint (after
+ *  a project decision, or a periodic sweep) is the next small step. */
+export async function runDistillation(familyId, childId = null) {
+  const { data, error } = await supabase.rpc("distill_family", {
+    p_family_id: familyId, p_child_id: childId,
+  });
+  if (error) throw error;
+  return data; // integer count
+}
+
 /* ---------- small util ---------- */
 function groupBy(arr, keyFn) {
   const out = {};
