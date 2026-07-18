@@ -28,11 +28,14 @@ const MAX_COMMITTED_FRACTION = 0.75;           // existing projects never claim 
 const NOMINAL_SESSION_MIN = 40;                // nominal session length used to derive session count
 const MIN_PROJECT_WEEKLY_MIN = 30;            // a project worth doing is at least this much/week when capacity allows
 
-// size intent in MEASURABLE terms: expected weeks + share of REMAINING weekly capacity
+// size intent in MEASURABLE terms: expected weeks + share of REMAINING weekly
+// capacity. Shares stay MODERATE on purpose: one project is rarely a child's only
+// learning, so even a large project leaves room for other work, other subjects,
+// and spontaneity — reinforcing the "don't fill the week" guardrail.
 const SIZE = {
-  small:  { weeks: 2, share: 0.6 },
-  medium: { weeks: 4, share: 0.8 },
-  large:  { weeks: 8, share: 1.0 },
+  small:  { weeks: 2, share: 0.35 },
+  medium: { weeks: 4, share: 0.55 },
+  large:  { weeks: 8, share: 0.80 },
 };
 // Circumstance kinds that reduce available TIME (multiplier on weekly capacity).
 // NOTE: 'injury' is deliberately absent — a broken wrist reshapes the ACTIVITY
