@@ -36,7 +36,6 @@ const DEFAULT_STATE = {
   reflectionReports: [], // monthly | quarterly | annual reflections (distinct from milestone `reflections`)
   mediaAssets: [],       // photos/videos/voice/docs linked to projects/milestones (Annual Video source)
   calendarEvents: [],    // family-added events (dance, sport, music, church…) + external-calendar imports
-  preferenceSignals: [], // the family learning loop: explicit (rejection reasons) + implicit (accept/regen/edit/complete…) signals
   inventory: [],         // the living Family Inventory: what the family already owns/has access to ({id,category,name,owned,note,meta})
 
   // Membership & permissions (migration 0019). Auth-linked adults in this family
@@ -385,31 +384,9 @@ export function removeCalendarEvent(id) {
   update(s => { s.calendarEvents = s.calendarEvents.filter(e => e.id !== id); });
 }
 
-/* ---------------- Preference signals (the family learning loop) ----------------
-   One unified event log capturing both EXPLICIT feedback (rejection reasons +
-   notes) and IMPLICIT behaviour (accepted / regenerated / edited / completed /
-   abandoned …). Future generation aggregates these into a richer understanding
-   of each family's preferences. Capture now; the AI deepens its use over time. */
-export function recordPreferenceSignal(signal) {
-  const sig = {
-    id: uid("sig"),
-    type: "rejected",        // rejected | accepted | regenerated | edited | completed | abandoned | milestone-completed | photo-uploaded | reward-selected
-    childId: null,
-    projectId: null,
-    reasons: [],             // explicit: selected rejection reasons
-    note: "",                // explicit: optional free text
-    projectSnapshot: {},      // attributes of the project the signal is about (for pattern learning)
-    metadata: {},
-    createdAt: new Date().toISOString(),
-    ...signal,
-  };
-  update(s => { s.preferenceSignals.push(sig); });
-  return sig;
-}
-export function getPreferenceSignals(childId = null) {
-  const all = _state.preferenceSignals || [];
-  return childId ? all.filter(s => s.childId === childId) : all;
-}
+/* Preference signals removed: the family learning loop is now the canonical
+   Archive → Understanding path (docs/lfm-architecture.md). Project decisions and
+   completions write family_archive; distillation raises Understanding. */
 
 /* ---------------- Family ---------------- */
 export function setFamily(patch) {

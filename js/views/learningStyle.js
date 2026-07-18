@@ -456,8 +456,6 @@ function observationPrompt(state, child) {
   const counts = {};
   (state.projects || []).filter(pr => pr.childId === child.id)
     .forEach(pr => (pr.domains || []).forEach(d => { counts[d] = (counts[d] || 0) + 1; }));
-  (state.preferenceSignals || []).filter(s => s.childId === child.id && (s.type === "accepted" || s.type === "completed"))
-    .forEach(s => (s.projectSnapshot?.domains || []).forEach(d => { counts[d] = (counts[d] || 0) + 1; }));
   const ranked = Object.entries(counts).filter(([d]) => OBS_PHRASING[d]).sort((a, b) => b[1] - a[1]);
   if (!ranked.length || ranked[0][1] < 2) return null;
   const [domain] = ranked[0];

@@ -189,20 +189,6 @@ export function fromCalendarRow(r) {
     source: r.source, externalId: r.external_id, metadata: r.metadata || {},
   };
 }
-export function toPreferenceSignalRow(s, familyId) {
-  return {
-    id: s.id, family_id: familyId, child_id: s.childId || null, type: s.type || "rejected",
-    reasons: arr(s.reasons), note: orNull(s.note), project_id: s.projectId || null,
-    project_snapshot: s.projectSnapshot || {}, metadata: s.metadata || {},
-  };
-}
-export function fromPreferenceSignalRow(r) {
-  return {
-    id: r.id, childId: r.child_id, type: r.type, reasons: arr(r.reasons), note: r.note || "",
-    projectId: r.project_id, projectSnapshot: r.project_snapshot || {}, metadata: r.metadata || {},
-    createdAt: r.created_at,
-  };
-}
 
 // CHILD  (note: app uses `passions`, db uses `interests`)
 function toChildRow(c, familyId) {
@@ -820,7 +806,7 @@ async function _doEnsureFamilyAndHydrate() {
 
   // Load everything for this family in parallel.
   const [fam, prof, children, projects, milestones, reflections, materials,
-         reflectionReports, mediaAssets, calendarEvents, preferenceSignals, inventory,
+         reflectionReports, mediaAssets, calendarEvents, inventory,
          allMembers, memberAccess, observations, selfAssessments, growthReports,
          milestoneEvidence] =
     await Promise.all([
@@ -835,7 +821,6 @@ async function _doEnsureFamilyAndHydrate() {
       supabase.from("reflection_reports").select("*").eq("family_id", familyId),
       supabase.from("media_assets").select("*").eq("family_id", familyId),
       supabase.from("calendar_events").select("*").eq("family_id", familyId),
-      supabase.from("preference_signals").select("*").eq("family_id", familyId),
       // Living Family Inventory (migration 0018).
       supabase.from("inventory_items").select("*").eq("family_id", familyId),
       // Membership & permissions (migration 0019).
@@ -861,7 +846,6 @@ async function _doEnsureFamilyAndHydrate() {
   state.reflectionReports = (reflectionReports.data || []).map(fromReflectionReportRow);
   state.mediaAssets = (mediaAssets.data || []).map(fromMediaRow);
   state.calendarEvents = (calendarEvents.data || []).map(fromCalendarRow);
-  state.preferenceSignals = (preferenceSignals.data || []).map(fromPreferenceSignalRow);
   state.inventory = (inventory.data || []).map(fromInventoryItemRow);
   state.familyMembers = (allMembers.data || []).map(fromMemberRow);
   state.memberChildAccess = (memberAccess.data || []).map(fromMemberChildAccessRow);
@@ -959,11 +943,10 @@ export async function syncCore(state) {
       ["milestones",  (state.milestones || []).map((m) => toMilestoneRow(m, familyId))],
       ["reflections", (state.reflections || []).map((r) => toReflectionRow(r, familyId))],
       ["materials",   (state.materials || []).map((m) => toMaterialRow(m, familyId))],
-      // Long-term architecture tables (migrations 0013/0014).
+      // Long-term architecture tables (migration 0013).
       ["reflection_reports", (state.reflectionReports || []).map((r) => toReflectionReportRow(r, familyId))],
       ["media_assets",       (state.mediaAssets || []).map((m) => toMediaRow(m, familyId))],
       ["calendar_events",    (state.calendarEvents || []).map((e) => toCalendarRow(e, familyId))],
-      ["preference_signals", (state.preferenceSignals || []).map((s) => toPreferenceSignalRow(s, familyId))],
       // Living Family Inventory (migration 0018).
       ["inventory_items", (state.inventory || []).map((i) => toInventoryItemRow(i, familyId))],
       // Understand-the-child record (child_id is NOT NULL, so drop any stray
