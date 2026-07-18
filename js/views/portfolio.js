@@ -4,6 +4,7 @@
 
 import { getState, getChildStats, getMilestoneEvidenceForChild } from "../store.js";
 import { esc, fmtDate, DOMAIN_COLOR_CLASS, openModal, toast } from "../components/ui.js";
+import { hydrateEvidenceMedia } from "../lib/storage.js";
 
 let _selectedChildId = null;
 
@@ -36,6 +37,9 @@ export function renderPortfolio(container) {
   container.querySelectorAll("[data-view-proj]").forEach(b => {
     b.addEventListener("click", () => viewProjectSummary(b.dataset.viewProj));
   });
+
+  // Resolve stored-media placeholders (evidence files in Storage) to signed URLs.
+  hydrateEvidenceMedia(container);
 }
 
 function portfolioBlock(child, s) {
@@ -125,13 +129,19 @@ function renderParentEvidenceTile(item) {
   const isAudio = ev.fileType?.startsWith("audio/");
   const isVideo = ev.fileType?.startsWith("video/");
   const isPdf = ev.fileType === "application/pdf";
+  // Source attribute: prefer a Storage path (resolved to a signed URL after render
+  // via hydrateEvidenceMedia); fall back to a legacy inline dataUrl if present.
+  const sp = ev.storagePath;
+  const srcAttr = sp ? `data-sp="${esc(sp)}" data-sp-kind="src"` : (ev.dataUrl ? `src="${ev.dataUrl}"` : "");
+  const hrefAttr = sp ? `data-sp="${esc(sp)}" data-sp-kind="href"` : (ev.dataUrl ? `href="${ev.dataUrl}"` : "");
+  const hasFile = !!(sp || ev.dataUrl);
   let preview = "";
   if (ev.kind === "note") preview = `<div class="small">${esc((ev.text || "").slice(0, 200))}${(ev.text || "").length > 200 ? "…" : ""}</div>`;
-  else if (isImage && ev.dataUrl) preview = `<a href="${ev.dataUrl}" target="_blank" rel="noopener"><img src="${ev.dataUrl}" alt="${esc(ev.fileName || "")}"/></a>`;
-  else if (isAudio && ev.dataUrl) preview = `<audio controls src="${ev.dataUrl}" style="width:100%"></audio>`;
-  else if (isVideo && ev.dataUrl) preview = `<video controls src="${ev.dataUrl}" style="width:100%;max-height:200px;border-radius:8px"></video>`;
-  else if (isPdf && ev.dataUrl) preview = `<a href="${ev.dataUrl}" target="_blank" rel="noopener" class="evidence-pdf">📄 ${esc(ev.fileName || "PDF")}</a>`;
-  else if (ev.dataUrl) preview = `<a href="${ev.dataUrl}" target="_blank" rel="noopener" download="${esc(ev.fileName || "file")}" class="evidence-pdf">📎 ${esc(ev.fileName || "Download")}</a>`;
+  else if (isImage && hasFile) preview = `<a ${hrefAttr} target="_blank" rel="noopener"><img ${srcAttr} alt="${esc(ev.fileName || "")}"/></a>`;
+  else if (isAudio && hasFile) preview = `<audio controls ${srcAttr} style="width:100%"></audio>`;
+  else if (isVideo && hasFile) preview = `<video controls ${srcAttr} style="width:100%;max-height:200px;border-radius:8px"></video>`;
+  else if (isPdf && hasFile) preview = `<a ${hrefAttr} target="_blank" rel="noopener" class="evidence-pdf">📄 ${esc(ev.fileName || "PDF")}</a>`;
+  else if (hasFile) preview = `<a ${hrefAttr} target="_blank" rel="noopener" download="${esc(ev.fileName || "file")}" class="evidence-pdf">📎 ${esc(ev.fileName || "Download")}</a>`;
   return `
     <div class="evidence-tile">
       ${preview}

@@ -544,7 +544,7 @@ export function addMilestone(m) {
     starEarned: false,
     reflectionRequired: false,
     reflectionId: null,
-    evidence: [],         // [{ id, kind:"note"|"upload", text?, fileName?, fileType?, fileSize?, dataUrl?, createdAt }]
+    evidence: [],         // [{ id, kind:"note"|"upload"|"voice", text?, fileName?, fileType?, fileSize?, storagePath?, createdAt }]
     submission: null,     // { text, voiceTranscript, submittedAt } — the child's typed/spoken answer
     ...m,
   };
