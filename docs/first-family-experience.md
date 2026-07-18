@@ -220,3 +220,60 @@ Features can be discovered later. This is where we earn belief.
 ---
 
 *This experience serves the Constitution. If any part of it ever trades a family's trust, agency, or flourishing for engagement or conversion, it is wrong by definition — and we redesign it, no matter what it does to the numbers.*
+
+---
+
+## The Quick Start — the built specification
+
+**Added 2026-07-18.** The section above designs the *emotional journey* and names no screens. This section is the concrete spec the emotional journey resolved to, after design review. Where the two touch, the philosophy above governs; this names the actual beats, prompts, dataset, and mechanics we build.
+
+## The differentiator, stated once
+
+> **Most education products ask the family to configure the software. North Star configures itself around the family.**
+
+Every choice below serves that inversion. We do not collect the most information; we collect the **smallest set that lets North Star produce a genuinely personalised first project** and leave a parent thinking *"this already feels like it was built for my family."* The success metric is not "onboarding completed" — it is that sentence.
+
+## Stories, not forms, not conversations
+
+Each input screen invites a **story**, not data and not open-ended chat. One large voice-or-text box, guided by **four or five specific, expertly-crafted prompts** that do the work an experienced educator's questions do — the parent never wonders what we're after or whether they're giving the "right" answer. We are not asking them to think; we are **guiding their thinking.** Dictation shows **live interim text as they speak** (a parent who can't see words landing assumes it's broken); typed and spoken input are seamlessly interchangeable; the box scrolls gracefully for long input.
+
+## The minimum dataset — every field justified
+
+For each ask: *why we need it · how it improves the first project · could we infer it later · is it worth the cognitive load.* Six candidate datasets collapsed to **four asks + one light roster confirm.**
+
+| # | Ask | Why it earns its place | Form |
+|---|---|---|---|
+| 1 | **Your family** (who's in it, names & ages, anything to know) | Roster is irreducible; age → developmental calibration (an 8yo and 14yo project share nothing) | Short story box |
+| 2 | **Which child to start with** | Focus the *first* project on one child for maximum depth-per-minute; the others earn their deep story later | One tap (auto-skips for a single child) |
+| 3 | **Tell us about \[child]** — loves · what grabs them · *what activities keep them engaged longest* (we infer modality) · one thing you'd love to grow this year · anything hard | The single biggest lever on "they get my child": interest = hook, growth-goal = purpose, modality = format | Story box |
+| 4 | **The adults you hope they become** — *"someone meets your child at 25 — what do you hope they notice first?"* | Forces values without saying "values"; seeds the Suggested Values output; gives the project soul | Story box |
+| 5 | **Time** — *"realistically, how much time would you like North Star to become part of your week?"* (Occasional · 1–2 hrs · Several days · Most of our journey) | Directly drives project size, pace, workload, and the recommended weekly rhythm — a stronger signal than "weekends vs companion" | One tap (a preference, *not* a story) |
+
+**What we deliberately do not ask** (inferred, or earned later, in context): school/homeschool/hybrid (partially implied by the Time answer, otherwise inferred later), location/hemisphere (from signup → drives rhythm), faith, mobility, curriculum approach, technology boundaries, inventory, the second/third child's deep story, and — critically — **Family Vision, Family Credo, and Core Word.** Those three are no longer setup tasks; they become **progressive milestones** that unlock once the relationship has earned them (see below).
+
+**Cut in review:** the "good day / hard day" prompt (a lovely coaching question, but it does not materially improve the first project) and asking each child's story up front (breaks "easier than I expected" for larger families).
+
+## The seven beats
+
+0. **Welcome** *(no input)* — "A few good questions. Then something built for your family. About ten minutes."
+1. **Your family** — the almost-effortless opener: *who's in your family · your children's names and ages · anything you'd like us to know before we begin.*
+2. **Your children** *(light confirm)* — pre-fills the names we heard ("we were listening"), collects ages, and asks **"Who should North Star start with?"** (auto-skips for one child).
+3. **Tell us about \[child]** — the rich story (prompts in dataset #3).
+4. **The adults you hope they become** — the hopes story (the "meets them at 25" prompt).
+5. **Time** — the one-tap involvement question.
+6. **The mirror** — *not a checkout, a beginning.* "We've started getting to know your family. Here's the picture we're building together." → **Family → Child → Suggested values → "We'll keep learning as we go."** Everything editable. It **under-claims when a parent gave us little** — honest gaps beat fishing. Family portrait leads (we heard *you* first).
+7. **The preparation** — between mirror and reveal, **never a spinner.** Real per-child messages tick over: *Understanding Maya… ✓ · Finding opportunities she'll love… ✓ · Building around horses and drawing… ✓ · Weaving confidence into every step… ✓ · Preparing your first adventure… ✓* The messages are generated from the *actual* extracted data, so they feel personal, not technical. The engineering win: this ~20s of delight is genuine cover for the real generation latency — **the magic is the loading state.**
+8. **The reveal** — the first project, unmistakably built for *this* child. (The peak, per the philosophy above.)
+
+## Progressive milestones — onboarding dissolves
+
+There is no long-form onboarding. Every further piece of customisation becomes an invitation that unlocks **when it becomes useful**, each tied to something concrete and framed as *"North Star is ready to understand you a little more"* — never a chore-list:
+
+- **Core Word** — offered early as a gentle suggestion, formalised later.
+- **Family Vision / Credo** — offered *after* the first project is lived, when there is something real to anchor them to.
+- **Technology Agreement** — surfaced the moment a screen-based project appears, not before.
+- **Faith · mobility · inventory · learning-profile depth** — each appears in context, when it would visibly improve what North Star does next.
+
+## What must be true for this to work
+
+The philosophy section's linchpin still binds: **the first generated project must be genuinely, specifically true to this child, or we do not show it.** The four asks exist solely to make that possible. Everything else is the family configuring itself.
