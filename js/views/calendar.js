@@ -5,7 +5,7 @@
 
 import { getState } from "../store.js";
 import { availableDomains } from "../seed.js";
-import { esc, fmtDate } from "../components/ui.js";
+import { esc, fmtDate, childColor } from "../components/ui.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 
@@ -77,7 +77,10 @@ function renderCells(year, month, daysInMonth, startWeekday, events) {
     cells.push(`
       <div class="cal-cell ${isToday ? "today" : ""}">
         <div class="d">${day}</div>
-        ${dayEvents.slice(0, 3).map(e => `<span class="cal-event dom-${e.domain || "brain"}" data-open-proj="${e.projectId}" style="cursor:pointer" title="${esc(e.tooltip)}">${esc(e.label)}</span>`).join("")}
+        ${dayEvents.slice(0, 3).map(e => {
+          const col = childColor(e.avatarIndex);
+          return `<span class="cal-event" data-open-proj="${e.projectId}" style="cursor:pointer;background:${col}22;color:var(--text);border-left:3px solid ${col}" title="${esc(e.tooltip)}">${esc(e.label)}</span>`;
+        }).join("")}
         ${dayEvents.length > 3 ? `<span class="cal-event" style="background:var(--bg-2);color:var(--text-muted)">+${dayEvents.length - 3} more</span>` : ""}
       </div>
     `);
@@ -104,7 +107,7 @@ function collectEvents(s, year, month) {
     if (_domainFilter !== "all" && !(p.domains || []).includes(_domainFilter)) return;
     const child = s.children.find(c => c.id === p.childId);
     add(p.dueDate, {
-      projectId: p.id, domain: p.domains?.[0],
+      projectId: p.id, domain: p.domains?.[0], avatarIndex: child?.avatarIndex,
       label: `★ ${(child?.name || "")[0] || ""} · ${p.title}`,
       tooltip: `${p.title} due (${child?.name})`,
     });
@@ -117,7 +120,7 @@ function collectEvents(s, year, month) {
     if (_domainFilter !== "all" && !(proj.domains || []).includes(_domainFilter)) return;
     const child = s.children.find(c => c.id === proj.childId);
     add(m.dueDate, {
-      projectId: proj.id, domain: proj.domains?.[0],
+      projectId: proj.id, domain: proj.domains?.[0], avatarIndex: child?.avatarIndex,
       label: `${(child?.name || "")[0] || ""} · ${m.title}`,
       tooltip: `${m.title} (${proj.title})`,
     });

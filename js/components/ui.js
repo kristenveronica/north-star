@@ -240,6 +240,13 @@ export function sparkle(targetEl) {
 /* ---------- Capability Domain colour helpers ----------
    Keyed by current Capability Domain ids, with legacy gig ids aliased so
    projects/children saved under the old model still render a coloured tag. */
+// Each child's identity colour — the base of the .avatar-N gradients (styles/main.css)
+// so a child reads as the SAME colour everywhere: avatar, calendar, project cards.
+export const CHILD_COLORS = ["#C97B4E", "#7FA68A", "#9C7AB5", "#6FA9C4", "#E8B547"];
+export function childColor(avatarIndex) {
+  return CHILD_COLORS[(((avatarIndex || 1) - 1) % CHILD_COLORS.length + CHILD_COLORS.length) % CHILD_COLORS.length];
+}
+
 export const DOMAIN_COLOR_CLASS = {
   // Current Capability Domains
   literacy: "tag-plum",

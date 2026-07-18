@@ -32,7 +32,6 @@ export function renderTechAgreement(container, params) {
     ${embedded ? `
     <div class="btn-row mb-2" style="justify-content:flex-end;align-items:center">
       <span class="small text-muted" id="ta-status" aria-live="polite"></span>
-      <button class="btn btn-primary" id="ta-pdf">⬇ Generate PDF</button>
     </div>` : `
     <div class="topbar">
       <div>
@@ -42,13 +41,10 @@ export function renderTechAgreement(container, params) {
       </div>
       <div class="btn-row">
         <span class="small text-muted" id="ta-status" aria-live="polite"></span>
-        <button class="btn btn-primary" id="ta-pdf">⬇ Generate PDF</button>
       </div>
     </div>`}
 
-    <div class="card mb-2" style="background:var(--card-elev)">
-      <p class="small" style="margin:0">North Star doesn't prescribe rules. This is a space to intentionally think through your family's digital decisions <em>before</em> situations arise — the goal is conversation, clarity and alignment. Adopt the suggestions that fit, edit freely, and skip anything that doesn't apply yet. <strong>${prog.addressed} of ${prog.total} sections addressed.</strong></p>
-    </div>
+    <p class="text-muted mb-3" style="max-width:74ch;line-height:1.6">North Star doesn't prescribe rules. This is a space to intentionally think through your family's digital decisions <em>before</em> situations arise — the goal is conversation, clarity and alignment. Adopt the suggestions that fit, edit freely, and skip anything that doesn't apply yet. <strong>${prog.addressed} of ${prog.total} sections addressed.</strong></p>
 
     ${nudge && nudge.kind !== "setup" ? `
       <div class="suggestion-banner mb-2">
@@ -110,7 +106,7 @@ export function renderTechAgreement(container, params) {
       toast("Couldn't generate the PDF just now. Please try again.", { type: "error", duration: 3200 });
     } finally { btn.disabled = false; btn.textContent = orig; }
   };
-  container.querySelector("#ta-pdf").addEventListener("click", (e) => doPdf(e.currentTarget));
+  // Single PDF action lives at the bottom of the page (#ta-pdf-2).
   container.querySelector("#ta-pdf-2").addEventListener("click", (e) => doPdf(e.currentTarget));
 
   const markReviewed = () => {

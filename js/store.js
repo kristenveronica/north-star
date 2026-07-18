@@ -1248,11 +1248,14 @@ export function setInsightsConfig(patch) {
 export function getAllUpcomingEvents() {
   const events = [];
   _state.projects.forEach(p => {
+    if (p.status === "completed") return;                 // finished projects aren't "coming up"
     if (p.dueDate) events.push({ type: "project-due", date: p.dueDate, project: p, child: getChild(p.childId) });
   });
   _state.milestones.forEach(m => {
+    if (m.completed) return;                              // once marked done, it drops off the parent's list
     const proj = _state.projects.find(p => p.id === m.projectId);
-    if (m.dueDate && proj) {
+    if (!proj || proj.status === "completed") return;
+    if (m.dueDate) {
       events.push({ type: "milestone-due", date: m.dueDate, milestone: m, project: proj, child: getChild(proj.childId) });
     }
   });
