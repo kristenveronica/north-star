@@ -9,7 +9,6 @@ import { getState, setCloudSync, setArchiveSink, resetToLoggedOut } from "./stor
 import { syncCore, ensureFamilyAndHydrate, setPendingCheckout, isOnboardingParked } from "./lib/repo.js";
 import { recordArchive } from "./lib/lfm.js";
 import { buildMilestoneCompleted, buildMilestoneUncompleted } from "./lib/milestoneArchive.js";
-import { currentUserId } from "./auth.js";
 import { mountRouter, registerRoute, currentPath, navigate } from "./router.js";
 import { renderSidebar } from "./components/sidebar.js";
 import { startCountdownTicker, esc } from "./components/ui.js";
