@@ -423,7 +423,7 @@ const PROJECT_SCHEMA = {
   },
 };
 
-function sizeGuidance(size: string, age: number | null) {
+function sizeGuidance(size: string, age: number | null, mode: string = "standard") {
   const a = typeof age === "number" ? age : 10;
   const young = a <= 8;
   const granularity = young
@@ -431,6 +431,9 @@ function sizeGuidance(size: string, age: number | null) {
     : a <= 12
     ? "Make missions small and clearly bounded — several short steps the child can finish in a sitting or two."
     : "This child is older — fewer, more substantial missions are fine, but each must still be concrete and measurable.";
+  if (mode === "compact") {
+    return `SIZE: COMPACT EXPERIENCE. There is only a little open time this week, so build a SHORT, self-contained learning experience — roughly 2–4 focused missions that add up to the small time budget in the LEARNING RHYTHM & SIZE block below. It should still feel whole and satisfying, with a clear beginning and a real finish, just smaller in scope. Do NOT pad it out to a standard quest. ${granularity}`;
+  }
   if (!size || size === "auto") {
     return `SIZE: YOU CHOOSE — read the parent's request and this child, then pick the most fitting scope yourself and set "durationDays" + "sizeBand" to match. Small (7–14 days, 3–6 missions) for a focused single interest; medium (~30 days, 6–10 missions) for something richer; large/term (~63 days, 8–14 missions, a lasting habit) only when they clearly describe a habit, a big build, or a season-long journey (e.g. a multi-week trip). Don't over-scope — match the spark. ${granularity}`;
   }
@@ -519,6 +522,32 @@ async function generateProject(payload: any, apiKey: string, familyId?: string) 
     size: constraints.size || "auto",
     capacityCircumstanceKinds: (genCtx.circumstances || []).map((x: any) => x.kind).filter(Boolean),
   });
+
+  // ---- Honest below-floor decision path: when the week can't sustain even a
+  // compact experience, do NOT generate an oversized project to satisfy a floor.
+  // Short-circuit BEFORE any model call and return a structured, actionable result
+  // so the product can offer to defer or rebalance (protect against overcommitment).
+  if (!refine && capacity.effectiveMode === "insufficient") {
+    console.log("[ai] capacity", JSON.stringify({ requested: capacity.requestedSize, effectiveMode: "insufficient", availableProjectMinutes: capacity.availableProjectMinutes, remainingWeeklyMinutes: capacity.remainingWeeklyMinutes, activeProjectCount: capacity.activeProjectCount }), "| no generation (insufficient capacity)");
+    return {
+      parsed: {
+        insufficientCapacity: true,
+        capacityStatus: "insufficient_capacity",
+        substanceStatus: "insufficient_capacity",
+        substanceInTolerance: false,
+        message: capacity.sizeAdjustmentReason,
+        options: ["defer", "rebalance"],
+        capacity: {
+          remainingWeeklyMinutes: capacity.remainingWeeklyMinutes,
+          availableProjectMinutes: capacity.availableProjectMinutes,
+          expectedProjectWeeks: capacity.expectedProjectWeeks,
+          activeProjectCount: capacity.activeProjectCount,
+        },
+      },
+      usage: { input_tokens: 0, output_tokens: 0 },
+    };
+  }
+
   const capacityBlock = renderCapacityBlock(capacity, c.name || "this child");
   // Recent-domain balance: server-assembled, falling back to any client-sent recentDomains.
   const clientRecent = (constraints.recentDomains && typeof constraints.recentDomains === "object" && !Array.isArray(constraints.recentDomains)) ? constraints.recentDomains : {};
@@ -565,7 +594,7 @@ family and child below to do the educational design they did NOT spell out — c
 academic skills, practical-life skills, real experiences, materials and milestones that best serve this
 child. The parent brought the spark; YOU build the pathway.\n` : ""}
 ${balanceLine ? balanceLine + "\n" : ""}
-${sizeGuidance(capacity.effectiveSize, c.age ?? null)}
+${sizeGuidance(capacity.effectiveSize, c.age ?? null, capacity.effectiveMode)}
 
 ${requestedDomains.length
   ? `REQUESTED CAPABILITY DOMAINS: The parent has chosen the Capability Domains this quest should develop: ${requestedDomains.join(", ")}. Treat this as the DESIRED SET — genuinely develop each one through the missions (don't just tag it), and don't lean on domains they didn't pick. These should be your capabilityMap.primary, and "domains" must include exactly this set.`
@@ -793,7 +822,7 @@ ${capacityBlock}
 CONSTRAINTS (optional)
 - Parent's request / spark (PRIMARY — design around this): ${intent ? `"${intent}"` : "(none — design for the whole child)"}
 - Recent capability focus (for gentle balance): ${recentTop.length ? recentTop.join(", ") : "(no recent projects)"}
-- Quest size to build: ${capacity.effectiveSize}${capacity.effectiveSize !== capacity.requestedSize ? ` (parent asked for ${capacity.requestedSize}; current capacity supports ${capacity.effectiveSize} — build a genuine ${capacity.effectiveSize} quest)` : ""}
+- Quest size to build: ${capacity.effectiveMode === "compact" ? `compact experience (a short, self-contained ${capacity.effectiveSize}-scale project that fits the limited open time — do not pad it out)` : capacity.effectiveSize}${capacity.effectiveMode !== "compact" && capacity.effectiveSize !== capacity.requestedSize ? ` (parent asked for ${capacity.requestedSize}; current capacity supports ${capacity.effectiveSize} — build a genuine ${capacity.effectiveSize} quest)` : ""}
 - Requested domains to incorporate: ${requestedDomains.join(", ") || "(parent's choice)"}
 - Parent's focus picks: ${focusLines ? "\n" + focusLines : "(none — design for the whole child)"}
 - Quests already done (avoid repeating these themes/formats): ${avoidTitles.join("; ") || "(none yet)"}
@@ -808,27 +837,33 @@ ${refine
   : `Design one quest tailored to ${c.name || "this child"}, with ${c.name || "the child"} as the hero.`}`;
   const first = await callClaude(system, userText, PROJECT_SCHEMA, apiKey, { rules: PROJECT_RULES });
 
-  // ---- G6 substance check ----
-  // effectiveSize has already resolved the DETERMINISTIC size↔capacity mismatch
-  // before this call, so a well-behaved draft is normally in-band on the FIRST try.
-  // Regeneration is now the EXCEPTION (the model genuinely mis-sized), not the tool
-  // we use to fight an impossible size — and it fires at most once. A result that is
-  // still out of band after the retry is returned with an explicit mismatch status,
-  // never silently relabelled as compliant (requirement #7).
+  // ---- G6 substance check (against BOTH the final target AND the hard ceiling) ----
+  // effectiveSize + the capacity-capped finalTarget resolve the DETERMINISTIC
+  // size↔capacity mismatch before this call, so a well-behaved draft is normally
+  // in-band on the FIRST try. Regeneration is the EXCEPTION (the model genuinely
+  // mis-sized) and fires at most once — and ONLY for `thin` (too light) or
+  // `exceeds_capacity` (over the family's real available time, the cardinal sin).
+  // `large_for_target` is above the target but STILL within real capacity, so it is
+  // accepted with an honest flag rather than spending another call. A draft that is
+  // still out of band after the retry is returned with its explicit status, never
+  // silently relabelled compliant (requirement #5/#6).
+  const scoreSub = (s: any) =>
+    s.verdict === "ok" ? 0
+    : s.verdict === "exceeds_capacity" ? 100 + (s.capacityRatio ?? 9)   // worst: over the ceiling
+    : Math.abs((s.ratio ?? 9) - 1);
   let result = first;
   let substance = substanceCheck(first.parsed || {}, capacity);
   let regenerated = false;
-  if (!refine && (substance.verdict === "thin" || substance.verdict === "large")) {
-    const targetHours = Math.round((capacity.targetTotalMinutes / 60) * 10) / 10;
+  if (!refine && (substance.verdict === "thin" || substance.verdict === "exceeds_capacity")) {
+    const targetHours = Math.round((capacity.finalTargetMinutes / 60) * 10) / 10;
     const dir = substance.verdict === "thin"
       ? `SCOPE CORRECTION: the previous draft was too light. Add genuine depth so the quest totals roughly ${targetHours} hours across about ${capacity.expectedProjectWeeks} week(s). Never busywork.`
-      : `SCOPE CORRECTION: the previous draft was too heavy for a ${capacity.effectiveSize} quest. Trim to roughly ${targetHours} hours across about ${capacity.expectedProjectWeeks} week(s) — fewer, meatier milestones.`;
+      : `SCOPE CORRECTION: the previous draft was too heavy for the time this child actually has (about ${targetHours} hours total is the CEILING, not a goal). Trim to fit — fewer, meatier milestones — and do not exceed it.`;
     try {
       const retry = await callClaude(system, userText + "\n\n" + dir, PROJECT_SCHEMA, apiKey, { rules: PROJECT_RULES });
       regenerated = true;
       const retrySub = substanceCheck(retry.parsed || {}, capacity);
-      const closer = Math.abs((retrySub.ratio ?? 99) - 1) < Math.abs((substance.ratio ?? 99) - 1);
-      if (retrySub.verdict === "ok" || closer) {
+      if (scoreSub(retrySub) < scoreSub(substance)) {
         result = retry; substance = retrySub;
         if (result.usage && first.usage) for (const k of Object.keys(first.usage)) result.usage[k] = (result.usage[k] || 0) + (first.usage[k] || 0);
       }
@@ -837,16 +872,21 @@ ${refine
     }
   }
 
-  // Honest, non-silent status attached to the returned project.
+  // Honest, non-silent status attached to the returned project. Only `ok` is "in
+  // tolerance" — `exceeds_capacity` / `large_for_target` / `thin` are never hidden.
   if (result.parsed) {
-    result.parsed.substanceStatus = substance.verdict;                 // ok | thin | large | unknown — never hidden
+    result.parsed.substanceStatus = substance.verdict;                 // ok | thin | large_for_target | exceeds_capacity | unknown
     result.parsed.substanceInTolerance = substance.verdict === "ok";
-    // Parent-facing, non-judgmental note when the project was shaped smaller than asked.
-    if (capacity.effectiveSize !== capacity.requestedSize) {
+    // Parent-facing, non-judgmental note when the project was shaped by capacity.
+    if (capacity.effectiveMode === "compact") {
+      result.parsed.sizeNote = `${c.name || "Your child"}'s open time this week is limited, so North Star shaped this as a short, self-contained experience that fits.`;
+    } else if (capacity.effectiveSize !== capacity.requestedSize) {
       result.parsed.sizeNote = `Based on ${c.name || "your child"}'s current week and active projects, North Star has shaped this as a ${capacity.effectiveSize} project.`;
+    } else if (capacity.capacityCapped) {
+      result.parsed.sizeNote = `North Star kept this project to the open time ${c.name || "your child"} actually has over the next ${capacity.expectedProjectWeeks} weeks.`;
     }
   }
-  console.log("[ai] capacity", JSON.stringify({ requested: capacity.requestedSize, effective: capacity.effectiveSize, targetTotalMinutes: capacity.targetTotalMinutes, remainingWeeklyMinutes: capacity.remainingWeeklyMinutes }), "| substance", JSON.stringify(substance), "| regenerated", regenerated);
+  console.log("[ai] capacity", JSON.stringify({ requested: capacity.requestedSize, effective: capacity.effectiveSize, mode: capacity.effectiveMode, finalTargetMinutes: capacity.finalTargetMinutes, availableProjectMinutes: capacity.availableProjectMinutes, desiredBandMinutes: capacity.desiredBandMinutes, remainingWeeklyMinutes: capacity.remainingWeeklyMinutes }), "| substance", JSON.stringify(substance), "| regenerated", regenerated);
   return result;
 }
 

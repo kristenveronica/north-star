@@ -1,12 +1,37 @@
 /* ============================================================================
-   ProjectCapacity — realistic capacity allocation + effective size (G6).
+   ProjectCapacity — realistic capacity allocation, effective size + HARD ceiling.
 
    PURE functions (Deno + `node --test`). The edge function feeds in the family
    rhythm, the child's active-project count, the requested size, and any active
-   capacity-reducing circumstances; this returns a deterministic allocation AND a
-   deterministic effectiveSize that resolves size↔capacity conflicts BEFORE the
-   model is prompted (so we never ask for a "medium" the week can't sustain, then
-   fight it with regeneration).
+   capacity-reducing circumstances; this returns a deterministic allocation that
+   resolves size↔capacity BEFORE the model is prompted.
+
+   THE CORE INVARIANT (why this file was revised):
+       finalTargetMinutes <= availableProjectMinutes
+   A project may never be sized ABOVE the capacity actually allocated to it just
+   to satisfy an internal size-band floor. Three concepts are kept explicit and
+   distinct so this can never be violated silently:
+     • availableProjectMinutes — the REAL capacity across the project window
+       (the child's fair weekly slot × the project's weeks). The HARD CEILING.
+     • desiredBandMinutes      — the typical duration for the selected size band.
+     • finalTargetMinutes      — what generation is actually allowed to use.
+   finalTargetMinutes = min(desiredBandMinutes, availableProjectMinutes). The
+   floor is used only for the down-shift DECISION (which band fits) — it is NEVER
+   used to inflate the target above real available time.
+
+   WHEN THE WEEK CAN'T SUSTAIN THE SMALLEST STANDARD PROJECT: we do NOT quietly
+   raise the target to the small floor. Instead an honest decision path
+   (`effectiveMode`):
+     • "standard"     — the band fits; target = min(band typical, available).
+     • "compact"      — below the small floor but ≥ a meaningful minimum: build a
+                        short, self-contained experience sized to the REAL time
+                        (finalTarget = available). No public "micro" tier — this
+                        is an internal mode, not another parent-facing category.
+     • "insufficient" — even a compact experience can't be meaningful. Do NOT
+                        generate; return a structured insufficient-capacity result
+                        so the product can offer to defer or rebalance. Protecting
+                        a family from overcommitment beats overbooking them while
+                        claiming the project fits.
 
    AUDIT (reliable vs merely present):
    • RELIABLE: total weekly capacity (rhythm days×hours); active project COUNT
@@ -17,22 +42,27 @@
 
    GUARDRAILS: keep 30% of capacity open (never fill the week); size bands are
    defined by real worthwhile-project TIME, not round numbers; a single project is
-   capped at its size band's max so extra capacity means more/other projects, not
-   one bloated quest.
+   capped at its band typical AND at real available time.
    ============================================================================ */
 
 const RESERVE_FRACTION = 0.30;
 const MAX_COMMITTED_FRACTION = 0.75;    // existing projects never claim >75% of allocatable
 const NOMINAL_SESSION_MIN = 40;
 
+// The smallest total (across the whole project window) that can still carry a
+// worthwhile, self-contained learning experience. Calibrated to the product: a
+// compact experience needs at least ~2 real touchpoints (e.g. 2×30min) to have an
+// arc; below this a "project" would be a single short activity dressed up as one,
+// so we decline to generate and offer defer/rebalance instead. Challenge this
+// against real families rather than treating it as sacred.
+const MEANINGFUL_MIN_TOTAL = 60;
+
 // Size bands in MEASURABLE total-minutes terms, CALIBRATED to what the generator
 // actually produces (a small quest = ~3–6 missions ≈ 4–6h; a medium ≈ 6–10 missions
-// ≈ ~12h; a large ≈ 8–14 missions ≈ ~23h). This is the structural reality — a "2h
-// medium" is impossible, which is why capacity must pick the BAND, not shrink a
-// label. Within a band the target is the band's TYPICAL size: capacity chooses the
-// size; extra capacity means MORE/other projects, not one bloated quest. `floor`
-// is the minimum slot-total below which that size can't be sustained (used for the
-// down-shift). No "micro": below small's floor we build a minimal small and flag it.
+// ≈ ~12h; a large ≈ 8–14 missions ≈ ~23h). `floor` is the minimum window-total at
+// or above which that band is worth building as a STANDARD project — it drives the
+// down-shift DECISION only. `typical` is the desired band size and is the ONLY
+// thing that seeds a target — and even then it is capped by real available time.
 const SIZE = {
   small:  { weeks: 2, floor: 200,  typical: 350 },   // ~3–6 missions
   medium: { weeks: 4, floor: 450,  typical: 750 },   // ~6–10 missions
@@ -77,52 +107,87 @@ export function buildProjectCapacity({ rhythm = {}, activeProjectCount = 0, size
   const remainingWeeklyMinutes = Math.max(0, allocatable - committedWeeklyMinutes);
   const weeklySlot = remainingWeeklyMinutes;
 
-  // ---- DETERMINISTIC effectiveSize: step DOWN from requested until the slot can
-  // sustain that size's floor over its weeks. Never up-shift beyond the request. ----
+  // ---- DETERMINISTIC effectiveSize: step DOWN from the requested band until the
+  // slot can sustain that band's floor over its weeks. Never up-shift beyond the
+  // request. The floor is a DECISION threshold here — never a target. ----
   let effIdx = ORDER.indexOf(requestedSize);
   while (effIdx > 0 && weeklySlot * SIZE[ORDER[effIdx]].weeks < SIZE[ORDER[effIdx]].floor) effIdx--;
   const effectiveSize = ORDER[effIdx];
   const band = SIZE[effectiveSize];
-  const belowSmallFloor = weeklySlot * band.weeks < band.floor;   // even small can't reach its floor
-
-  // Target = the band's TYPICAL size (capacity chose the band; it does not scale the
-  // size up with surplus). Below the small floor, target the small floor — the
-  // minimum worthwhile project — so the check doesn't demand an impossible sub-floor
-  // size and trigger a pointless regeneration.
   const expectedProjectWeeks = band.weeks;
-  const targetTotalMinutes = belowSmallFloor ? band.floor : band.typical;
-  const targetWeeklyMinutesForProject = r0(targetTotalMinutes / expectedProjectWeeks);
-  const targetSessionsPerWeek = clamp(Math.round(targetWeeklyMinutesForProject / NOMINAL_SESSION_MIN), 1, Math.max(1, days));
-  const targetSessionMinutes = r0(targetWeeklyMinutesForProject / targetSessionsPerWeek);
 
+  // ---- THE THREE EXPLICIT QUANTITIES (invariant lives here) ----
+  // availableProjectMinutes: the REAL capacity across the window — the hard ceiling.
+  const availableProjectMinutes = r0(weeklySlot * expectedProjectWeeks);
+  // desiredBandMinutes: what a standard project of this band would typically want.
+  const desiredBandMinutes = band.typical;
+  const belowSmallFloor = availableProjectMinutes < band.floor;   // even small can't reach its floor
+
+  // ---- HONEST decision path when below the smallest standard project ----
+  let effectiveMode = "standard";
+  let finalTargetMinutes;
   let sizeAdjustmentReason = null;
-  if (effectiveSize !== requestedSize) {
-    sizeAdjustmentReason = `Current week and active projects support a ${effectiveSize} project, not a ${requestedSize} one.`;
-  }
+
   if (belowSmallFloor) {
-    sizeAdjustmentReason = "Capacity is very limited right now — shaped as a light, minimal project.";
-    assumptions.push("Below the small-project floor: this is a deliberately minimal starter.");
+    if (availableProjectMinutes >= MEANINGFUL_MIN_TOTAL) {
+      // Compact: fit the REAL available time. Do NOT inflate to the small floor.
+      effectiveMode = "compact";
+      finalTargetMinutes = availableProjectMinutes;             // == available (never above)
+      sizeAdjustmentReason = "There's limited open time this week, so this is shaped as a short, self-contained experience that fits the time actually available — not a full project.";
+      assumptions.push("Below the small-project floor: built as a compact experience sized to real available time (not raised to the band floor).");
+    } else {
+      // Insufficient: don't manufacture a project. Decline honestly.
+      effectiveMode = "insufficient";
+      finalTargetMinutes = 0;
+      sizeAdjustmentReason = "The current week is already close to full. Rather than overbook, North Star suggests saving this idea for a little more room — or pausing an active project to make space.";
+      assumptions.push("Available capacity is below the minimum for a meaningful experience: declined to generate (defer / rebalance).");
+    }
+  } else {
+    // Standard: cap the band typical at real available time. THE INVARIANT.
+    finalTargetMinutes = Math.min(desiredBandMinutes, availableProjectMinutes);
+    if (effectiveSize !== requestedSize) {
+      sizeAdjustmentReason = `Current week and active projects support a ${effectiveSize} project right now, not a ${requestedSize} one.`;
+    } else if (finalTargetMinutes < desiredBandMinutes) {
+      // Same band, but the typical size doesn't fit the open time — a lighter build.
+      sizeAdjustmentReason = `Sized to the open time actually available over the next ${expectedProjectWeeks} week(s) — a lighter ${effectiveSize} project.`;
+    }
   }
 
-  const allocationConfidence = (configured && nActive === 0 && capacityMultiplier === 1 && effectiveSize === requestedSize && !belowSmallFloor)
+  const capacityCapped = effectiveMode === "standard" && finalTargetMinutes < desiredBandMinutes;
+
+  // Session breakdown from the (already-capped) final target.
+  const targetWeeklyMinutesForProject = expectedProjectWeeks > 0 ? r0(finalTargetMinutes / expectedProjectWeeks) : 0;
+  const targetSessionsPerWeek = clamp(Math.round(targetWeeklyMinutesForProject / NOMINAL_SESSION_MIN), 1, Math.max(1, days || 1));
+  const targetSessionMinutes = targetSessionsPerWeek > 0 ? r0(targetWeeklyMinutesForProject / targetSessionsPerWeek) : 0;
+
+  const allocationConfidence = (configured && nActive === 0 && capacityMultiplier === 1
+      && effectiveMode === "standard" && effectiveSize === requestedSize && !capacityCapped)
     ? "moderate" : "low";
   if (!configured) assumptions.push("Family rhythm not fully set — using whatever days/hours are configured.");
 
   return {
     requestedSize,
     effectiveSize,
+    effectiveMode,                     // standard | compact | insufficient
+    insufficientCapacity: effectiveMode === "insufficient",
     sizeAdjustmentReason,
     belowSmallFloor,
+    capacityCapped,
     totalWeeklyMinutes,
     reserveWeeklyMinutes,
     committedWeeklyMinutes,
     remainingWeeklyMinutes,
     activeProjectCount: nActive,
+    expectedProjectWeeks,
+    // The three explicit quantities:
+    availableProjectMinutes,           // hard ceiling
+    desiredBandMinutes,
+    finalTargetMinutes,
+    // Back-compat alias (older logs/callers). Always == finalTargetMinutes now.
+    targetTotalMinutes: finalTargetMinutes,
     targetWeeklyMinutesForProject,
     targetSessionMinutes,
     targetSessionsPerWeek,
-    expectedProjectWeeks,
-    targetTotalMinutes,
     allocationConfidence,
     assumptions,
   };
@@ -141,30 +206,57 @@ export function estimateMilestoneMinutes(m = {}) {
   return clamp(pts * 3, 20, 120);
 }
 
-/** Substance check vs the effectiveSize target. Wide ±50% band. Never demands
- *  precision; only catches GROSS thin/large. */
+// A result may exceed the hard capacity ceiling by at most this factor before it is
+// judged over-capacity (small slack absorbs the coarseness of the momentum→minutes
+// estimate; it is NOT the ±50% substance tolerance and does not fold into it).
+const CAPACITY_OVERRUN_MARGIN = 1.15;
+
+/** Substance check against BOTH the final target AND the hard capacity ceiling.
+ *  A draft can NEVER pass merely because it matches a target — the target already
+ *  respects capacity, and the ceiling is re-checked here independently. Statuses:
+ *    ok               — within ±50% of target AND within capacity.
+ *    thin             — well below target.
+ *    large_for_target — above target but still within real capacity (tolerable).
+ *    exceeds_capacity — over the real available time (HARD; never tolerated).
+ *    insufficient_capacity — capacity too low to have generated at all.
+ *    unknown          — no milestones / no target to judge against. */
 export function substanceCheck(project = {}, capacity = {}) {
+  if (capacity.effectiveMode === "insufficient") {
+    return { estTotalMinutes: 0, finalTargetMinutes: 0, availableProjectMinutes: capacity.availableProjectMinutes || 0, ratio: null, capacityRatio: null, verdict: "insufficient_capacity" };
+  }
   const milestones = Array.isArray(project.milestones) ? project.milestones : [];
   const estTotalMinutes = milestones.reduce((sum, m) => sum + estimateMilestoneMinutes(m), 0);
-  const target = capacity.targetTotalMinutes || 0;
-  if (target <= 0 || !milestones.length) return { estTotalMinutes, targetTotalMinutes: target, ratio: null, verdict: "unknown" };
-  const ratio = estTotalMinutes / target;
-  const verdict = ratio < 0.5 ? "thin" : ratio > 1.5 ? "large" : "ok";
-  return { estTotalMinutes, targetTotalMinutes: target, ratio: Math.round(ratio * 100) / 100, verdict };
+  const target = capacity.finalTargetMinutes || 0;
+  const available = capacity.availableProjectMinutes || 0;
+  if (target <= 0 || !milestones.length) {
+    return { estTotalMinutes, finalTargetMinutes: target, availableProjectMinutes: available, ratio: null, capacityRatio: null, verdict: "unknown" };
+  }
+  const capacityRatio = available > 0 ? Math.round((estTotalMinutes / available) * 100) / 100 : null;
+  const ratio = Math.round((estTotalMinutes / target) * 100) / 100;
+  // Hard ceiling FIRST — an over-capacity draft is never "ok"/"large_for_target".
+  if (available > 0 && estTotalMinutes > available * CAPACITY_OVERRUN_MARGIN) {
+    return { estTotalMinutes, finalTargetMinutes: target, availableProjectMinutes: available, ratio, capacityRatio, verdict: "exceeds_capacity" };
+  }
+  const verdict = ratio < 0.5 ? "thin" : ratio > 1.5 ? "large_for_target" : "ok";
+  return { estTotalMinutes, finalTargetMinutes: target, availableProjectMinutes: available, ratio, capacityRatio, verdict };
 }
 
-/** Prompt block — TRANSPARENT ranges, never exact-looking numbers. */
+/** Prompt block — TRANSPARENT ranges, never exact-looking numbers. Not used for the
+ *  insufficient mode (that never reaches the model). */
 export function renderCapacityBlock(cap, childName = "this child") {
   const s = cap.targetSessionMinutes;
   const lo = Math.max(15, Math.round((s - 7) / 5) * 5);
   const hi = Math.round((s + 7) / 5) * 5;
-  const totalHours = Math.round((cap.targetTotalMinutes / 60) * 10) / 10;
+  const totalHours = Math.round((cap.finalTargetMinutes / 60) * 10) / 10;
   const soft = cap.allocationConfidence === "low";
+  const compact = cap.effectiveMode === "compact";
   return [
-    `LEARNING RHYTHM & SIZE — fit the quest to the time ${childName} actually has. Do NOT try to fill every hour; leaving open time is correct, not a gap to close.`,
-    cap.sizeAdjustmentReason ? `- ${cap.sizeAdjustmentReason} Design a genuine ${cap.effectiveSize} quest (not a shrunken larger one).` : "",
-    `- Aim for roughly ${cap.targetSessionsPerWeek} session(s) of about ${lo}–${hi} minutes per week, over about ${cap.expectedProjectWeeks} week(s) — around ${totalHours} hours of real work in total.`,
+    `LEARNING RHYTHM & SIZE — fit the quest to the time ${childName} actually has. Do NOT try to fill every hour; leaving open time is correct, not a gap to close. This total is a CEILING, not a goal to reach.`,
+    cap.sizeAdjustmentReason
+      ? `- ${cap.sizeAdjustmentReason}${compact ? ` Build a short, self-contained experience — roughly 2–4 focused missions that fit in about ${totalHours} hours TOTAL. Do NOT pad it out to a standard ${cap.effectiveSize} quest.` : ` Design a genuine ${cap.effectiveSize} quest (not a shrunken larger one).`}`
+      : "",
+    `- Aim for roughly ${cap.targetSessionsPerWeek} session(s) of about ${lo}–${hi} minutes per week, over about ${cap.expectedProjectWeeks} week(s) — around ${totalHours} hours of real work in total, and NOT more.`,
     `- Size the milestones so they ADD UP to about that much genuine work. Fewer, meatier milestones beat many trivial ones.`,
-    soft ? `- (An approximate guide, not a strict budget — prioritise a great project over hitting the number exactly.)` : "",
+    soft ? `- (An approximate guide — prioritise a great project over hitting the number exactly, but never exceed the ceiling.)` : "",
   ].filter(Boolean).join("\n");
 }
