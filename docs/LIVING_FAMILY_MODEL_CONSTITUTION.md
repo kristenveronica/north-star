@@ -10,7 +10,7 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 **Principle.** North Star optimises for improving its **Understanding** of the family over time — not for generating projects. Projects, reports, and every other output are one expression of Understanding, never the goal.
 
-**Why.** The Living Family Model — not the project generator — is the product; a feature that grows output but not Understanding grows the wrong thing.
+**Why.** North Star's durable value is the quality of its evolving Understanding, not any individual output it produces. Projects, coaching, reports, planning, and recommendations may all change form over the years; Understanding is the enduring asset — so a feature that grows output but not Understanding grows the wrong thing.
 
 **Engineering implications.**
 - Judge every feature by what it adds to, or how faithfully it consumes, Understanding — not by output volume.
@@ -32,6 +32,8 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 **No overlap.** If a datum could belong to two nouns, it belongs to the more raw one (Archive → Understanding → Recommendation → Report) and the others reference it by identity. **Truth flows upward only:** Archive feeds Understanding feeds Recommendation feeds Report. It never flows down — a Report never writes Understanding; a Recommendation never writes Archive.
 
+**Truth never flows sideways.** An Understanding record does not directly modify another Understanding record; beliefs do not derive from beliefs. Everything ultimately flows through the Archive — if one belief should influence another, it does so by way of the evidence in between, never laterally.
+
 ---
 
 ## Article II — Immutability of the Archive
@@ -51,7 +53,7 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 ## Article III — Replaceability of Understanding
 
-**Principle.** Understanding is NS's current interpretation and is expected to change. Nothing may treat it as permanent truth.
+**Principle.** Understanding is NS's current interpretation and is expected to change. Nothing may treat it as permanent truth. **Only Understanding may be replaced. Archive may never be replaced.**
 
 **Why.** Beliefs are provisional by nature; code that hard-codes a belief as fact is wrong the moment the family changes.
 
@@ -109,20 +111,23 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 ## Article VII — Learning is Gradual
 
-**Principle.** NS never learns from a single event unless it was explicitly Declared. Repeated evidence strengthens confidence; contradictory evidence weakens it.
+**Principle.** NS never learns from a single event unless it was explicitly Declared. Repeated evidence strengthens confidence **only to the extent that it is sufficiently independent**; contradictory evidence weakens it.
 
-**Why.** One-shot inference produces confident nonsense; a belief must earn its confidence.
+**Why.** One-shot inference produces confident nonsense, and repetition of the *same* signal is not corroboration — a belief must earn its confidence from genuinely distinct observations.
 
 **Engineering implications.**
 - Inference requires a threshold of corroborating Archive evidence (more than one) before a belief is formed.
-- Confidence moves in increments — up on reinforcement, down on contradiction — never a binary flip from a single inference.
+- Evidence must be weighed for independence: near-identical or causally-linked events count as weaker corroboration than distinct ones. The Constitution mandates that independence *be accounted for*; it does not fix the weighting model, leaving room for it to improve.
+- Confidence moves in increments — up on independent reinforcement, down on contradiction — never a binary flip from a single inference.
 - Declared facts bypass the threshold (a statement is immediate); everything *inferred* obeys it.
+
+*Example.* Repeated acceptance of nearly identical projects is one weak signal repeated, not strong independent evidence, and must not be treated as such.
 
 ---
 
 ## Article VIII — Capacity is a Hard Ceiling
 
-**Principle.** Time is real. Capacity is a hard ceiling. NS never manufactures available time. Projects adapt to families; families never adapt to satisfy a generated project.
+**Principle.** Time is real. Capacity is a hard ceiling. NS never manufactures available time. **Projects adapt to families. Families never adapt to satisfy generated projects.**
 
 **Why.** Overbooking a family to hit an internal target breaks both trust and the family's week.
 
@@ -146,7 +151,39 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 ---
 
-## Article X — Deterministic First, AI Only for Interpretation
+## Article X — Observation is Evidence, Not Truth
+
+**Principle.** Observations create Archive evidence. They never directly create Understanding.
+
+**Why.** Observations are inputs into learning, not learning itself.
+
+**Engineering implications.**
+- Parent feedback records Archive evidence.
+- Child behaviour records Archive evidence.
+- AI observations record Archive evidence.
+- Distillation and confirmation update Understanding.
+- No observation writes Understanding directly.
+
+This permanently protects the pipeline: **Observation → Archive → Understanding → Recommendation → Report.**
+
+---
+
+## Article XI — Self-Reinforcement
+
+**Principle.** North Star must never become more confident solely because of outputs it previously generated.
+
+**Why.** Confidence built on its own output is a recursive feedback loop that fabricates certainty from nothing.
+
+**Engineering implications.**
+- Generated projects are not evidence.
+- Generated recommendations are not evidence.
+- Generated reports are not evidence.
+- AI output never increases confidence by itself.
+- Only human behaviour, new observations, or explicit confirmation create new evidence.
+
+---
+
+## Article XII — Deterministic First, AI Only for Interpretation
 
 **Principle.** Use deterministic logic wherever it suffices. Use AI only where genuine interpretation is required.
 
@@ -159,7 +196,7 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 ---
 
-## Article XI — Parent Authority
+## Article XIII — Parent Authority
 
 **Principle.** Parents always outrank NS. They may confirm, correct, exclude, or override. NS adapts immediately.
 
@@ -172,7 +209,7 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 ---
 
-## Article XII — Child Autonomy
+## Article XIV — Child Autonomy
 
 **Principle.** NS influences. It never manipulates, never creates dependency, and always works to increase the child's capability.
 
@@ -185,7 +222,7 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 ---
 
-## Article XIII — Temporal Truth
+## Article XV — Temporal Truth
 
 **Principle.** Things change — interests fade, circumstances end, children develop — and Understanding must evolve accordingly.
 
@@ -198,7 +235,7 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 ---
 
-## Article XIV — One Source of Truth
+## Article XVI — One Source of Truth
 
 **Principle.** If two systems represent the same truth, one must be deleted. Extend existing structures before creating parallel ones.
 
@@ -211,7 +248,7 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 ---
 
-## Article XV — Explainability
+## Article XVII — Explainability
 
 **Principle.** NS must always be able to answer: *Why do I believe this? Why did I recommend this? What evidence changed my mind?*
 
@@ -223,7 +260,7 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 
 ---
 
-## Article XVI — Emotional Experience
+## Article XVIII — Emotional Experience
 
 **Principle.** Every implementation should leave families feeling *"I can do this."* Technology exists to increase confidence, not cognitive load.
 
@@ -232,6 +269,23 @@ The four data nouns — **Archive, Understanding, Recommendation, Report** — a
 **Engineering implications (a review lens, not a metric).**
 - Prefer fewer decisions, calmer surfaces, and honest simplicity over completeness.
 - If a feature adds capability but adds anxiety or work, it is not done.
+
+---
+
+## Article XIX — Write Authority
+
+**Principle.** Each noun has exactly one permitted writer-path. Nothing else may write it.
+
+- **Archive** is written only by the recording of observations and evidence, append-only.
+- **Understanding** is written only by deterministic distillation and by the processing of human confirmation or correction — in every case derived from Archive evidence, never from an observation directly.
+- **Recommendation** is written only by generation, derived from Understanding.
+- **Report** is written only by rendering, and writes nothing back.
+
+**Why.** The architecture is only as strong as its narrowest write path; an unguarded writer is how a future subsystem quietly corrupts the model — and every existing prohibition against it is scattered rather than singular.
+
+**Engineering implications.**
+- A new subsystem must map its writes onto exactly one of these paths, or it does not belong in the model.
+- No process may write Understanding without Archive evidence, and none may bypass distillation or confirmation to reach it.
 
 ---
 
@@ -246,6 +300,7 @@ Every pull request must answer "yes" (or "not applicable") to each. A "no" means
 - Can a parent confirm, correct, exclude, or override it — immediately and durably?
 - Is uncertainty represented honestly, with no manufactured confidence?
 - Does generation only consume Understanding — never create it or invent facts?
+- Could this feature teach North Star something false?
 - Is deterministic logic used wherever it suffices, with AI reserved for real interpretation?
 - Does capacity remain a hard ceiling, with no manufactured time?
 - Does this improve North Star's Understanding of the family — not merely its output?
