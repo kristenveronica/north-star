@@ -1,10 +1,12 @@
 /* Unit tests for capacity allocation, effective size, and the HARD CAPACITY
    CEILING (projectCapacity.js). Pure → `node --test`.
 
-   The central invariant under test:  finalTargetMinutes <= availableProjectMinutes.
-   A size-band floor may inform which band is chosen but must NEVER manufacture
-   time above the child's real available capacity. Live scenarios A–F run against
-   the deployed function in the verification pass. */
+   Central invariant:  finalTargetMinutes <= availableProjectMinutes.
+   A size-band floor may inform which band is chosen (or whether we generate at
+   all) but must NEVER manufacture time above the child's real available capacity.
+   Two honest modes: `standard` (band fits, target capped at real time) and
+   `insufficient` (below the smallest worthwhile project → do NOT generate; defer /
+   rebalance). Live scenarios A–F run against the deployed function. */
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -16,6 +18,11 @@ const R12  = { daysPerWeek: 4, hoursPerDay: 3 };    // 12h/week
 const R4   = { daysPerWeek: 2, hoursPerDay: 2 };    // 4h/week
 const R24  = { daysPerWeek: 6, hoursPerDay: 4 };    // 24h/week
 const tiny = { daysPerWeek: 1, hoursPerDay: 0.5 };  // 30min/week
+
+// Reference capacities reused across substance tests.
+const STD_SMALL   = buildProjectCapacity({ rhythm: R4,  activeProjectCount: 0, size: "small"  }); // avail 336, target 336
+const STD_MED     = buildProjectCapacity({ rhythm: R12, activeProjectCount: 0, size: "medium" }); // avail 2016, target 750
+const INSUFFICIENT = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "medium" });  // avail 112 → insufficient
 
 /* ---------- active-project counting ---------- */
 test("only in-progress projects consume capacity", () => {
@@ -52,13 +59,13 @@ test("INVARIANT: finalTargetMinutes never exceeds availableProjectMinutes (broad
 });
 
 test("INVARIANT: a size-band floor can NEVER raise the target above real capacity", () => {
-  // Scenario C: ~56 min/week slot → ~112 available over 2 weeks. The OLD bug raised
-  // this to the 200-min small floor and produced ~300 min. That must be impossible.
-  const c = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "medium" });
-  assert.ok(c.availableProjectMinutes <= 120, `available ~112, got ${c.availableProjectMinutes}`);
-  assert.equal(c.finalTargetMinutes, c.availableProjectMinutes);       // compact fits real time
-  assert.ok(c.finalTargetMinutes < 200, "target must not be raised to the 200-min small floor");
-  assert.ok(c.finalTargetMinutes <= 120, `target ~112, got ${c.finalTargetMinutes}`);
+  // Scenario C: ~112 available. The OLD bug raised this to the 200-min small floor
+  // and produced ~300 min. The target must never be inflated to a floor — here the
+  // week can't sustain a small at all, so we DECLINE (target 0), never 200.
+  assert.ok(INSUFFICIENT.availableProjectMinutes <= 120, `available ~112, got ${INSUFFICIENT.availableProjectMinutes}`);
+  assert.equal(INSUFFICIENT.effectiveMode, "insufficient");
+  assert.equal(INSUFFICIENT.finalTargetMinutes, 0);         // NOT raised to the 200 floor
+  assert.ok(INSUFFICIENT.finalTargetMinutes < 200);
 });
 
 /* ---------- Scenario B: typical exceeds real allocation → capped ---------- */
@@ -101,39 +108,41 @@ test("a small request is never up-shifted even with abundant capacity", () => {
   assert.equal(c.finalTargetMinutes, 350);
 });
 
-/* ---------- Scenario C / D: down-shift to a COMPACT experience, not a floored small ---------- */
-test("Scenario C: medium under scarcity → small band, COMPACT mode, target = real available", () => {
+/* ---------- Scenario C / D: below the small floor → INSUFFICIENT, not a floored small ---------- */
+test("Scenario C: medium under scarcity (~112 avail) → insufficient_capacity, no target", () => {
   const c = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "medium" });
   assert.equal(c.requestedSize, "medium");
-  assert.equal(c.effectiveSize, "small");
-  assert.equal(c.effectiveMode, "compact");
+  assert.equal(c.effectiveMode, "insufficient");
+  assert.equal(c.insufficientCapacity, true);
   assert.equal(c.belowSmallFloor, true);
-  assert.equal(c.finalTargetMinutes, c.availableProjectMinutes);
+  assert.equal(c.finalTargetMinutes, 0);
 });
-test("Scenario D: large requested with only small capacity → compact, still capped at real time", () => {
+test("Scenario D: large requested with only small capacity → insufficient (defer/rebalance)", () => {
   const c = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "large" });
   assert.equal(c.requestedSize, "large");
-  assert.equal(c.effectiveMode, "compact");
-  assert.ok(c.finalTargetMinutes <= c.availableProjectMinutes);
+  assert.equal(c.effectiveMode, "insufficient");
+  assert.equal(c.finalTargetMinutes, 0);
 });
 
-/* ---------- Scenario F: below the meaningful minimum → insufficient, no generation ---------- */
+/* ---------- Scenario F: almost no capacity → insufficient, structured safe outcome ---------- */
 test("Scenario F: almost no capacity → insufficient_capacity, structured safe outcome (no target)", () => {
   const c = buildProjectCapacity({ rhythm: tiny, activeProjectCount: 0, size: "medium" });
   assert.equal(c.effectiveMode, "insufficient");
   assert.equal(c.insufficientCapacity, true);
-  assert.equal(c.finalTargetMinutes, 0);                   // nothing generated
-  assert.ok(c.availableProjectMinutes < 60);
+  assert.equal(c.finalTargetMinutes, 0);
+  assert.ok(c.availableProjectMinutes < 200);
   assert.ok(/full|save|pausing|room/i.test(c.sizeAdjustmentReason));
   assert.equal(c.allocationConfidence, "low");
 });
 
-/* ---------- no public "micro" tier: effectiveSize is always a standard band ---------- */
-test("no public micro tier — effectiveSize is always small|medium|large; compactness is an internal mode", () => {
+/* ---------- effectiveSize is always a standard band; only two live modes ---------- */
+test("effectiveSize is always small|medium|large; effectiveMode is standard|insufficient (no public micro tier)", () => {
   for (const rhythm of [tiny, R4, R12, R24]) {
-    const c = buildProjectCapacity({ rhythm, activeProjectCount: 3, size: "large" });
-    assert.ok(["small", "medium", "large"].includes(c.effectiveSize));
-    assert.ok(["standard", "compact", "insufficient"].includes(c.effectiveMode));
+    for (const n of [0, 2, 3]) {
+      const c = buildProjectCapacity({ rhythm, activeProjectCount: n, size: "large" });
+      assert.ok(["small", "medium", "large"].includes(c.effectiveSize));
+      assert.ok(["standard", "insufficient"].includes(c.effectiveMode));
+    }
   }
 });
 
@@ -157,37 +166,34 @@ test("capacity-reducing circumstance lowers allocation; injury does not", () => 
 });
 
 /* ========================================================================
-   SUBSTANCE CHECK — validates against BOTH target AND the hard ceiling
+   SUBSTANCE CHECK — validates against BOTH the final target AND the hard ceiling
    ======================================================================== */
 test("a project OVER real capacity is exceeds_capacity, NEVER silently ok", () => {
-  const c = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "medium" }); // available ~112
-  const bloated = { milestones: Array.from({ length: 5 }, () => ({ momentumPoints: 20 })) }; // ~300 min
-  const v = substanceCheck(bloated, c);
+  const bloated = { milestones: Array.from({ length: 6 }, () => ({ momentumPoints: 40 })) }; // ~720 min vs 336 avail
+  const v = substanceCheck(bloated, STD_SMALL);
   assert.equal(v.verdict, "exceeds_capacity");
   assert.notEqual(v.verdict, "ok");
   assert.ok(v.capacityRatio > 1);
 });
-test("a compact project that fits the real available time passes ok", () => {
-  const c = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "medium" }); // target ~112
-  const fits = { milestones: [{ momentumPoints: 18 }, { momentumPoints: 18 }] };          // ~108 min
-  assert.equal(substanceCheck(fits, c).verdict, "ok");
+test("capacity ceiling OVERRIDES the target tolerance: a draft within 1.5x target but over capacity fails", () => {
+  // ~405 min: 405/336 = 1.2 (target-ratio alone would say 'ok') but over the ceiling.
+  const overCeiling = { milestones: Array.from({ length: 5 }, () => ({ momentumPoints: 27 })) };
+  const v = substanceCheck(overCeiling, STD_SMALL);
+  assert.ok(v.ratio < 1.5, "target-ratio alone would pass");
+  assert.equal(v.verdict, "exceeds_capacity");             // capacity check catches it anyway
+});
+test("a project that fits the real available time passes ok", () => {
+  const fits = { milestones: Array.from({ length: 5 }, () => ({ momentumPoints: 20 })) }; // ~300 min ≤ 336
+  assert.equal(substanceCheck(fits, STD_SMALL).verdict, "ok");
 });
 test("above target but WITHIN capacity is large_for_target (tolerated, not over-capacity)", () => {
-  const c = buildProjectCapacity({ rhythm: R12, activeProjectCount: 0, size: "medium" });  // target 750, available 2016
-  const big = { milestones: Array.from({ length: 10 }, () => ({ momentumPoints: 40 })) };   // ~1200 min
-  const v = substanceCheck(big, c);
+  const big = { milestones: Array.from({ length: 10 }, () => ({ momentumPoints: 40 })) }; // ~1200 min, avail 2016
+  const v = substanceCheck(big, STD_MED);
   assert.equal(v.verdict, "large_for_target");
   assert.ok(v.estTotalMinutes <= v.availableProjectMinutes);
 });
 test("insufficient-capacity capacity → substance passthrough is insufficient_capacity", () => {
-  const c = buildProjectCapacity({ rhythm: tiny, activeProjectCount: 0, size: "medium" });
-  assert.equal(substanceCheck({ milestones: [{ momentumPoints: 10 }] }, c).verdict, "insufficient_capacity");
-});
-test("substance never passes a draft solely by matching a target that exceeded capacity", () => {
-  // Construct a capacity where target == available (compact); any draft above available fails hard.
-  const c = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "small" }); // compact, target≈avail
-  const overByABit = { milestones: Array.from({ length: 4 }, () => ({ momentumPoints: 20 })) }; // ~240 min
-  assert.equal(substanceCheck(overByABit, c).verdict, "exceeds_capacity");
+  assert.equal(substanceCheck({ milestones: [{ momentumPoints: 10 }] }, INSUFFICIENT).verdict, "insufficient_capacity");
 });
 test("missing milestone durations use the momentum-point fallback", () => {
   assert.equal(estimateMilestoneMinutes({}), 30);
@@ -197,16 +203,14 @@ test("missing milestone durations use the momentum-point fallback", () => {
 
 /* ---------- parent-facing copy is simple + non-judgmental ---------- */
 test("size / capacity explanations are gentle and never blame the parent's choice", () => {
-  const compact = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "medium" });
-  const insufficient = buildProjectCapacity({ rhythm: tiny, activeProjectCount: 0, size: "medium" });
-  for (const reason of [compact.sizeAdjustmentReason, insufficient.sizeAdjustmentReason]) {
+  const capped = buildProjectCapacity({ rhythm: R12, activeProjectCount: 2, size: "medium" }); // capped note
+  for (const reason of [capped.sizeAdjustmentReason, INSUFFICIENT.sizeAdjustmentReason]) {
     assert.doesNotMatch(reason, /invalid|wrong|too (big|much|ambitious)|error|fail/i);
   }
 });
 test("the prompt capacity block frames the total as a CEILING, not a goal to fill", () => {
-  const c = buildProjectCapacity({ rhythm: R4, activeProjectCount: 2, size: "medium" }); // compact
+  const c = buildProjectCapacity({ rhythm: R12, activeProjectCount: 2, size: "medium" }); // standard, capped
   const block = renderCapacityBlock(c, "Mia");
   assert.match(block, /ceiling/i);
-  assert.match(block, /self-contained|short/i);
   assert.match(block, /Mia/);
 });

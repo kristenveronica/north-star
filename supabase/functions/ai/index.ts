@@ -423,7 +423,7 @@ const PROJECT_SCHEMA = {
   },
 };
 
-function sizeGuidance(size: string, age: number | null, mode: string = "standard") {
+function sizeGuidance(size: string, age: number | null) {
   const a = typeof age === "number" ? age : 10;
   const young = a <= 8;
   const granularity = young
@@ -431,9 +431,6 @@ function sizeGuidance(size: string, age: number | null, mode: string = "standard
     : a <= 12
     ? "Make missions small and clearly bounded — several short steps the child can finish in a sitting or two."
     : "This child is older — fewer, more substantial missions are fine, but each must still be concrete and measurable.";
-  if (mode === "compact") {
-    return `SIZE: COMPACT EXPERIENCE. There is only a little open time this week, so build a SHORT, self-contained learning experience — roughly 2–4 focused missions that add up to the small time budget in the LEARNING RHYTHM & SIZE block below. It should still feel whole and satisfying, with a clear beginning and a real finish, just smaller in scope. Do NOT pad it out to a standard quest. ${granularity}`;
-  }
   if (!size || size === "auto") {
     return `SIZE: YOU CHOOSE — read the parent's request and this child, then pick the most fitting scope yourself and set "durationDays" + "sizeBand" to match. Small (7–14 days, 3–6 missions) for a focused single interest; medium (~30 days, 6–10 missions) for something richer; large/term (~63 days, 8–14 missions, a lasting habit) only when they clearly describe a habit, a big build, or a season-long journey (e.g. a multi-week trip). Don't over-scope — match the spark. ${granularity}`;
   }
@@ -594,7 +591,7 @@ family and child below to do the educational design they did NOT spell out — c
 academic skills, practical-life skills, real experiences, materials and milestones that best serve this
 child. The parent brought the spark; YOU build the pathway.\n` : ""}
 ${balanceLine ? balanceLine + "\n" : ""}
-${sizeGuidance(capacity.effectiveSize, c.age ?? null, capacity.effectiveMode)}
+${sizeGuidance(capacity.effectiveSize, c.age ?? null)}
 
 ${requestedDomains.length
   ? `REQUESTED CAPABILITY DOMAINS: The parent has chosen the Capability Domains this quest should develop: ${requestedDomains.join(", ")}. Treat this as the DESIRED SET — genuinely develop each one through the missions (don't just tag it), and don't lean on domains they didn't pick. These should be your capabilityMap.primary, and "domains" must include exactly this set.`
@@ -822,7 +819,7 @@ ${capacityBlock}
 CONSTRAINTS (optional)
 - Parent's request / spark (PRIMARY — design around this): ${intent ? `"${intent}"` : "(none — design for the whole child)"}
 - Recent capability focus (for gentle balance): ${recentTop.length ? recentTop.join(", ") : "(no recent projects)"}
-- Quest size to build: ${capacity.effectiveMode === "compact" ? `compact experience (a short, self-contained ${capacity.effectiveSize}-scale project that fits the limited open time — do not pad it out)` : capacity.effectiveSize}${capacity.effectiveMode !== "compact" && capacity.effectiveSize !== capacity.requestedSize ? ` (parent asked for ${capacity.requestedSize}; current capacity supports ${capacity.effectiveSize} — build a genuine ${capacity.effectiveSize} quest)` : ""}
+- Quest size to build: ${capacity.effectiveSize}${capacity.effectiveSize !== capacity.requestedSize ? ` (parent asked for ${capacity.requestedSize}; current capacity supports ${capacity.effectiveSize} — build a genuine ${capacity.effectiveSize} quest)` : ""}
 - Requested domains to incorporate: ${requestedDomains.join(", ") || "(parent's choice)"}
 - Parent's focus picks: ${focusLines ? "\n" + focusLines : "(none — design for the whole child)"}
 - Quests already done (avoid repeating these themes/formats): ${avoidTitles.join("; ") || "(none yet)"}
@@ -878,9 +875,7 @@ ${refine
     result.parsed.substanceStatus = substance.verdict;                 // ok | thin | large_for_target | exceeds_capacity | unknown
     result.parsed.substanceInTolerance = substance.verdict === "ok";
     // Parent-facing, non-judgmental note when the project was shaped by capacity.
-    if (capacity.effectiveMode === "compact") {
-      result.parsed.sizeNote = `${c.name || "Your child"}'s open time this week is limited, so North Star shaped this as a short, self-contained experience that fits.`;
-    } else if (capacity.effectiveSize !== capacity.requestedSize) {
+    if (capacity.effectiveSize !== capacity.requestedSize) {
       result.parsed.sizeNote = `Based on ${c.name || "your child"}'s current week and active projects, North Star has shaped this as a ${capacity.effectiveSize} project.`;
     } else if (capacity.capacityCapped) {
       result.parsed.sizeNote = `North Star kept this project to the open time ${c.name || "your child"} actually has over the next ${capacity.expectedProjectWeeks} weeks.`;

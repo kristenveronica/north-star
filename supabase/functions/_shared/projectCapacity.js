@@ -20,18 +20,21 @@
    used to inflate the target above real available time.
 
    WHEN THE WEEK CAN'T SUSTAIN THE SMALLEST STANDARD PROJECT: we do NOT quietly
-   raise the target to the small floor. Instead an honest decision path
-   (`effectiveMode`):
+   raise the target to the small floor, and we do NOT manufacture a smaller project
+   that would overshoot. Instead an honest decision path (`effectiveMode`):
      • "standard"     — the band fits; target = min(band typical, available).
-     • "compact"      — below the small floor but ≥ a meaningful minimum: build a
-                        short, self-contained experience sized to the REAL time
-                        (finalTarget = available). No public "micro" tier — this
-                        is an internal mode, not another parent-facing category.
-     • "insufficient" — even a compact experience can't be meaningful. Do NOT
+     • "insufficient" — the window can't sustain even a small project. Do NOT
                         generate; return a structured insufficient-capacity result
-                        so the product can offer to defer or rebalance. Protecting
-                        a family from overcommitment beats overbooking them while
-                        claiming the project fits.
+                        so the product can offer to DEFER or REBALANCE. Protecting a
+                        family from overcommitment beats overbooking them while
+                        claiming the project fits — "the rhythm is already full" is
+                        the honest answer.
+   CALIBRATION (verified live): the generator's smallest genuinely-worthwhile quest
+   lands around the small-band floor (~200 min) — even when explicitly asked for a
+   "compact" experience it produced ~150–210 min. So a sub-small "compact/activity"
+   tier is NOT viable with today's generator (it would overshoot and flag every
+   time). It's kept as a FUTURE option (needs a generator that can build below the
+   floor), not a live mode — see docs/lfm-implementation-gaps.md.
 
    AUDIT (reliable vs merely present):
    • RELIABLE: total weekly capacity (rhythm days×hours); active project COUNT
@@ -48,14 +51,6 @@
 const RESERVE_FRACTION = 0.30;
 const MAX_COMMITTED_FRACTION = 0.75;    // existing projects never claim >75% of allocatable
 const NOMINAL_SESSION_MIN = 40;
-
-// The smallest total (across the whole project window) that can still carry a
-// worthwhile, self-contained learning experience. Calibrated to the product: a
-// compact experience needs at least ~2 real touchpoints (e.g. 2×30min) to have an
-// arc; below this a "project" would be a single short activity dressed up as one,
-// so we decline to generate and offer defer/rebalance instead. Challenge this
-// against real families rather than treating it as sacred.
-const MEANINGFUL_MIN_TOTAL = 60;
 
 // Size bands in MEASURABLE total-minutes terms, CALIBRATED to what the generator
 // actually produces (a small quest = ~3–6 missions ≈ 4–6h; a medium ≈ 6–10 missions
@@ -129,19 +124,13 @@ export function buildProjectCapacity({ rhythm = {}, activeProjectCount = 0, size
   let sizeAdjustmentReason = null;
 
   if (belowSmallFloor) {
-    if (availableProjectMinutes >= MEANINGFUL_MIN_TOTAL) {
-      // Compact: fit the REAL available time. Do NOT inflate to the small floor.
-      effectiveMode = "compact";
-      finalTargetMinutes = availableProjectMinutes;             // == available (never above)
-      sizeAdjustmentReason = "There's limited open time this week, so this is shaped as a short, self-contained experience that fits the time actually available — not a full project.";
-      assumptions.push("Below the small-project floor: built as a compact experience sized to real available time (not raised to the band floor).");
-    } else {
-      // Insufficient: don't manufacture a project. Decline honestly.
-      effectiveMode = "insufficient";
-      finalTargetMinutes = 0;
-      sizeAdjustmentReason = "The current week is already close to full. Rather than overbook, North Star suggests saving this idea for a little more room — or pausing an active project to make space.";
-      assumptions.push("Available capacity is below the minimum for a meaningful experience: declined to generate (defer / rebalance).");
-    }
+    // The generator can't reliably build below the small floor (verified live), so
+    // manufacturing a smaller project would only overshoot. Decline honestly and
+    // offer defer / rebalance instead of overbooking the week.
+    effectiveMode = "insufficient";
+    finalTargetMinutes = 0;
+    sizeAdjustmentReason = "The current week is already close to full. Rather than overbook, North Star suggests saving this idea for a little more room — or pausing an active project to make space.";
+    assumptions.push("Available capacity is below the smallest worthwhile project: declined to generate (defer / rebalance).");
   } else {
     // Standard: cap the band typical at real available time. THE INVARIANT.
     finalTargetMinutes = Math.min(desiredBandMinutes, availableProjectMinutes);
@@ -249,11 +238,10 @@ export function renderCapacityBlock(cap, childName = "this child") {
   const hi = Math.round((s + 7) / 5) * 5;
   const totalHours = Math.round((cap.finalTargetMinutes / 60) * 10) / 10;
   const soft = cap.allocationConfidence === "low";
-  const compact = cap.effectiveMode === "compact";
   return [
     `LEARNING RHYTHM & SIZE — fit the quest to the time ${childName} actually has. Do NOT try to fill every hour; leaving open time is correct, not a gap to close. This total is a CEILING, not a goal to reach.`,
     cap.sizeAdjustmentReason
-      ? `- ${cap.sizeAdjustmentReason}${compact ? ` Build a short, self-contained experience — roughly 2–4 focused missions that fit in about ${totalHours} hours TOTAL. Do NOT pad it out to a standard ${cap.effectiveSize} quest.` : ` Design a genuine ${cap.effectiveSize} quest (not a shrunken larger one).`}`
+      ? `- ${cap.sizeAdjustmentReason} Design a genuine ${cap.effectiveSize} quest (not a shrunken larger one).`
       : "",
     `- Aim for roughly ${cap.targetSessionsPerWeek} session(s) of about ${lo}–${hi} minutes per week, over about ${cap.expectedProjectWeeks} week(s) — around ${totalHours} hours of real work in total, and NOT more.`,
     `- Size the milestones so they ADD UP to about that much genuine work. Fewer, meatier milestones beat many trivial ones.`,
