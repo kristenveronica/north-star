@@ -28,10 +28,12 @@ Distillation v1 (migration 0032) produces only **interest** (inferred) and **cir
 ### G6 · Rhythm capacity allocation — v1 SHIPPED; refinements deferred *(priority: high)*
 **Done (v1, 2026-07-18):** Generation now allocates a realistic per-project capacity before generating (`supabase/functions/_shared/projectCapacity.js`): total weekly capacity from rhythm, committed from active-project count (transparent fallback — no stored workload), 30% open reserve, size-scaled share of remaining, capacity-reducing circumstances. It shapes the quest's sessions/weeks/total and runs a substance check (±50%, momentum-point estimate) with one targeted regeneration. Proven live: same request → 14h/7-milestone (12h, 0 active) vs 5h/4-milestone (4h, 2 active).
 
-**Still deferred (the substantive remainder):**
-- **Effective size should down-shift under tight capacity.** Live Scenario C showed the model floors at ~5h for a worthwhile "medium" even when the allocation asked for ~2h — so a `medium` request under scarce capacity should become a *small* project (or North Star should propose fewer/lighter projects), rather than fighting the substance check. This is the most important next refinement.
-- **Real workload capture.** Milestone/project duration is not stored; committed capacity and the substance check both use coarse fallbacks (momentum-point ×3, per-project even-split). Capturing real estimated/actual minutes would raise `allocationConfidence` above "low".
-- **Adaptive rescheduling** (rebalancing existing projects as capacity changes) — explicitly out of scope for v1.
+**Down-shift refinement — DONE (2026-07-18):** effective-size now resolves the size↔capacity conflict deterministically BEFORE generation. `buildProjectCapacity` derives `effectiveSize` by stepping down from the requested size until the child's weekly slot can sustain that band's floor; `sizeGuidance` + the prompt's size line use `effectiveSize`, so the model is asked for a size that actually fits (no more fighting a "medium" floor with regeneration). Bands calibrated to real generator output (small ~350 / medium ~750 / large ~1400 min); target = band typical (capacity picks the band, doesn't scale within it). Honest `substanceStatus` (never silently "ok") + a gentle `sizeNote` on down-shift. Live proof: Scenario C (medium, 4h/2active) → **small, single call 56s (was 119s), in-tolerance**; Scenario E (large, 24h/0active) → large/10-milestone, single call, in-tolerance. **The project-sizing problem is closed.**
+
+**Still deferred (separate from sizing):**
+- **Real workload capture.** Milestone/project duration is not stored; committed capacity and the substance check use coarse fallbacks (momentum-point ×3, per-project even-split). Capturing real estimated/actual minutes would raise `allocationConfidence` above "low" and sharpen the substance check.
+- **Adaptive rescheduling** (rebalancing existing projects as capacity changes) — out of scope.
+- **True decline path** for below-floor capacity (currently produces a flagged minimal small rather than declining to generate) — a UX-flow change, out of scope.
 - **Dashboard/calendar surfacing** of capacity — out of scope.
 
 ### G4 · Freshness / decay not implemented
