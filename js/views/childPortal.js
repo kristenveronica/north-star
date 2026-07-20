@@ -16,6 +16,7 @@ import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "..
 import { openSubmissionModal } from "../components/submission.js";
 import { renderSky, earnedLightSVG, lightLayout } from "../components/sky.js";
 import { playSettleTone } from "../components/skySound.js";
+import { speak, stopSpeaking, speechAvailable } from "../lib/readAloud.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 
 /* ============================================================
@@ -327,6 +328,77 @@ function cdWireBegin(container, child) {
   if (mission) beginEl.addEventListener("click", () => cdOpenMissionView(container, child, mission));
 }
 
+/* ---- Latest Light — the newest thing the child made, tap to relive ---- */
+// Pulls the most recent creation from the ledger: a photo/voice/video/file they
+// added, or the note they wrote. Newest wins. Reuses renderEvidenceTile.
+function cdLatestCreation(child) {
+  const ms = getChildStats(child.id).milestones;
+  const items = [];
+  ms.forEach((m) => {
+    (m.evidence || []).forEach((e) => items.push({ kind: "evidence", ev: e, at: e.createdAt, title: m.title }));
+    const sub = m.submission;
+    if (sub && (sub.text || sub.voiceTranscript)) {
+      items.push({ kind: "note", text: sub.text || sub.voiceTranscript, at: sub.submittedAt, title: m.title });
+    }
+  });
+  items.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+  return items[0] || null;
+}
+
+function cdLatestLightHTML(child) {
+  const latest = cdLatestCreation(child);
+  if (!latest) {
+    return `<div class="cd-light-tile cd-light-tile--empty">The first thing you make will glow here.</div>`;
+  }
+  const title = latest.title ? esc(latest.title) : "Your latest light";
+  let media;
+  if (latest.kind === "evidence") {
+    const ev = latest.ev;
+    if (ev.fileType?.startsWith("image/") && ev.dataUrl) {
+      media = `<span class="cd-latest-media" style="background-image:url('${ev.dataUrl}')"></span>`;
+    } else {
+      const glyph = ev.fileType?.startsWith("video/") ? "▶" : ev.fileType?.startsWith("audio/") ? "♪" : "✦";
+      media = `<span class="cd-latest-media cd-latest-media--icon">${glyph}</span>`;
+    }
+  } else {
+    media = `<span class="cd-latest-media cd-latest-media--note">${esc(firstSentence(latest.text, 60))}</span>`;
+  }
+  return `
+    <button class="cd-light-tile cd-latest" type="button" aria-label="Relive: ${title}">
+      ${media}
+      <span class="cd-latest-cap">
+        <span class="cd-latest-cap-label">Latest light</span>
+        <span class="cd-latest-cap-title">${title}</span>
+      </span>
+    </button>`;
+}
+
+// Relive — a calm larger look at the newest creation.
+function cdRelive(child) {
+  const latest = cdLatestCreation(child);
+  if (!latest) return;
+  const body = document.createElement("div");
+  if (latest.kind === "evidence") {
+    body.innerHTML = `<div class="evidence-grid">${renderEvidenceTile(latest.ev, null, latest.title)}</div>`;
+  } else {
+    body.innerHTML = `<p style="font-size:17px;line-height:1.5">${esc(latest.text)}</p>
+      ${latest.title ? `<p class="small text-muted" style="margin-top:10px">From: ${esc(latest.title)}</p>` : ""}`;
+  }
+  openModal({ title: "Latest light", body });
+}
+
+function cdWireRelive(container, child) {
+  container.querySelector(".cd-lookback .cd-latest")?.addEventListener("click", () => cdRelive(child));
+}
+
+// After a completion, the newest creation may have changed — refresh in place.
+function cdRefreshLookback(container, child) {
+  const sec = container.querySelector(".cd-lookback");
+  if (!sec) return;
+  sec.innerHTML = `<p class="cd-lookback-label">Look back</p>${cdLatestLightHTML(child)}`;
+  cdWireRelive(container, child);
+}
+
 // Begin opens the REAL mission (reused submission flow). On completion the light
 // rises into the sky. Momentum is Light, never a number — so NO "+points" toast.
 // The full-screen mission page — what the adventure actually IS and how to do
@@ -336,17 +408,36 @@ function cdWireBegin(container, child) {
 // is its own later PR — the words are all here and legible now.
 function cdMissionScreenHTML(m, project) {
   const steps = Array.isArray(m.instructions) ? m.instructions : [];
+  const readBtn = speechAvailable()
+    ? `<button class="cd-readaloud" type="button" aria-pressed="false">
+         <span class="cd-readaloud-ico" aria-hidden="true">▶</span>
+         <span class="cd-readaloud-label">Read to me</span>
+       </button>`
+    : "";
   return `
     <div class="cd-mission" role="dialog" aria-modal="true" aria-label="Your mission">
       <button class="cd-mission-back" type="button">← Not yet</button>
       <div class="cd-mission-inner">
+        <div class="cd-mission-guide">
+          <span class="cd-guide-avatar cd-mission-avatar" aria-hidden="true">${nsIcon("spark", { size: 22 })}</span>
+          <p class="cd-mission-guideline">Take your time — I'm right here.</p>
+        </div>
         <p class="cd-mission-role">${esc(project?.questRole || "Today's adventure")}</p>
         <h1 class="cd-mission-title">${esc(m.title)}</h1>
         ${m.description ? `<p class="cd-mission-story">${esc(m.description)}</p>` : ""}
+        ${readBtn}
         ${steps.length ? `
           <div class="cd-mission-steps">
             <p class="cd-mission-steps-label">Your steps</p>
-            <ol>${steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+            <ol class="cd-steps-list">
+              ${steps.map((s, i) => `
+                <li class="cd-step" data-step="${i}" style="--i:${i}">
+                  <button class="cd-step-check" type="button" aria-label="Tick step ${i + 1}">
+                    <span class="cd-step-num">${i + 1}</span><span class="cd-step-tick" aria-hidden="true">✓</span>
+                  </button>
+                  <span class="cd-step-text">${esc(s)}</span>
+                </li>`).join("")}
+            </ol>
           </div>`
           : `<p class="cd-mission-story">When you're ready, go for it — then come back and tell me how it went.</p>`}
         <button class="cd-begin cd-mission-done" type="button">I did it</button>
@@ -360,14 +451,53 @@ function cdOpenMissionView(container, child, m) {
   const root = container.querySelector(".cd");
   if (!root) return;
   const project = getProject(m.projectId);
+  const steps = Array.isArray(m.instructions) ? m.instructions : [];
   const screen = document.createElement("div");
   screen.className = "cd-mission-screen";
   screen.innerHTML = cdMissionScreenHTML(m, project);
   root.appendChild(screen);
   screen.scrollTop = 0;
-  const close = () => screen.remove();
+
+  const close = () => { stopSpeaking(); screen.remove(); };
   screen.querySelector(".cd-mission-back")?.addEventListener("click", close);
-  screen.querySelector(".cd-mission-done")?.addEventListener("click", (e) => {
+
+  // Read to me — speaks the title, story, then each step, highlighting the line
+  // being read. A second tap stops. For kids who don't yet read the words.
+  const readBtn = screen.querySelector(".cd-readaloud");
+  if (readBtn) {
+    const chunks = [{ id: "title", text: m.title }];
+    if (m.description) chunks.push({ id: "story", text: m.description });
+    steps.forEach((s, i) => chunks.push({ id: `step-${i}`, text: `Step ${i + 1}. ${s}` }));
+    const elFor = (id) => id === "title" ? screen.querySelector(".cd-mission-title")
+      : id === "story" ? screen.querySelector(".cd-mission-story")
+      : screen.querySelector(`.cd-step[data-step="${id.split("-")[1]}"]`);
+    const clearHi = () => screen.querySelectorAll(".cd-reading").forEach((n) => n.classList.remove("cd-reading"));
+    const setIdle = () => { readBtn.setAttribute("aria-pressed", "false"); readBtn.querySelector(".cd-readaloud-ico").textContent = "▶"; readBtn.querySelector(".cd-readaloud-label").textContent = "Read to me"; };
+    const setPlaying = () => { readBtn.setAttribute("aria-pressed", "true"); readBtn.querySelector(".cd-readaloud-ico").textContent = "■"; readBtn.querySelector(".cd-readaloud-label").textContent = "Stop"; };
+    readBtn.addEventListener("click", () => {
+      if (readBtn.getAttribute("aria-pressed") === "true") { stopSpeaking(); clearHi(); setIdle(); return; }
+      setPlaying();
+      speak(chunks, {
+        onChunk: (id) => { clearHi(); elFor(id)?.classList.add("cd-reading"); },
+        onDone: () => { clearHi(); setIdle(); },
+      });
+    });
+  }
+
+  // Tap a step to tick it — an optional way to follow along. Doesn't gate
+  // anything; when every step is ticked, the finish button warms up.
+  const doneBtn = screen.querySelector(".cd-mission-done");
+  const stepEls = [...screen.querySelectorAll(".cd-step")];
+  const refreshReady = () => {
+    const allDone = stepEls.length > 0 && stepEls.every((el) => el.classList.contains("cd-step--done"));
+    doneBtn.classList.toggle("cd-mission-done--ready", allDone);
+  };
+  stepEls.forEach((el) => {
+    el.querySelector(".cd-step-check")?.addEventListener("click", () => { el.classList.toggle("cd-step--done"); refreshReady(); });
+  });
+
+  doneBtn?.addEventListener("click", (e) => {
+    stopSpeaking();
     // Capture where the light should launch from BEFORE the page closes.
     const r = e.currentTarget.getBoundingClientRect();
     const origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -392,6 +522,7 @@ function cdCompleteMission(container, child, m, origin, onBefore) {
     const land = () => {
       cdAddSettledLight(container, m.id);
       cdRefreshHero(container, child);
+      cdRefreshLookback(container, child);
       if (speak) setTimeout(() => cdGuideNote(container, candidate), 650);
     };
     if (cdReducedMotion()) { land(); return; }        // still, functional — no rise, no tone
@@ -454,9 +585,7 @@ function renderDashboardShell(container, child) {
 
         <section class="cd-lookback" aria-label="Look back">
           <p class="cd-lookback-label">Look back</p>
-          <div class="cd-light-tile cd-light-tile--empty">
-            The first thing you make will glow here.
-          </div>
+          ${cdLatestLightHTML(child)}
         </section>
       </main>
     </div>
@@ -465,6 +594,7 @@ function renderDashboardShell(container, child) {
   // The one primary action: Begin opens the real mission; on completion the light
   // rises and the hero advances — surgically, so the arrival animations never replay.
   cdWireBegin(container, child);
+  cdWireRelive(container, child);
 }
 
 /* ====== Portal ====== */
