@@ -4696,8 +4696,51 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   .cd-hero-card { max-width: 640px; }
 }
 
+/* ---- Momentum as Light (PR3) ---- */
+/* The child's earned lights — a separate layer so day-dimming of the ambient
+   stars never dims THEIRS. Gold, warmer and a touch brighter than the ambient
+   star field; each varies by its deterministic seed so the sky feels alive. */
+.cd-lights-layer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.cd-lights circle {
+  fill: var(--gold);
+  opacity: var(--glow, 0.8);
+  filter: drop-shadow(0 0 3px rgba(232, 181, 71, 0.6));
+  animation: cd-light-twinkle var(--tw, 5s) ease-in-out infinite;
+}
+.cd-lights circle.cd-light--settling {
+  animation: cd-light-in 1000ms ease-out both;
+  transform-box: fill-box; transform-origin: center;
+}
+
+/* The single light that rises from the finished work into the sky. Quiet. */
+.cd-risinglight {
+  position: fixed; z-index: 60; width: 14px; height: 14px; margin: -7px 0 0 -7px;
+  border-radius: 50%; pointer-events: none; opacity: 0.85;
+  background: radial-gradient(circle, rgba(250, 234, 186, 0.95), rgba(232, 181, 71, 0.5) 55%, transparent 72%);
+  box-shadow: 0 0 12px 4px rgba(232, 181, 71, 0.5);
+  transition: transform 1150ms cubic-bezier(.2, .7, .2, 1), opacity 550ms ease-out;
+  will-change: transform, opacity;
+}
+
+/* Screen-reader-only note ("Your sky is growing.") — the accessible light-rise. */
+.cd-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@keyframes cd-light-twinkle {
+  0%, 100% { opacity: calc(var(--glow, 0.8) * 0.72); }
+  50% { opacity: var(--glow, 0.8); }
+}
+@keyframes cd-light-in {
+  from { opacity: 0; transform: scale(0.3); }
+  to { opacity: var(--glow, 0.8); transform: scale(1); }
+}
+
 /* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   .cd-sky, .cd-header, .cd-home, .cd-begin, .cd-stars circle { animation: none !important; }
+  .cd-lights circle, .cd-light--settling { animation: none !important; opacity: var(--glow, 0.8); }
+  .cd-risinglight { transition: none; }
   .cd-begin:active { transform: none; }
 }

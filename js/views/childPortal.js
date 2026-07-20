@@ -14,7 +14,7 @@ import { childPortalLogin } from "../lib/childPortalCloud.js";
 import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
 import { openSubmissionModal } from "../components/submission.js";
-import { renderSky } from "../components/sky.js";
+import { renderSky, earnedLightSVG, lightLayout } from "../components/sky.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 
 /* ============================================================
@@ -204,24 +204,83 @@ function firstSentence(text, max = 140) {
   return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
 }
 
-// Begin opens the REAL mission, reusing the existing submission flow
-// (steps, evidence, completion, celebration). Momentum is Light, not a number,
-// so we deliberately DO NOT show a "+points" toast here — PR3 renders the Light.
-function beginTodayMission(m, targetEl, afterChange) {
+const cdReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+
+// The accessible equivalent of the light rising — a quiet, non-visual note for
+// screen-reader users. Never a number, never "+points".
+function cdAnnounce(container, msg) {
+  const el = container.querySelector(".cd-sr");
+  if (el) el.textContent = msg;
+}
+
+// One light rises from the finished work up into the sky and fades as the sky
+// settles with its new, permanent light. Campfire, not casino: no burst, no
+// number, no sound — just a small glow the child can watch. Lives on <body> so
+// the surgical hero refresh underneath never removes it mid-flight.
+function cdRiseLight(targetEl, id) {
+  const sky = document.querySelector(".cd-sky");
+  const start = targetEl.getBoundingClientRect();
+  const sx = start.left + start.width / 2;
+  const sy = start.top + start.height / 2;
+  const p = lightLayout(id);
+  const skyRect = sky ? sky.getBoundingClientRect() : null;
+  const ex = skyRect ? skyRect.left + (p.x / 100) * skyRect.width : sx;
+  const ey = skyRect ? skyRect.top + (p.y / 100) * skyRect.height : Math.max(24, sy - window.innerHeight * 0.4);
+  const dot = document.createElement("div");
+  dot.className = "cd-risinglight";
+  dot.style.left = `${sx}px`;
+  dot.style.top = `${sy}px`;
+  document.body.appendChild(dot);
+  requestAnimationFrame(() => {
+    dot.style.transform = `translate(${Math.round(ex - sx)}px, ${Math.round(ey - sy)}px) scale(0.65)`;
+    dot.style.opacity = "0.92";
+  });
+  setTimeout(() => { dot.style.opacity = "0"; }, 1150);
+  setTimeout(() => dot.remove(), 1700);
+}
+
+// Append the child's new permanent light to their sky (gentle fade-in).
+function cdAddSettledLight(container, id) {
+  container.querySelector(".cd-lights")?.insertAdjacentHTML("beforeend", earnedLightSVG(id, { settling: true }));
+}
+
+// Swap the hero to the next adventure WITHOUT a full re-render, so the arrival
+// animations never replay. Re-wires Begin for the new mission.
+function cdRefreshHero(container, child) {
+  const hero = container.querySelector(".cd-hero");
+  if (!hero) return;
+  hero.innerHTML = renderTodayHero(resolveTodayMission(child));
+  cdWireBegin(container, child);
+}
+
+function cdWireBegin(container, child) {
+  const beginEl = container.querySelector(".cd-begin[data-ms]");
+  if (!beginEl) return;
+  const mission = resolveTodayMission(child);
+  if (mission) beginEl.addEventListener("click", () => cdOpenMission(container, child, mission, beginEl));
+}
+
+// Begin opens the REAL mission (reused submission flow). On completion the light
+// rises into the sky. Momentum is Light, never a number — so NO "+points" toast.
+function cdOpenMission(container, child, m, beginEl) {
   const project = getProject(m.projectId);
-  const finish = (payload) => {
-    if (payload) addMilestoneSubmission(m.id, payload);
-    completeMilestone(m.id);
-    celebrateMilestone(targetEl);
-    if (getProject(m.projectId)?.status === "ready-for-reflection") {
-      setTimeout(() => celebrateProject(targetEl), 400);
+  const settle = () => {
+    cdAnnounce(container, "Your sky is growing.");
+    if (cdReducedMotion()) {
+      cdAddSettledLight(container, m.id);
+      cdRefreshHero(container, child);
+    } else {
+      cdRiseLight(beginEl, m.id);
+      setTimeout(() => { cdAddSettledLight(container, m.id); cdRefreshHero(container, child); }, 1150);
     }
-    setTimeout(() => afterChange?.(), 350);
   };
   openSubmissionModal({
     milestone: m, project,
-    onSkip: () => finish(null),
-    onSubmit: (payload) => finish(payload),
+    onSkip: () => { completeMilestone(m.id); settle(); },
+    onSubmit: (payload) => { addMilestoneSubmission(m.id, payload); completeMilestone(m.id); settle(); },
   });
 }
 
@@ -249,9 +308,12 @@ function renderTodayHero(mission) {
 function renderDashboardShell(container, child) {
   const hour = new Date().getHours();
   const mission = resolveTodayMission(child);
+  // Earned Light = one per completed milestone; seeds the child's own sky.
+  const earnedIds = getChildStats(child.id).milestones.filter(m => m.completed).map(m => m.id);
   container.innerHTML = `
     <div class="cd">
-      ${renderSky(hour)}
+      ${renderSky(hour, earnedIds)}
+      <p class="cd-sr" role="status" aria-live="polite"></p>
 
       <a href="#/" class="cd-parentlink">Parent view</a>
 
@@ -277,12 +339,9 @@ function renderDashboardShell(container, child) {
     </div>
   `;
 
-  // The one primary action: Begin opens the real mission (reused flow), then
-  // re-renders so the hero advances to the next adventure.
-  const beginEl = container.querySelector(".cd-begin[data-ms]");
-  if (beginEl && mission) {
-    beginEl.addEventListener("click", () => beginTodayMission(mission, beginEl, rerender));
-  }
+  // The one primary action: Begin opens the real mission; on completion the light
+  // rises and the hero advances — surgically, so the arrival animations never replay.
+  cdWireBegin(container, child);
 }
 
 /* ====== Portal ====== */
