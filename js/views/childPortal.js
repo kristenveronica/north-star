@@ -14,6 +14,7 @@ import { childPortalLogin } from "../lib/childPortalCloud.js";
 import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
 import { openSubmissionModal } from "../components/submission.js";
+import { renderSky } from "../components/sky.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 
 /* ============================================================
@@ -160,6 +161,73 @@ export function renderChildLogin(container) {
   container.querySelector("#pin").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
 }
 
+/* ====== Child Dashboard V2 — shell (PR1) ======
+   Structure + feel only: the Sky backdrop, three-zone layout, Guide greeting,
+   Today Hero and Latest Light are in place; their DATA and wiring arrive in
+   later PRs (controls carry a [data-todo] marker and are inert by design).
+   Gated behind a flag so `main` stays shippable through the rebuild — enable in
+   a browser console with:  localStorage.setItem('ns_child_dashboard_v2','1')
+   The legacy dashboard body is deleted once the V2 series completes. */
+function childDashboardV2Enabled() {
+  try { return localStorage.getItem("ns_child_dashboard_v2") === "1"; }
+  catch { return false; }
+}
+
+// Warm, evergreen greeting. Also the fallback shown until the personal daily
+// Guide line (PR5) is ready, so arrival is never blocked on the network.
+function shellGreeting(name) {
+  const who = esc(name || "friend");
+  const h = new Date().getHours();
+  if (h < 5) return `The stars are still out, ${who}.`;
+  if (h < 12) return `Good morning, ${who}.`;
+  if (h < 17) return `Good afternoon, ${who}.`;
+  if (h < 20) return `Good evening, ${who}.`;
+  return `Evening, ${who}.`;
+}
+
+function renderDashboardShell(container, child) {
+  const hour = new Date().getHours();
+  container.innerHTML = `
+    <div class="cd">
+      ${renderSky(hour)}
+
+      <a href="#/" class="cd-parentlink">Parent view</a>
+
+      <header class="cd-header">
+        <div class="cd-guide">
+          <span class="cd-guide-avatar" aria-hidden="true">${nsIcon("spark", { size: 26 })}</span>
+          <p class="cd-greeting" role="status">${shellGreeting(child.name)}</p>
+        </div>
+      </header>
+
+      <main class="cd-home">
+        <section class="cd-hero" aria-label="Today's adventure">
+          <article class="cd-hero-card">
+            <p class="cd-hero-eyebrow">Today's adventure</p>
+            <div class="cd-hero-img" aria-hidden="true"></div>
+            <h1 class="cd-hero-title">Something good is waiting for you.</h1>
+            <p class="cd-hero-hook">Your guide is getting today's adventure ready.</p>
+            <button class="cd-begin" type="button" data-todo="PR2">Begin</button>
+            <div class="cd-actions">
+              <button class="cd-ghost" type="button" data-todo="PR6">Read aloud</button>
+              <button class="cd-ghost" type="button" data-todo="PR7">Ask your guide</button>
+            </div>
+          </article>
+        </section>
+
+        <section class="cd-lookback" aria-label="Look back">
+          <p class="cd-lookback-label">Look back</p>
+          <div class="cd-light-tile cd-light-tile--empty">
+            The first thing you make will glow here.
+          </div>
+        </section>
+      </main>
+    </div>
+  `;
+  // PR1 is structure only: [data-todo] controls are inert and wired in their
+  // named PRs. No business logic belongs in the shell.
+}
+
 /* ====== Portal ====== */
 export function renderChildPortal(container, params) {
   const child = getChildByCode((params.code || "").toUpperCase());
@@ -207,6 +275,9 @@ export function renderChildPortal(container, params) {
     setTimeout(() => container.querySelector("#pin")?.focus(), 50);
     return;
   }
+
+  // Child Dashboard V2 shell (flagged; structure + feel only — see PR1 above).
+  if (childDashboardV2Enabled()) { renderDashboardShell(container, child); return; }
 
   const s = getState();
   const stats = getChildStats(child.id);
