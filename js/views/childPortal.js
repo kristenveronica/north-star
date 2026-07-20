@@ -16,7 +16,7 @@ import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "..
 import { openSubmissionModal } from "../components/submission.js";
 import { renderSky, earnedLightSVG, lightLayout } from "../components/sky.js";
 import { playSettleTone } from "../components/skySound.js";
-import { speak, stopSpeaking, speechAvailable } from "../lib/readAloud.js";
+import { readAloudSmart, stopVoice } from "../lib/voice.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 
 /* ============================================================
@@ -408,12 +408,10 @@ function cdRefreshLookback(container, child) {
 // is its own later PR — the words are all here and legible now.
 function cdMissionScreenHTML(m, project) {
   const steps = Array.isArray(m.instructions) ? m.instructions : [];
-  const readBtn = speechAvailable()
-    ? `<button class="cd-readaloud" type="button" aria-pressed="false">
+  const readBtn = `<button class="cd-readaloud" type="button" aria-pressed="false">
          <span class="cd-readaloud-ico" aria-hidden="true">▶</span>
          <span class="cd-readaloud-label">Read to me</span>
-       </button>`
-    : "";
+       </button>`;
   return `
     <div class="cd-mission" role="dialog" aria-modal="true" aria-label="Your mission">
       <button class="cd-mission-back" type="button">← Not yet</button>
@@ -458,13 +456,16 @@ function cdOpenMissionView(container, child, m) {
   root.appendChild(screen);
   screen.scrollTop = 0;
 
-  const close = () => { stopSpeaking(); screen.remove(); };
+  const close = () => { stopVoice(); screen.remove(); };
   screen.querySelector(".cd-mission-back")?.addEventListener("click", close);
 
-  // Read to me — speaks the title, story, then each step, highlighting the line
-  // being read. A second tap stops. For kids who don't yet read the words.
+  // Read to me — a warm AI voice reads the title, story, then each step, and the
+  // line being read is highlighted. A second tap stops. For kids who don't yet
+  // read the words. Falls back to the browser voice if AI narration is offline.
   const readBtn = screen.querySelector(".cd-readaloud");
   if (readBtn) {
+    const ico = readBtn.querySelector(".cd-readaloud-ico");
+    const label = readBtn.querySelector(".cd-readaloud-label");
     const chunks = [{ id: "title", text: m.title }];
     if (m.description) chunks.push({ id: "story", text: m.description });
     steps.forEach((s, i) => chunks.push({ id: `step-${i}`, text: `Step ${i + 1}. ${s}` }));
@@ -472,14 +473,20 @@ function cdOpenMissionView(container, child, m) {
       : id === "story" ? screen.querySelector(".cd-mission-story")
       : screen.querySelector(`.cd-step[data-step="${id.split("-")[1]}"]`);
     const clearHi = () => screen.querySelectorAll(".cd-reading").forEach((n) => n.classList.remove("cd-reading"));
-    const setIdle = () => { readBtn.setAttribute("aria-pressed", "false"); readBtn.querySelector(".cd-readaloud-ico").textContent = "▶"; readBtn.querySelector(".cd-readaloud-label").textContent = "Read to me"; };
-    const setPlaying = () => { readBtn.setAttribute("aria-pressed", "true"); readBtn.querySelector(".cd-readaloud-ico").textContent = "■"; readBtn.querySelector(".cd-readaloud-label").textContent = "Stop"; };
+    const setState = (s) => {
+      readBtn.setAttribute("aria-pressed", s === "playing" ? "true" : "false");
+      readBtn.classList.toggle("cd-readaloud--loading", s === "loading");
+      ico.textContent = s === "playing" ? "■" : "▶";
+      label.textContent = s === "loading" ? "Warming up…" : s === "playing" ? "Stop" : "Read to me";
+    };
     readBtn.addEventListener("click", () => {
-      if (readBtn.getAttribute("aria-pressed") === "true") { stopSpeaking(); clearHi(); setIdle(); return; }
-      setPlaying();
-      speak(chunks, {
+      if (readBtn.getAttribute("aria-pressed") === "true" || readBtn.classList.contains("cd-readaloud--loading")) {
+        stopVoice(); clearHi(); setState("idle"); return;
+      }
+      readAloudSmart(child.accessCode, chunks, {
+        onLoading: (on) => setState(on ? "loading" : "playing"),
         onChunk: (id) => { clearHi(); elFor(id)?.classList.add("cd-reading"); },
-        onDone: () => { clearHi(); setIdle(); },
+        onDone: () => { clearHi(); setState("idle"); },
       });
     });
   }
@@ -497,7 +504,7 @@ function cdOpenMissionView(container, child, m) {
   });
 
   doneBtn?.addEventListener("click", (e) => {
-    stopSpeaking();
+    stopVoice();
     // Capture where the light should launch from BEFORE the page closes.
     const r = e.currentTarget.getBoundingClientRect();
     const origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };

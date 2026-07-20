@@ -45,3 +45,16 @@ export async function fetchDailyGuideLine(code, localDate) {
     return data.line || null;
   } catch { return null; }
 }
+
+/** AI narration for the mission read-aloud. `chunks` = [{ id, text }].
+    Returns [{ id, audio }] (audio = base64 MP3, or null per chunk), or null if
+    TTS is unavailable/unconfigured — caller then falls back to the browser voice. */
+export async function fetchTts(code, chunks) {
+  try {
+    const { data, error } = await supabase.functions.invoke("child-portal", {
+      body: { action: "tts", payload: { code, chunks } },
+    });
+    if (error || !data || data.error) return null;
+    return Array.isArray(data.chunks) ? data.chunks : null;
+  } catch { return null; }
+}

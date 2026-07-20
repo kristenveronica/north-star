@@ -190,6 +190,67 @@ async function dailyGuide(code: string, localDateRaw: string, ip: string) {
   return json({ line });
 }
 
+// ---------------------------------------------------------------------------
+// Read to me — warm AI narration (OpenAI gpt-4o-mini-tts) for the mission page.
+// One request narrates several short chunks (title, story, each step) so the
+// client can highlight each line as it plays. Cached per (model|voice|text) so
+// replays cost nothing. Gated on a valid child access code + IP throttle so the
+// paid TTS endpoint can't be abused. Any failure → { chunks: [] } and the client
+// falls back to the (robotic but free) browser voice.
+// ---------------------------------------------------------------------------
+const OPENAI_TTS_URL = "https://api.openai.com/v1/audio/speech";
+const TTS_MODEL = "gpt-4o-mini-tts";
+const TTS_VOICE = "coral"; // warm, friendly
+const TTS_INSTRUCTIONS =
+  "You are a child's warm, gentle Guide. Read aloud like a favourite grown-up reading a story to a young child: warm, unhurried, encouraging, natural and conversational — never robotic. Soft, kind energy.";
+
+async function sha256Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function bufToBase64(buf: ArrayBuffer): string {
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  return btoa(bin);
+}
+async function ttsOne(text: string, apiKey: string): Promise<string | null> {
+  const res = await fetch(OPENAI_TTS_URL, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: TTS_MODEL, voice: TTS_VOICE, input: text, instructions: TTS_INSTRUCTIONS, response_format: "mp3" }),
+  });
+  if (!res.ok) return null;
+  return bufToBase64(await res.arrayBuffer());
+}
+
+// deno-lint-ignore no-explicit-any
+async function tts(code: string, chunks: any[], ip: string) {
+  const norm = normCode(code);
+  if (!norm) return json({ chunks: [] });
+  if (await recentCount("portal_login_attempt", { ip }, 300) >= 60) return json({ chunks: [] });
+  const found = await lookupChild(norm);
+  if (!found || found === "ambiguous") return json({ chunks: [] });
+
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  if (!apiKey) return json({ chunks: [], error: "tts_unconfigured" });
+
+  const items = (Array.isArray(chunks) ? chunks : []).slice(0, 14);
+  const out = await Promise.all(items.map(async (c: any) => {
+    const id = c?.id;
+    const text = (c?.text || "").toString().trim().slice(0, 600);
+    if (!text) return { id, audio: null };
+    const hash = await sha256Hex(`${TTS_MODEL}|${TTS_VOICE}|${text}`);
+    const { data: cached } = await admin.from("tts_cache").select("audio").eq("hash", hash).maybeSingle();
+    if (cached?.audio) return { id, audio: cached.audio };
+    const audio = await ttsOne(text, apiKey);
+    if (audio) await admin.from("tts_cache").upsert({ hash, audio });
+    return { id, audio };
+  }));
+  return json({ chunks: out });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -198,6 +259,9 @@ Deno.serve(async (req) => {
     if (action === "login") return await login((payload?.code || "").toString(), clientIp(req));
     if (action === "daily-guide") {
       return await dailyGuide((payload?.code || "").toString(), (payload?.localDate || "").toString(), clientIp(req));
+    }
+    if (action === "tts") {
+      return await tts((payload?.code || "").toString(), payload?.chunks, clientIp(req));
     }
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (e) {
