@@ -29,6 +29,7 @@ From the Charter (verbatim intent):
 | **Family isolation / sovereignty** — a family's data serves only that family | Private bucket; every object path is `{familyId}/{childId}/…`; bucket RLS gates on the family_id segment. The child-portal signed-upload path mints URLs **only under the child's own family/child folder**, and `record-evidence` **rejects any pointer not under that exact prefix**. | bucket RLS (0029), edge `create-evidence-upload` / `record-evidence` |
 | **Custodians, not owners** — child-portal writes are validated, never trusted blindly | Access-code sessions can't write through RLS. A **service-role** edge path persists completions + evidence only after validating `code → child → milestone → family`. | edge `record-completion`, `record-evidence` |
 | **Privacy by design** | Private bucket (not public), short-lived **signed URLs** (1 h) for viewing, encryption at rest (Storage default). | `storage.js` (`signedUrl`), bucket (0029) |
+| **Right to erasure / no data lock-in** — *"their work leaves with them… never create dependency through data lock-in"* | An Owner can **close the account and erase everything**. The `erase-family` edge fn (Owner-authZ + typed confirmation) **garbage-collects every Storage object** under the family prefix, then `erase_family()` deletes the whole DB footprint in one transaction — deliberately overriding the child-story RESTRICT guards — and closes the logins of adults left in no other family. No orphaned rows, **no orphaned files**. Verified end-to-end. | `erase_family()` (0036, service-role-only), edge `erase-family`, Settings danger zone (`js/lib/account.js`) |
 
 ---
 
@@ -36,9 +37,10 @@ From the Charter (verbatim intent):
 
 - **Video/audio location metadata.** Only *images* are metadata-stripped (via canvas re-encode). iPhone **videos** can embed GPS; client-side stripping needs re-muxing and is not done. *Mitigation:* private, family-only bucket. *Tracked:* strip or warn on video upload.
 - **HEIC on Chrome.** If the browser can't decode an image format, `compressImage` uploads the original (metadata intact). Most child devices (iPad/iPhone → Safari) decode HEIC and strip. *Tracked.*
-- **Export / portability** (*"export at any time… work leaves with them… no lock-in"*). No self-serve family export yet. **Charter obligation — not built.**
-- **Right to erasure / deletion.** No self-serve delete of a family's data + storage objects on account closure. Evidence rows likely cascade on child/family delete (verify FK), but **storage objects are not garbage-collected**. **Charter obligation — not built.**
+- **Export / portability** (*"export at any time… work leaves with them… no lock-in"*). No self-serve family export yet. **Charter obligation — not built.** (Erasure is now built; export is its remaining half.)
 - **Parental consent (COPPA / GDPR-K).** Assumed captured at onboarding; not audited here.
+
+*Closed 2026-07-20:* **Right to erasure / deletion** — self-serve account closure now deletes the full DB footprint **and garbage-collects all storage objects** (edge `erase-family` + `erase_family()` SQL, migration 0036), verified end-to-end. See the compliance-map row above.
 
 ---
 

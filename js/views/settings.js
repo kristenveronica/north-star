@@ -4,13 +4,15 @@
 
 import { getState, setFamily, resetAll, setInsightsConfig } from "../store.js";
 import { FRAMEWORKS, INSIGHTS_DISCLAIMER } from "../ai/insightsEngine.js";
-import { esc, toast, confirmDialog, fmtDate } from "../components/ui.js";
+import { esc, toast, confirmDialog, fmtDate, el, openModal } from "../components/ui.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 import { hasAccount, currentUserEmail, attachAccountToExistingFamily, changePassword, logout } from "../auth.js";
 import { childProfileLimit, childSeatsUsed } from "../lib/entitlements.js";
 import { openBillingPortal, aiSeatCount, syncAiSeats, getSubscription, resumeSubscription, keepSubscription } from "../lib/billing.js";
 import { openCancelFlow } from "../components/cancelFlow.js";
+import { isOwnerActing } from "../lib/permissions.js";
+import { eraseAccount, ERASE_CONFIRM_PHRASE } from "../lib/account.js";
 
 export function renderSettings(container) {
   const s = getState();
@@ -106,6 +108,12 @@ export function renderSettings(container) {
           <h3 style="color:var(--danger)">Danger zone</h3>
           <p class="text-muted small">Reset all family data. Use this if you want to start the onboarding fresh.</p>
           <button class="btn btn-danger" id="reset">Reset all data</button>
+          ${f.id && hasAccount() && isOwnerActing(s) ? `
+            <div class="divider"></div>
+            <h4 style="color:var(--danger)">Close account &amp; erase everything</h4>
+            <p class="text-muted small" style="max-width:52ch">Permanently deletes your family's account — every child, project, reflection and <strong>every uploaded photo, audio and video</strong> — from our cloud and storage, and closes the logins. This is your right under our <a href="#/trust">Trust Charter</a>: your work leaves with you, with nothing left behind. <strong>It cannot be undone.</strong></p>
+            <button class="btn btn-danger" id="erase-account">Close account &amp; erase everything</button>
+          ` : ""}
         </div>
       </div>
 
@@ -258,6 +266,65 @@ export function renderSettings(container) {
       resetAll();
       toast("All data cleared");
       navigate("/onboarding");
+    }
+  });
+
+  // Right-to-erasure / account closure (Owner + cloud only). A typed phrase makes
+  // it a deliberate act; the server re-checks Owner authorization and does the
+  // Storage garbage-collection + full DB delete. See lib/account.js.
+  container.querySelector("#erase-account")?.addEventListener("click", () => openEraseFlow());
+}
+
+function openEraseFlow() {
+  const body = el(`
+    <div>
+      <p class="text-muted small" style="max-width:52ch">This permanently erases your entire family account from our cloud <strong>and deletes every uploaded photo, audio and video from storage</strong> — then closes the logins. There is no undo and no backup we can restore from. Your data leaves with nothing left behind, exactly as our Trust Charter promises.</p>
+      <div class="field mt-2">
+        <label>Type <span class="kbd">${esc(ERASE_CONFIRM_PHRASE)}</span> to confirm</label>
+        <input class="input" id="erase-confirm" autocomplete="off" autocapitalize="characters" placeholder="${esc(ERASE_CONFIRM_PHRASE)}"/>
+      </div>
+      <div class="small" id="erase-status" aria-live="polite" style="min-height:18px"></div>
+    </div>
+  `);
+  const foot = document.createElement("div");
+  foot.style.cssText = "display:flex;gap:10px;width:100%;justify-content:flex-end";
+  foot.innerHTML = `
+    <button class="btn" data-cancel>Keep my account</button>
+    <button class="btn btn-danger" data-erase disabled>Erase everything</button>
+  `;
+  const modal = openModal({ title: "Close account & erase everything", body, footer: foot });
+
+  const input = body.querySelector("#erase-confirm");
+  const status = body.querySelector("#erase-status");
+  const eraseBtn = foot.querySelector("[data-erase]");
+  const match = () => input.value.trim().toUpperCase() === ERASE_CONFIRM_PHRASE;
+  input.addEventListener("input", () => { eraseBtn.disabled = !match(); });
+  foot.querySelector("[data-cancel]").addEventListener("click", () => modal.close());
+  setTimeout(() => input.focus(), 60);
+
+  eraseBtn.addEventListener("click", async () => {
+    if (!match()) return;
+    eraseBtn.disabled = true;
+    foot.querySelector("[data-cancel]").disabled = true;
+    input.disabled = true;
+    status.textContent = "Erasing your account and removing every file… this can take a moment.";
+    try {
+      await eraseAccount(input.value.trim());
+      // Everything is gone server-side. Clear the device and log the person out.
+      status.textContent = "✓ Your account and all files have been erased.";
+      resetAll();
+      try { logout(); } catch { /* ignore */ }
+      setTimeout(() => {
+        modal.close();
+        toast("Your account and all data have been permanently erased.", { type: "success", duration: 6000 });
+        navigate("/login");
+        rerender();
+      }, 900);
+    } catch (err) {
+      input.disabled = false;
+      foot.querySelector("[data-cancel]").disabled = false;
+      eraseBtn.disabled = false;
+      status.innerHTML = `<span style="color:var(--danger)">${esc(err.message || "Couldn't erase the account just now — nothing was deleted. Please try again.")}</span>`;
     }
   });
 }
