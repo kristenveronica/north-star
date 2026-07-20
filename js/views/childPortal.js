@@ -185,8 +185,70 @@ function shellGreeting(name) {
   return `Evening, ${who}.`;
 }
 
+// Today's adventure = the child's earliest-due incomplete mission (one, never a list).
+function resolveTodayMission(child) {
+  const active = (getActiveMilestonesForChild(child.id) || []).filter(m => !m.completed);
+  active.sort((a, b) => {
+    const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+    const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+    return da - db;
+  });
+  return active[0] || null;
+}
+
+// First sentence of a description, clamped — the hero's one-line hook.
+function firstSentence(text, max = 140) {
+  const t = (text || "").trim();
+  if (!t) return "";
+  const s = t.split(/(?<=[.!?])\s/)[0];
+  return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
+}
+
+// Begin opens the REAL mission, reusing the existing submission flow
+// (steps, evidence, completion, celebration). Momentum is Light, not a number,
+// so we deliberately DO NOT show a "+points" toast here — PR3 renders the Light.
+function beginTodayMission(m, targetEl, afterChange) {
+  const project = getProject(m.projectId);
+  const finish = (payload) => {
+    if (payload) addMilestoneSubmission(m.id, payload);
+    completeMilestone(m.id);
+    celebrateMilestone(targetEl);
+    if (getProject(m.projectId)?.status === "ready-for-reflection") {
+      setTimeout(() => celebrateProject(targetEl), 400);
+    }
+    setTimeout(() => afterChange?.(), 350);
+  };
+  openSubmissionModal({
+    milestone: m, project,
+    onSkip: () => finish(null),
+    onSubmit: (payload) => finish(payload),
+  });
+}
+
+// The Today Hero — one card, one primary action. No image/ghost actions in V1
+// (real art → later; read-aloud/ask arrive with their own PRs).
+function renderTodayHero(mission) {
+  if (!mission) {
+    return `
+      <article class="cd-hero-card">
+        <p class="cd-hero-eyebrow">Today's adventure</p>
+        <h1 class="cd-hero-title">Nothing waiting right now.</h1>
+        <p class="cd-hero-hook">Your next adventure will appear here soon.</p>
+      </article>`;
+  }
+  const hook = firstSentence(mission.description);
+  return `
+    <article class="cd-hero-card">
+      <p class="cd-hero-eyebrow">Today's adventure</p>
+      <h1 class="cd-hero-title">${esc(mission.title)}</h1>
+      ${hook ? `<p class="cd-hero-hook">${esc(hook)}</p>` : ""}
+      <button class="cd-begin" type="button" data-ms="${esc(mission.id)}">Begin</button>
+    </article>`;
+}
+
 function renderDashboardShell(container, child) {
   const hour = new Date().getHours();
+  const mission = resolveTodayMission(child);
   container.innerHTML = `
     <div class="cd">
       ${renderSky(hour)}
@@ -202,17 +264,7 @@ function renderDashboardShell(container, child) {
 
       <main class="cd-home">
         <section class="cd-hero" aria-label="Today's adventure">
-          <article class="cd-hero-card">
-            <p class="cd-hero-eyebrow">Today's adventure</p>
-            <div class="cd-hero-img" aria-hidden="true"></div>
-            <h1 class="cd-hero-title">Something good is waiting for you.</h1>
-            <p class="cd-hero-hook">Your guide is getting today's adventure ready.</p>
-            <button class="cd-begin" type="button" data-todo="PR2">Begin</button>
-            <div class="cd-actions">
-              <button class="cd-ghost" type="button" data-todo="PR6">Read aloud</button>
-              <button class="cd-ghost" type="button" data-todo="PR7">Ask your guide</button>
-            </div>
-          </article>
+          ${renderTodayHero(mission)}
         </section>
 
         <section class="cd-lookback" aria-label="Look back">
@@ -224,8 +276,13 @@ function renderDashboardShell(container, child) {
       </main>
     </div>
   `;
-  // PR1 is structure only: [data-todo] controls are inert and wired in their
-  // named PRs. No business logic belongs in the shell.
+
+  // The one primary action: Begin opens the real mission (reused flow), then
+  // re-renders so the hero advances to the next adventure.
+  const beginEl = container.querySelector(".cd-begin[data-ms]");
+  if (beginEl && mission) {
+    beginEl.addEventListener("click", () => beginTodayMission(mission, beginEl, rerender));
+  }
 }
 
 /* ====== Portal ====== */

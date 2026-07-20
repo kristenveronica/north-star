@@ -4643,10 +4643,6 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   margin: 0 0 12px; font-size: 12px; font-weight: 700;
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-soft);
 }
-.cd-hero-img {
-  aspect-ratio: 16 / 9; border-radius: var(--r-lg); margin-bottom: 16px;
-  background: linear-gradient(135deg, var(--primary-soft), var(--sage-soft));
-}
 .cd-hero-title {
   margin: 0 0 8px; font-family: var(--font-serif); font-weight: 500;
   font-size: 28px; line-height: 1.15; color: var(--text);
