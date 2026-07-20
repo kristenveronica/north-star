@@ -41,3 +41,6 @@ co-work/
 
 # Stray editor workspace files from other projects
 *.code-workspace
+
+# Supabase CLI local link state
+supabase/.temp/
