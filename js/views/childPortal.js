@@ -10,7 +10,7 @@ import {
   addMilestoneSubmission, removeMilestoneEvidence,
 } from "../store.js";
 import { REFLECTION_PROMPTS } from "../seed.js";
-import { childPortalLogin, fetchDailyGuideLine } from "../lib/childPortalCloud.js";
+import { childPortalLogin, fetchDailyGuideLine, recordChildCompletion } from "../lib/childPortalCloud.js";
 import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
 import { openSubmissionModal } from "../components/submission.js";
@@ -58,10 +58,14 @@ function handleMilestoneTap(milestoneId, targetEl, afterChange) {
   const s = getState();
   const m = s.milestones.find(x => x.id === milestoneId);
   if (!m) return;
+  // In a child-portal session, persist the completion server-side (it can't sync
+  // through RLS), so it survives reload AND becomes Archive evidence (LFM G1).
+  const portalCode = s.meta?.childPortalMode ? s.children[0]?.accessCode : null;
 
   // Toggle-off path: tap a completed star to undo (mistake recovery)
   if (m.completed) {
     completeMilestone(milestoneId);
+    if (portalCode) recordChildCompletion(portalCode, milestoneId, false);
     toast("Star removed");
     setTimeout(() => afterChange?.(), 250);
     return;
@@ -72,6 +76,7 @@ function handleMilestoneTap(milestoneId, targetEl, afterChange) {
     milestone: m, project,
     onSkip: () => {
       completeMilestone(milestoneId);
+      if (portalCode) recordChildCompletion(portalCode, milestoneId, true);
       celebrateMilestone(targetEl);
       const after = getState().milestones.find(x => x.id === milestoneId);
       toast(`Star earned! +${after?.momentumPoints || 0} Momentum Points`, { type: "success", duration: 3000 });
@@ -85,6 +90,7 @@ function handleMilestoneTap(milestoneId, targetEl, afterChange) {
     onSubmit: (payload) => {
       addMilestoneSubmission(milestoneId, payload);
       completeMilestone(milestoneId);
+      if (portalCode) recordChildCompletion(portalCode, milestoneId, true);
       celebrateMilestone(targetEl);
       const after = getState().milestones.find(x => x.id === milestoneId);
       const evCount = (payload.evidence || []).length;
@@ -541,8 +547,8 @@ function cdCompleteMission(container, child, m, origin, onBefore) {
   };
   openSubmissionModal({
     milestone: m, project,
-    onSkip: () => { completeMilestone(m.id); settle(); },
-    onSubmit: (payload) => { addMilestoneSubmission(m.id, payload); completeMilestone(m.id); settle(); },
+    onSkip: () => { completeMilestone(m.id); recordChildCompletion(child.accessCode, m.id, true); settle(); },
+    onSubmit: (payload) => { addMilestoneSubmission(m.id, payload); completeMilestone(m.id); recordChildCompletion(child.accessCode, m.id, true); settle(); },
   });
 }
 

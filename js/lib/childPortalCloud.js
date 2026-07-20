@@ -46,6 +46,20 @@ export async function fetchDailyGuideLine(code, localDate) {
   } catch { return null; }
 }
 
+/** Persist a milestone completion (or undo) done in the child portal, server-side.
+    The child portal is an access-code session that can't write through RLS, so
+    without this a completion is local-only (lost on reload) and never becomes
+    Archive evidence. Fire-and-forget; never throws — the light already rose. */
+export async function recordChildCompletion(code, milestoneId, completed = true) {
+  try {
+    const { data, error } = await supabase.functions.invoke("child-portal", {
+      body: { action: "record-completion", payload: { code, milestoneId, completed } },
+    });
+    if (error || !data) return false;
+    return !!data.ok;
+  } catch { return false; }
+}
+
 /** AI narration for the mission read-aloud. `chunks` = [{ id, text }].
     Returns [{ id, audio }] (audio = base64 MP3, or null per chunk), or null if
     TTS is unavailable/unconfigured — caller then falls back to the browser voice. */

@@ -251,12 +251,119 @@ async function tts(code: string, chunks: any[], ip: string) {
   return json({ chunks: out });
 }
 
+// ---------------------------------------------------------------------------
+// Record a milestone completion (or undo) done IN THE CHILD PORTAL.
+//
+// The child portal is an access-code session (not a Supabase family member), so
+// its writes never reach the DB through RLS — completions were purely local and
+// LOST on reload, and never became Archive evidence (LFM gap G1). This closes
+// both: under the service role, after validating the code→child→milestone→family
+// binding, it (a) persists the completion to `milestones` + the project rollups,
+// and (b) writes the factual `family_archive` event the parent-side sink writes —
+// so what a child actually does finally shapes the family's Understanding.
+//
+// Idempotent: a re-complete reuses the milestone's stored completed_at, so the
+// deterministic Archive id is stable and the upsert de-dupes.
+// ---------------------------------------------------------------------------
+function fnv1a(str: string, seed: number): string {
+  let h = seed >>> 0;
+  for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+  return ("00000000" + h.toString(16)).slice(-8);
+}
+// Mirror of js/lib/projectArchive.js deterministicId (four FNV-1a passes → UUIDv4 shape).
+function deterministicId(key: string): string {
+  const s = String(key);
+  const hex = fnv1a(s, 0x811c9dc5) + fnv1a(s, 0x9e3779b1) + fnv1a(s, 0x85ebca77) + fnv1a(s, 0xc2b2ae3d);
+  return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-4" + hex.slice(13, 16) +
+    "-8" + hex.slice(17, 20) + "-" + hex.slice(20, 32);
+}
+
+// deno-lint-ignore no-explicit-any
+async function archiveRow(familyId: string, id: string, child: any, m: any, occurredAt: string, metadata: any) {
+  await admin.from("family_archive").upsert({
+    id, family_id: familyId, scope: "child", subject_id: child.id, related_subject_id: null,
+    source_type: "milestone_progress", title: m.title || null, content: null, summary: null,
+    occurred_at: occurredAt, created_by: null, metadata,
+  }, { onConflict: "id" });
+}
+
+async function recordCompletion(code: string, milestoneId: string, completed: boolean, ip: string) {
+  const norm = normCode(code);
+  if (!norm || !milestoneId) return json({ ok: false, error: "bad_request" }, 400);
+  if (await recentCount("portal_login_attempt", { ip }, 300) >= 120) return json({ ok: false, error: "throttled" }, 429);
+
+  const found = await lookupChild(norm);
+  if (!found || found === "ambiguous") return json({ ok: false, error: "not_found" }, 404);
+  const { child, projects, milestones } = found;
+
+  // Family isolation: the milestone must belong to one of THIS child's projects.
+  const m = (milestones || []).find((x: any) => x.id === milestoneId);
+  if (!m) return json({ ok: false, error: "not_found" }, 404);
+  const proj = (projects || []).find((p: any) => p.id === m.project_id) || null;
+  const familyId = child.family_id;
+  const siblings = (milestones || []).filter((x: any) => proj && x.project_id === proj.id);
+
+  if (completed) {
+    // Idempotent: reuse the stored completed_at if already done — CANONICALISED to
+    // JS ISO ("…Z"), because Postgres round-trips it as "…+00:00" and the Archive
+    // id is a hash of this string; without normalising, a re-complete would mint a
+    // second, different id and duplicate the evidence.
+    const completedAt = (m.completed && m.completed_at)
+      ? new Date(m.completed_at).toISOString()
+      : new Date().toISOString();
+    if (!m.completed) {
+      await admin.from("milestones").update({ completed: true, completed_at: completedAt, star_earned: true }).eq("id", m.id);
+      if (proj) {
+        const allDone = siblings.every((x: any) => x.id === m.id ? true : x.completed);
+        const patch: Record<string, unknown> = {
+          stars_earned: (proj.stars_earned || 0) + 1,
+          momentum_points_earned: (proj.momentum_points_earned || 0) + (m.momentum_points || 0),
+        };
+        if (allDone && proj.status === "active") patch.status = "ready_for_reflection";
+        await admin.from("projects").update(patch).eq("id", proj.id);
+      }
+    }
+    const finalMilestone = proj ? siblings.every((x: any) => x.id === m.id ? true : x.completed) : false;
+    await archiveRow(familyId, deterministicId(`milestone_completed:${familyId}:${m.id}:${completedAt}`), child, m, completedAt, {
+      event: "milestone_completed", source: "milestone_toggle", via: "child_portal",
+      projectId: proj?.id || null, milestoneId: m.id,
+      momentumPoints: m.momentum_points ?? null, estimatedProjectDurationDays: null, finalMilestone,
+    });
+    return json({ ok: true, completedAt });
+  }
+
+  // Undo — a first-class factual event (only if it was actually completed).
+  if (m.completed) {
+    const undoneAt = new Date().toISOString();
+    const previousCompletedAt = m.completed_at || null;
+    await admin.from("milestones").update({ completed: false, completed_at: null, star_earned: false }).eq("id", m.id);
+    if (proj) {
+      await admin.from("projects").update({
+        stars_earned: Math.max(0, (proj.stars_earned || 0) - 1),
+        momentum_points_earned: Math.max(0, (proj.momentum_points_earned || 0) - (m.momentum_points || 0)),
+        status: proj.status === "ready_for_reflection" ? "active" : proj.status,
+      }).eq("id", proj.id);
+    }
+    await archiveRow(familyId, deterministicId(`milestone_uncompleted:${familyId}:${m.id}:${undoneAt}`), child, m, undoneAt, {
+      event: "milestone_uncompleted", source: "milestone_toggle", via: "child_portal",
+      projectId: proj?.id || null, milestoneId: m.id, previousCompletedAt,
+    });
+  }
+  return json({ ok: true });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
   try {
     const { action, payload } = await req.json();
     if (action === "login") return await login((payload?.code || "").toString(), clientIp(req));
+    if (action === "record-completion") {
+      return await recordCompletion(
+        (payload?.code || "").toString(), (payload?.milestoneId || "").toString(),
+        payload?.completed !== false, clientIp(req),
+      );
+    }
     if (action === "daily-guide") {
       return await dailyGuide((payload?.code || "").toString(), (payload?.localDate || "").toString(), clientIp(req));
     }
