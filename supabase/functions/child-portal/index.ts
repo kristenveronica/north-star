@@ -44,9 +44,30 @@ function sanitizeChild(child: any): any {
   return c;
 }
 
+const normCode = (code: string) => (code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+// Shared: resolve a child by access code and load their projects + milestones.
+// Returns null (not found) or "ambiguous" on a code collision (fail closed).
+// deno-lint-ignore no-explicit-any
+async function lookupChild(norm: string): Promise<{ child: any; projects: any[]; milestones: any[] } | null | "ambiguous"> {
+  const { data: kids } = await admin
+    .from("children").select("*").eq("access_code", norm).limit(2);
+  if (!kids || kids.length === 0) return null;
+  if (kids.length > 1) return "ambiguous";
+  const child = kids[0];
+  const { data: projects } = await admin.from("projects").select("*").eq("child_id", child.id);
+  const projectIds = (projects || []).map((p: any) => p.id);
+  let milestones: any[] = [];
+  if (projectIds.length) {
+    const { data: ms } = await admin.from("milestones").select("*").in("project_id", projectIds);
+    milestones = ms || [];
+  }
+  return { child, projects: projects || [], milestones };
+}
+
 async function login(code: string, ip: string) {
   // Normalize to the code alphabet only (kills LIKE-wildcard injection like "%").
-  const norm = (code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const norm = normCode(code);
   if (!norm) return json({ error: "missing_code" }, 400);
 
   // Brute-force throttle: at most 10 attempts per IP per 5 minutes.
@@ -56,29 +77,117 @@ async function login(code: string, ip: string) {
   }
   await logSecurityEvent("portal_login_attempt", { ip, identifier: norm });
 
-  // EXACT match — the access code is the credential; no partial/wildcard matching.
-  const { data: kids } = await admin
-    .from("children").select("*").eq("access_code", norm).limit(2);
-  if (!kids || kids.length === 0) {
+  const found = await lookupChild(norm);
+  if (found === null) {
     await logSecurityEvent("portal_login_fail", { ip, identifier: norm });
     return json({ error: "not_found" }, 404);
   }
-  // Fail safe: if a code somehow collides, open NEITHER portal.
-  if (kids.length > 1) return json({ error: "ambiguous" }, 409);
-  const child = kids[0];
+  if (found === "ambiguous") return json({ error: "ambiguous" }, 409);
 
-  const { data: projects } = await admin
-    .from("projects").select("*").eq("child_id", child.id);
-  const projectIds = (projects || []).map((p: any) => p.id);
+  return json({ child: sanitizeChild(found.child), projects: found.projects, milestones: found.milestones });
+}
 
-  let milestones: any[] = [];
-  if (projectIds.length) {
-    const { data: ms } = await admin
-      .from("milestones").select("*").in("project_id", projectIds);
-    milestones = ms || [];
-  }
+// ---------------------------------------------------------------------------
+// Daily Guide line — ONE warm, honest line, generated ≤ 1×/child/local-day and
+// cached in `daily_guide`. Never throws into the portal: any failure (no key,
+// API error, cache miss + generation error) resolves to { line: null } and the
+// dashboard simply shows its evergreen greeting.
+// ---------------------------------------------------------------------------
+const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
+const GUIDE_MODEL = "claude-sonnet-4-6";
+const arr = (v: unknown): string[] => Array.isArray(v) ? v.filter((x) => typeof x === "string" && x.trim()) : [];
 
-  return json({ child: sanitizeChild(child), projects: projects || [], milestones });
+const GUIDE_SYSTEM = `You are a child's trusted Guide in North Star — a warm mentor (like a favourite camp leader), never a chatbot or a cheerleader.
+
+Write ONE short line to greet this child on their dashboard today. Rules:
+- ONE sentence, at most ~16 words, plain words a child their age reads easily.
+- It must be TRUE from the facts given — reference something real: an interest they have, what they made recently, or today's adventure. Never invent facts.
+- Warm and specific, NOT flattery. Do not praise their character ("you're so talented"); notice something real instead.
+- Never manufacture progress ("you're almost a master"). Never pressure. It's fine to simply welcome them.
+- No emoji. No exclamation-mark spam. No question that demands they answer.
+Return JSON: { "line": "<the sentence>" }.`;
+
+const GUIDE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: { line: { type: "string" } },
+  required: ["line"],
+};
+
+// deno-lint-ignore no-explicit-any
+async function generateGuideLine(ctx: any, apiKey: string): Promise<string | null> {
+  const res = await fetch(ANTHROPIC_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({
+      model: GUIDE_MODEL,
+      max_tokens: 200,
+      system: [{ type: "text", text: GUIDE_SYSTEM }],
+      output_config: { format: { type: "json_schema", schema: GUIDE_SCHEMA } },
+      messages: [{ role: "user", content: JSON.stringify(ctx) }],
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.stop_reason === "refusal") return null;
+  const textBlock = (data.content || []).find((b: any) => b.type === "text");
+  const line = (JSON.parse(textBlock?.text || "{}").line || "").toString().trim();
+  return line || null;
+}
+
+async function dailyGuide(code: string, localDateRaw: string, ip: string) {
+  const norm = normCode(code);
+  if (!norm) return json({ line: null });
+  const localDate = /^\d{4}-\d{2}-\d{2}$/.test(localDateRaw || "")
+    ? localDateRaw
+    : new Date().toISOString().slice(0, 10);
+
+  // Light abuse guard on the AI path (cache means real children hit this ~1×/day).
+  if (await recentCount("portal_login_attempt", { ip }, 300) >= 40) return json({ line: null });
+
+  const found = await lookupChild(norm);
+  if (!found || found === "ambiguous") return json({ line: null });
+  const { child, projects, milestones } = found;
+
+  // Return the cached line if one already exists for this child + local day.
+  const { data: cached } = await admin
+    .from("daily_guide").select("line").eq("child_id", child.id).eq("local_date", localDate).maybeSingle();
+  if (cached?.line) return json({ line: cached.line });
+
+  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!apiKey) return json({ line: null });
+
+  // Build a compact, honest context from what we already loaded — no PII.
+  const projById = new Map((projects || []).map((p: any) => [p.id, p]));
+  const completed = (milestones || []).filter((m: any) => m.completed);
+  const recentDone = completed
+    .sort((a: any, b: any) => new Date(b.completed_at || 0).getTime() - new Date(a.completed_at || 0).getTime())
+    .slice(0, 3).map((m: any) => m.title).filter(Boolean);
+  const nextMs = (milestones || [])
+    .filter((m: any) => !m.completed && projById.get(m.project_id)?.status !== "completed")
+    .sort((a: any, b: any) => new Date(a.due_date || 0).getTime() - new Date(b.due_date || 0).getTime())[0];
+  const nextProj = nextMs ? projById.get(nextMs.project_id) : null;
+  const lastDoneAt = completed[0]?.completed_at ? new Date(completed[0].completed_at) : null;
+  const daysSinceLast = lastDoneAt ? Math.floor((Date.now() - lastDoneAt.getTime()) / 86400000) : null;
+
+  const ctx = {
+    name: child.name || "",
+    age: child.age ?? null,
+    interests: arr(child.interests).slice(0, 5),
+    strengths: arr(child.strengths).slice(0, 3),
+    todaysAdventure: nextMs ? { title: nextMs.title, role: nextProj?.quest_role || null } : null,
+    recentlyMade: recentDone,
+    lightsEarned: completed.length,
+    daysSinceLastLight: daysSinceLast,
+    isFirstEver: completed.length === 0,
+  };
+
+  let line: string | null = null;
+  try { line = await generateGuideLine(ctx, apiKey); } catch { line = null; }
+  if (!line) return json({ line: null });
+
+  // Cache (best-effort). Ignore a race where another request wrote first.
+  await admin.from("daily_guide").upsert({ child_id: child.id, local_date: localDate, line }, { onConflict: "child_id,local_date" });
+  return json({ line });
 }
 
 Deno.serve(async (req) => {
@@ -87,6 +196,9 @@ Deno.serve(async (req) => {
   try {
     const { action, payload } = await req.json();
     if (action === "login") return await login((payload?.code || "").toString(), clientIp(req));
+    if (action === "daily-guide") {
+      return await dailyGuide((payload?.code || "").toString(), (payload?.localDate || "").toString(), clientIp(req));
+    }
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (e) {
     console.error("[child-portal] error:", e);

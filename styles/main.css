@@ -4646,6 +4646,17 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 @keyframes cd-note-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 0.96; transform: none; } }
 @keyframes cd-note-out { to { opacity: 0; } }
 
+/* The daily Guide line ("it remembers me"), under the greeting. Fades in when
+   it arrives; empty and invisible until then, so it never reserves blank space. */
+.cd-daily-line {
+  margin: 0; max-width: 34ch;
+  font-family: var(--font-serif); font-size: 16px; line-height: 1.4;
+  color: var(--starlight); text-shadow: 0 1px 10px rgba(20, 25, 40, 0.45);
+  opacity: 0; transition: opacity 0.6s ease;
+}
+.cd-daily-line:empty { display: none; }
+.cd-daily-line--show { opacity: 0.94; }
+
 /* ---- Home ---- */
 .cd-home {
   position: relative; z-index: 1;

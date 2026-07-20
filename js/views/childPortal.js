@@ -10,7 +10,7 @@ import {
   addMilestoneSubmission, removeMilestoneEvidence,
 } from "../store.js";
 import { REFLECTION_PROMPTS } from "../seed.js";
-import { childPortalLogin } from "../lib/childPortalCloud.js";
+import { childPortalLogin, fetchDailyGuideLine } from "../lib/childPortalCloud.js";
 import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
 import { openSubmissionModal } from "../components/submission.js";
@@ -576,6 +576,7 @@ function renderDashboardShell(container, child) {
           <span class="cd-guide-avatar" aria-hidden="true">${nsIcon("spark", { size: 26 })}</span>
           <p class="cd-greeting" role="status">${shellGreeting(child.name)}</p>
         </div>
+        <p class="cd-daily-line"></p>
       </header>
 
       <main class="cd-home">
@@ -595,6 +596,31 @@ function renderDashboardShell(container, child) {
   // rises and the hero advances — surgically, so the arrival animations never replay.
   cdWireBegin(container, child);
   cdWireRelive(container, child);
+  void cdLoadDailyLine(container, child);
+}
+
+// The daily Guide line ("it remembers me") — one warm, honest sentence drawn
+// from the child's real interests + recent work, generated ≤ 1×/day server-side
+// and cached both there and here. Best-effort: silence on any failure, so it can
+// only ever ADD warmth, never delay or break the dashboard.
+function cdTodayLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+async function cdLoadDailyLine(container, child) {
+  const code = child.accessCode;
+  if (!code) return;
+  const date = cdTodayLocal();
+  const key = `ns_daily_guide:${child.id}:${date}`;
+  let line = null;
+  try { line = localStorage.getItem(key); } catch { /* ignore */ }
+  if (!line) {
+    line = await fetchDailyGuideLine(code, date);
+    if (line) { try { localStorage.setItem(key, line); } catch { /* ignore */ } }
+  }
+  if (!line) return;
+  const el = container.querySelector(".cd-daily-line");
+  if (el) { el.textContent = line; el.classList.add("cd-daily-line--show"); }
 }
 
 /* ====== Portal ====== */

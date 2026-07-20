@@ -32,3 +32,16 @@ export async function childPortalLogin(code) {
   loadChildPortalSession({ children: [child], projects, milestones });
   return child;
 }
+
+/** The child's one warm Guide line for today (≤ 1 AI call/child/local-day,
+    cached server-side). Returns the line, or null on any failure — the caller
+    just shows its evergreen greeting instead. Never throws. */
+export async function fetchDailyGuideLine(code, localDate) {
+  try {
+    const { data, error } = await supabase.functions.invoke("child-portal", {
+      body: { action: "daily-guide", payload: { code, localDate } },
+    });
+    if (error || !data) return null;
+    return data.line || null;
+  } catch { return null; }
+}
