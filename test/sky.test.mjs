@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { timeOfDay, renderSky, lightLayout, earnedLightSVG, renderEarnedLights } from "../js/components/sky.js";
+import { timeOfDay, renderSky, lightLayout, earnedLightSVG, renderEarnedLights, skyWarmth } from "../js/components/sky.js";
 
 test("timeOfDay maps hours to the four sky moods", () => {
   assert.equal(timeOfDay(6), "dawn");
@@ -65,4 +65,20 @@ test("renderSky seeds the earned-lights layer and stays decorative", () => {
   assert.match(html, /cd-lights-layer/);
   assert.equal((html.match(/class="cd-light"/g) || []).length, 2);
   assert.match(html, /aria-hidden="true"/);
+});
+
+/* ---- The sky warms as it fills (no number, ever) ---- */
+test("skyWarmth grows with light count but is bounded — years, not weeks", () => {
+  assert.equal(skyWarmth(0), 0);                       // an empty sky adds no warmth
+  assert.ok(skyWarmth(6) > skyWarmth(1), "more lights, warmer sky");
+  assert.ok(skyWarmth(50) >= skyWarmth(12), "keeps warming");
+  assert.ok(skyWarmth(100000) <= 0.6, "capped — never runs away");
+  assert.equal(skyWarmth(-5), 0);                      // never negative
+});
+
+test("renderSky exposes collective warmth as --lumens, 0 for an empty sky", () => {
+  assert.match(renderSky(22, []), /--lumens:0(?![.\d])/);
+  const many = renderSky(22, ["a", "b", "c", "d", "e", "f", "g", "h"]);
+  const m = many.match(/--lumens:([\d.]+)/);
+  assert.ok(m && Number(m[1]) > 0, "a fuller sky glows warmer");
 });

@@ -15,6 +15,7 @@ import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_C
 import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
 import { openSubmissionModal } from "../components/submission.js";
 import { renderSky, earnedLightSVG, lightLayout } from "../components/sky.js";
+import { playSettleTone } from "../components/skySound.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 
 /* ============================================================
@@ -218,8 +219,10 @@ function cdAnnounce(container, msg) {
 
 // One light rises from the finished work up into the sky and fades as the sky
 // settles with its new, permanent light. Campfire, not casino: no burst, no
-// number, no sound — just a small glow the child can watch. Lives on <body> so
-// the surgical hero refresh underneath never removes it mid-flight.
+// number — just a small ember the child can watch find its place. Lives on
+// <body> so the surgical hero refresh underneath never removes it mid-flight.
+// Returns a promise that resolves the instant the ember ARRIVES (a beat before
+// it finishes fading), so the permanent light blooms in one continuous handoff.
 function cdRiseLight(targetEl, id) {
   const sky = document.querySelector(".cd-sky");
   const start = targetEl.getBoundingClientRect();
@@ -229,22 +232,77 @@ function cdRiseLight(targetEl, id) {
   const skyRect = sky ? sky.getBoundingClientRect() : null;
   const ex = skyRect ? skyRect.left + (p.x / 100) * skyRect.width : sx;
   const ey = skyRect ? skyRect.top + (p.y / 100) * skyRect.height : Math.max(24, sy - window.innerHeight * 0.4);
+  const dx = Math.round(ex - sx), dy = Math.round(ey - sy);
   const dot = document.createElement("div");
   dot.className = "cd-risinglight";
   dot.style.left = `${sx}px`;
   dot.style.top = `${sy}px`;
   document.body.appendChild(dot);
-  requestAnimationFrame(() => {
-    dot.style.transform = `translate(${Math.round(ex - sx)}px, ${Math.round(ey - sy)}px) scale(0.65)`;
-    dot.style.opacity = "0.92";
+
+  if (typeof dot.animate !== "function") {         // ancient-browser fallback
+    return new Promise((res) => setTimeout(() => { dot.remove(); res(); }, 200));
+  }
+  // An ember floating up, then curving over into place — an arc, not a straight
+  // line, so it reads as alive rather than mechanical. Same every time (year
+  // five must feel like week one): calm, unhurried, watchable.
+  const anim = dot.animate([
+    { transform: "translate(0,0) scale(1)", opacity: 0.9, offset: 0 },
+    { transform: `translate(${Math.round(dx * 0.18)}px, ${Math.round(dy * 0.34 - 20)}px) scale(0.95)`, opacity: 1, offset: 0.28 },
+    { transform: `translate(${Math.round(dx * 0.82)}px, ${Math.round(dy * 0.82)}px) scale(0.78)`, opacity: 1, offset: 0.72 },
+    { transform: `translate(${dx}px, ${dy}px) scale(0.62)`, opacity: 0, offset: 1 },
+  ], { duration: 1350, easing: "cubic-bezier(.22,.61,.30,1)", fill: "forwards" });
+
+  return new Promise((res) => {
+    let handed = false;
+    const hand = () => { if (!handed) { handed = true; res(); } };
+    setTimeout(hand, 1180);                          // ≈ arrival, before the last fade
+    anim.finished.then(() => { hand(); dot.remove(); }).catch(() => { hand(); dot.remove(); });
   });
-  setTimeout(() => { dot.style.opacity = "0"; }, 1150);
-  setTimeout(() => dot.remove(), 1700);
 }
 
-// Append the child's new permanent light to their sky (gentle fade-in).
+// Append the child's new permanent light to their sky — it blooms softly into
+// place, and (unless motion is reduced) a single faint ring ripples out once,
+// the way a star settles into the night. No confetti, no repeat.
 function cdAddSettledLight(container, id) {
-  container.querySelector(".cd-lights")?.insertAdjacentHTML("beforeend", earnedLightSVG(id, { settling: true }));
+  const g = container.querySelector(".cd-lights");
+  if (!g) return;
+  g.insertAdjacentHTML("beforeend", earnedLightSVG(id, { settling: true }));
+  if (cdReducedMotion()) return;
+  const p = lightLayout(id);
+  g.insertAdjacentHTML(
+    "beforeend",
+    `<circle class="cd-light-ripple" cx="${p.x}%" cy="${p.y}%" r="${p.r}" style="transform-box:fill-box;transform-origin:center"/>`,
+  );
+  const ripple = g.lastElementChild;
+  setTimeout(() => ripple && ripple.remove(), 1300);
+}
+
+// The Guide is silent while the light rises — it must never interrupt the
+// moment. Afterwards it offers ONE quiet, honest observation, but only when the
+// moment is genuinely singular, and at most once per portal session (so words
+// stay rare and precious, like the gold reserved for achievement). Everything
+// richer — remembering yesterday, connecting to an interest — is the AI daily
+// line's job (PR5); this is the honest, offline floor.
+let cdGuideSpokenThisSession = false;
+function cdEarnedGuideLine(childId) {
+  const completed = getChildStats(childId).milestones.filter((m) => m.completed);
+  if (completed.length === 0) return "That's your first light.";        // once in a lifetime
+  const today = new Date().toDateString();
+  const days = completed.map((m) => m.completedAt).filter(Boolean).map((t) => new Date(t).toDateString());
+  if (days.length && !days.includes(today)) return "Welcome back.";      // first light after a day away
+  return null;                                                           // otherwise, let the light speak
+}
+
+// One warm serif line beneath the greeting, on the sky. Fades itself away.
+function cdGuideNote(container, text) {
+  const header = container.querySelector(".cd-header");
+  if (!header) return;
+  header.querySelector(".cd-guide-note")?.remove();
+  const p = document.createElement("p");
+  p.className = "cd-guide-note";
+  p.textContent = text;
+  header.appendChild(p);
+  setTimeout(() => p.remove(), 6200);
 }
 
 // Swap the hero to the next adventure WITHOUT a full re-render, so the arrival
@@ -267,15 +325,24 @@ function cdWireBegin(container, child) {
 // rises into the sky. Momentum is Light, never a number — so NO "+points" toast.
 function cdOpenMission(container, child, m, beginEl) {
   const project = getProject(m.projectId);
+  // Decide whether the Guide has anything genuinely earned to say — computed
+  // from the ledger BEFORE this milestone completes (so "first light" is true).
+  const candidate = cdEarnedGuideLine(child.id);
+
   const settle = () => {
-    cdAnnounce(container, "Your sky is growing.");
-    if (cdReducedMotion()) {
+    const speak = candidate && !cdGuideSpokenThisSession;
+    if (speak) cdGuideSpokenThisSession = true;
+    cdAnnounce(container, speak ? candidate : "Your sky is growing.");
+    const land = () => {
       cdAddSettledLight(container, m.id);
       cdRefreshHero(container, child);
-    } else {
-      cdRiseLight(beginEl, m.id);
-      setTimeout(() => { cdAddSettledLight(container, m.id); cdRefreshHero(container, child); }, 1150);
-    }
+      if (speak) setTimeout(() => cdGuideNote(container, candidate), 650);
+    };
+    if (cdReducedMotion()) { land(); return; }       // still, functional — no rise, no tone
+    cdRiseLight(beginEl, m.id).then(() => {
+      if (isSoundOn()) playSettleTone();              // the star, quietly joining the sky
+      land();
+    });
   };
   openSubmissionModal({
     milestone: m, project,

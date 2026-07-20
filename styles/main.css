@@ -4581,11 +4581,19 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .cd-stars circle { fill: var(--starlight); opacity: 0.55; animation: cd-twinkle 4s ease-in-out infinite; }
 .cd-sky--day .cd-stars { opacity: 0.25; }   /* stars wash out in daylight */
 
-/* gathered-Light placeholder — a soft warm glow (PR3 makes it real) */
+/* Collective glow — the whole sky warms as it fills (--lumens, set by renderSky
+   from the child's light count) and breathes very slowly, so a still sky is
+   never quite static. No number: this IS the wordless "your sky is fuller now". */
 .cd-sky-glow {
   position: absolute; top: 12%; left: 50%; transform: translateX(-50%);
   width: 260px; height: 160px; pointer-events: none;
   background: radial-gradient(closest-side, rgba(232, 181, 71, 0.28), transparent 70%);
+  opacity: calc(0.5 + var(--lumens, 0) * 0.85);
+  animation: cd-glow-breathe 16s ease-in-out infinite;
+}
+@keyframes cd-glow-breathe {
+  0%, 100% { transform: translateX(-50%) scale(1); }
+  50% { transform: translateX(-50%) scale(1.06); }
 }
 /* the fade that blends Sky into Home */
 .cd-sky-fade {
@@ -4605,7 +4613,8 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 /* ---- Header / Guide ---- */
 .cd-header {
   position: relative; z-index: 1;
-  min-height: 34vh; display: flex; align-items: flex-end;
+  min-height: 34vh; display: flex;
+  flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 6px;
   padding: 24px 20px 8px;
   animation: cd-rise 500ms ease-out 120ms both;
   /* Soft scrim so cream text stays legible on the LIGHT lower half of the
@@ -4625,6 +4634,17 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   line-height: 1.35; color: var(--starlight);
   text-shadow: 0 1px 10px rgba(20, 25, 40, 0.45);
 }
+/* One earned Guide line, after the light has settled. Rare by design; fades
+   itself away so it never lingers or becomes clutter. */
+.cd-guide-note {
+  margin: 2px 0 0; max-width: 34ch;
+  font-family: var(--font-serif); font-style: italic; font-weight: 500;
+  font-size: 17px; line-height: 1.4; color: var(--starlight);
+  text-shadow: 0 1px 10px rgba(20, 25, 40, 0.45);
+  animation: cd-note-in 700ms ease-out both, cd-note-out 900ms ease-in 5200ms both;
+}
+@keyframes cd-note-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 0.96; transform: none; } }
+@keyframes cd-note-out { to { opacity: 0; } }
 
 /* ---- Home ---- */
 .cd-home {
@@ -4708,17 +4728,30 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   animation: cd-light-twinkle var(--tw, 5s) ease-in-out infinite;
 }
 .cd-lights circle.cd-light--settling {
-  animation: cd-light-in 1000ms ease-out both;
+  animation: cd-light-in 1050ms cubic-bezier(.2, .8, .25, 1) both;
   transform-box: fill-box; transform-origin: center;
 }
 
-/* The single light that rises from the finished work into the sky. Quiet. */
+/* A single faint ring rippling out as the light lands — the way a star settles
+   into the night. Plays once, then removed from the DOM. */
+.cd-light-ripple {
+  fill: none; stroke: var(--gold); stroke-width: 1; opacity: 0;
+  animation: cd-ripple 1150ms ease-out both;
+}
+@keyframes cd-ripple {
+  0% { opacity: 0; transform: scale(0.6); }
+  22% { opacity: 0.38; }
+  100% { opacity: 0; transform: scale(3.2); }
+}
+
+/* The single ember that rises from the finished work into the sky. The arc +
+   handoff are driven by the Web Animations API (cdRiseLight); this is only its
+   look — a warm point of light. Quiet. */
 .cd-risinglight {
   position: fixed; z-index: 60; width: 14px; height: 14px; margin: -7px 0 0 -7px;
-  border-radius: 50%; pointer-events: none; opacity: 0.85;
+  border-radius: 50%; pointer-events: none;
   background: radial-gradient(circle, rgba(250, 234, 186, 0.95), rgba(232, 181, 71, 0.5) 55%, transparent 72%);
   box-shadow: 0 0 12px 4px rgba(232, 181, 71, 0.5);
-  transition: transform 1150ms cubic-bezier(.2, .7, .2, 1), opacity 550ms ease-out;
   will-change: transform, opacity;
 }
 
@@ -4732,15 +4765,20 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   0%, 100% { opacity: calc(var(--glow, 0.8) * 0.72); }
   50% { opacity: var(--glow, 0.8); }
 }
+/* The permanent light doesn't just appear — it swells past its resting size and
+   breathes back into place. A single soft exhale as it settles. */
 @keyframes cd-light-in {
-  from { opacity: 0; transform: scale(0.3); }
-  to { opacity: var(--glow, 0.8); transform: scale(1); }
+  0% { opacity: 0; transform: scale(0.3); }
+  60% { opacity: 1; transform: scale(1.18); }
+  100% { opacity: var(--glow, 0.8); transform: scale(1); }
 }
 
 /* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
-  .cd-sky, .cd-header, .cd-home, .cd-begin, .cd-stars circle { animation: none !important; }
+  .cd-sky, .cd-header, .cd-home, .cd-begin, .cd-stars circle,
+  .cd-sky-glow, .cd-guide-note { animation: none !important; }
+  .cd-guide-note { opacity: 0.96; }
   .cd-lights circle, .cd-light--settling { animation: none !important; opacity: var(--glow, 0.8); }
-  .cd-risinglight { transition: none; }
+  .cd-light-ripple { display: none; }
   .cd-begin:active { transform: none; }
 }

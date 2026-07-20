@@ -28,16 +28,27 @@ export function timeOfDay(hour) {
   return "night";
 }
 
-/** The full Sky backdrop markup: time-of-day gradient + star field + a
- *  gathered-Light glow placeholder + the fade that blends into Home.
- *  Entirely decorative — hidden from assistive tech. */
+/** How warm the whole sky glows, from how many lights it holds. An asymptotic
+ *  curve — the sky genuinely brightens as it fills and keeps brightening for
+ *  years, but never runs away (capped). No number is ever shown; this is the
+ *  honest, wordless signal that a child's sky is more full than it once was. */
+export function skyWarmth(count) {
+  const n = Math.max(0, Number(count) || 0);
+  return Math.round(Math.min(0.6, 1 - 1 / (1 + n / 6)) * 1000) / 1000;
+}
+
+/** The full Sky backdrop markup: time-of-day gradient + star field + the
+ *  child's own earned lights + a collective glow that warms as the sky fills +
+ *  the fade that blends into Home. Entirely decorative — hidden from assistive
+ *  tech. */
 export function renderSky(hour, earnedIds = []) {
   const tod = timeOfDay(hour);
+  const lum = skyWarmth(earnedIds.length);
   const stars = STARS.map(
     ([x, y, r, d]) => `<circle cx="${x}%" cy="${y}%" r="${r}" style="animation-delay:${d}s"/>`,
   ).join("");
   return `
-    <div class="cd-sky cd-sky--${tod}" aria-hidden="true">
+    <div class="cd-sky cd-sky--${tod}" style="--lumens:${lum}" aria-hidden="true">
       <svg class="cd-stars" preserveAspectRatio="none">${stars}</svg>
       <svg class="cd-lights-layer" preserveAspectRatio="none">${renderEarnedLights(earnedIds)}</svg>
       <div class="cd-sky-glow"></div>
