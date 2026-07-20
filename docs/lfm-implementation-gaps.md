@@ -6,14 +6,7 @@
 
 ## Open
 
-### G1 · Child-portal activity does not write Archive *(priority: high)*
-**What:** Milestone completions performed in the **child portal** do not produce Archive evidence. The completion event flows through `completeMilestone` → the Archive sink (js/app.js), but the sink no-ops when there is no `family` in state, and a child-portal session (access-code auth, not a Supabase `authenticated` family member) both lacks that context **and** would be denied by `family_archive` RLS (`is_family_member`).
-
-**Why it matters:** Understanding would be **disproportionately shaped by parent-side activity** and blind to what children actually do — the opposite of the LFM's intent. Interests/engagement inferred by distillation (migration 0032) would systematically under-weight child-driven completion.
-
-**Likely fix (not yet designed):** a server-side path for child-portal writes — e.g. an edge function invoked by the child-portal session that writes `family_archive` under service role after validating the access-code→child→family binding; or a per-child RLS grant tied to the child portal's auth. Must preserve family isolation. Deferred deliberately; do not solve inside an unrelated slice.
-
-**Introduced:** write-path slice 3 (milestone completion → Archive). **Tracked since:** 2026-07-18.
+*(none currently blocking — see Deferred)*
 
 ---
 
@@ -52,6 +45,9 @@ Distillation has only been proven on controlled evidence. Backfilling the 3 live
 ---
 
 ## Closed
+
+### G1 · Child-portal activity → Archive *(closed 2026-07-20)*
+Child-portal milestone completions were access-code-session writes that `syncCore` drops (childPortalMode early-returns), so they were **local-only** — lost on reload and never Archive evidence. Closed with a server-side path: the `child-portal` edge function's new **`record-completion`** action (service role) validates the code→child→milestone→family binding, then persists the completion to `milestones` + project rollups **and** writes the same factual `family_archive` `milestone_completed`/`milestone_uncompleted` event the parent-side sink writes (`metadata.via='child_portal'`). Family-isolated (foreign milestone → `not_found`); idempotent (Archive id hashes a **canonicalised** `completed_at`, since Postgres round-trips `…Z` as `…+00:00`). Client `recordChildCompletion()` wired into the V2 mission flow + the legacy tap (guarded to `childPortalMode`, complete + undo), fire-and-forget. Verified live on prod (persist, single Archive row, idempotent, isolation, undo-reverts-rollups), test data restored. Commit `d99e050`. NOTE: child-portal **evidence/submissions** (notes, photos) still don't persist server-side — separate follow-up (needs media-storage path for access-code sessions).
 
 ### G3 · Distillation invocation *(closed 2026-07-18)*
 Wired at the natural checkpoint: after a project accept/edit/decline, `fireArchive` (js/views/projects.js) records the Archive entry then calls `runDistillation(family, child)` — deferred/background, non-blocking, failure-isolated from the Archive write. The next generation reads fresh Understanding. (Milestone completions don't trigger distillation — they carry no domain signal for the current categories; revisit if completion-based Understanding is added.)
