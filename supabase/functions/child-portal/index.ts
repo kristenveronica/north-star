@@ -352,12 +352,84 @@ async function recordCompletion(code: string, milestoneId: string, completed: bo
   return json({ ok: true });
 }
 
+// ---------------------------------------------------------------------------
+// Child-portal EVIDENCE uploads (photos / voice / video the child makes).
+//
+// The bucket's RLS requires an authenticated family member, so an access-code
+// session can't upload — evidence was blocked ("please sign in"). This mints a
+// service-role SIGNED UPLOAD URL scoped to the child's own family folder, so the
+// file streams DIRECTLY to Storage (no base64 through the function → handles the
+// full 50 MB) without weakening bucket isolation, then records the DB pointer.
+//
+// Trust Charter: family-isolated (path is always {familyId}/{childId}/…, and a
+// recorded path is rejected unless it lives under exactly that prefix), minimal
+// metadata (path + name/type/size only, never the bytes), and NOTHING here — nor
+// anywhere — sends this media to any third-party AI (no moderation/vision/biometric).
+// ---------------------------------------------------------------------------
+function safeExt(fileName: string): string {
+  const raw = (fileName || "").split(".").pop() || "";
+  const ext = raw.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 8);
+  return ext || "bin";
+}
+
+async function createEvidenceUpload(code: string, milestoneId: string, fileName: string, ip: string) {
+  const norm = normCode(code);
+  if (!norm || !milestoneId) return json({ ok: false, error: "bad_request" }, 400);
+  if (await recentCount("portal_login_attempt", { ip }, 300) >= 120) return json({ ok: false, error: "throttled" }, 429);
+  const found = await lookupChild(norm);
+  if (!found || found === "ambiguous") return json({ ok: false, error: "not_found" }, 404);
+  const { child, milestones } = found;
+  if (!(milestones || []).some((x: any) => x.id === milestoneId)) return json({ ok: false, error: "not_found" }, 404);
+
+  const path = `${child.family_id}/${child.id}/${crypto.randomUUID()}.${safeExt(fileName)}`;
+  const { data, error } = await admin.storage.from("family-media").createSignedUploadUrl(path);
+  if (error || !data?.token) return json({ ok: false, error: "upload_unavailable" }, 500);
+  return json({ ok: true, path, token: data.token });
+}
+
+async function recordEvidence(code: string, milestoneId: string, evidence: any[], ip: string) {
+  const norm = normCode(code);
+  if (!norm || !milestoneId) return json({ ok: false, error: "bad_request" }, 400);
+  if (await recentCount("portal_login_attempt", { ip }, 300) >= 120) return json({ ok: false, error: "throttled" }, 429);
+  const found = await lookupChild(norm);
+  if (!found || found === "ambiguous") return json({ ok: false, error: "not_found" }, 404);
+  const { child, milestones } = found;
+  if (!(milestones || []).some((x: any) => x.id === milestoneId)) return json({ ok: false, error: "not_found" }, 404);
+
+  const prefix = `${child.family_id}/${child.id}/`;
+  const rows: any[] = (Array.isArray(evidence) ? evidence : []).slice(0, 12).map((e: any) => {
+    const kind = e?.kind === "note" ? "note" : e?.kind === "voice" ? "voice" : "upload";
+    const filePath = e?.storagePath ? String(e.storagePath) : null;
+    // Isolation guard: a recorded file path MUST live under this child's own folder.
+    if (kind !== "note" && (!filePath || !filePath.startsWith(prefix))) return null;
+    if (kind === "note" && !(e?.text || "").trim()) return null;
+    return {
+      id: crypto.randomUUID(), milestone_id: milestoneId, child_id: child.id, family_id: child.family_id,
+      kind, text: e?.text ? String(e.text).slice(0, 4000) : null,
+      file_path: filePath, file_name: e?.fileName ? String(e.fileName).slice(0, 300) : null,
+      file_type: e?.fileType ? String(e.fileType).slice(0, 120) : null,
+      file_size: Number.isFinite(e?.fileSize) ? e.fileSize : null,
+    };
+  }).filter(Boolean);
+  if (!rows.length) return json({ ok: true, evidence: [] });
+
+  const { error } = await admin.from("milestone_evidence").insert(rows);
+  if (error) return json({ ok: false, error: "record_failed" }, 500);
+  return json({ ok: true, evidence: rows.map((r: any) => ({ id: r.id, kind: r.kind, storagePath: r.file_path, fileName: r.file_name, fileType: r.file_type, fileSize: r.file_size, text: r.text })) });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
   try {
     const { action, payload } = await req.json();
     if (action === "login") return await login((payload?.code || "").toString(), clientIp(req));
+    if (action === "create-evidence-upload") {
+      return await createEvidenceUpload((payload?.code || "").toString(), (payload?.milestoneId || "").toString(), (payload?.fileName || "").toString(), clientIp(req));
+    }
+    if (action === "record-evidence") {
+      return await recordEvidence((payload?.code || "").toString(), (payload?.milestoneId || "").toString(), payload?.evidence, clientIp(req));
+    }
     if (action === "record-completion") {
       return await recordCompletion(
         (payload?.code || "").toString(), (payload?.milestoneId || "").toString(),
