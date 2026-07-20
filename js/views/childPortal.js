@@ -17,6 +17,7 @@ import { openSubmissionModal } from "../components/submission.js";
 import { renderSky, earnedLightSVG, lightLayout } from "../components/sky.js";
 import { playSettleTone } from "../components/skySound.js";
 import { readAloudSmart, stopVoice } from "../lib/voice.js";
+import { guideAvatar } from "../components/guide.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 
 /* ============================================================
@@ -417,7 +418,7 @@ function cdMissionScreenHTML(m, project) {
       <button class="cd-mission-back" type="button">← Not yet</button>
       <div class="cd-mission-inner">
         <div class="cd-mission-guide">
-          <span class="cd-guide-avatar cd-mission-avatar" aria-hidden="true">${nsIcon("spark", { size: 22 })}</span>
+          <span class="cd-mission-avatar" aria-hidden="true">${guideAvatar({ size: 46 })}</span>
           <p class="cd-mission-guideline">Take your time — I'm right here.</p>
         </div>
         <p class="cd-mission-role">${esc(project?.questRole || "Today's adventure")}</p>
@@ -580,7 +581,7 @@ function renderDashboardShell(container, child) {
 
       <header class="cd-header">
         <div class="cd-guide">
-          <span class="cd-guide-avatar" aria-hidden="true">${nsIcon("spark", { size: 26 })}</span>
+          <span class="cd-guide-avatar" aria-hidden="true">${guideAvatar({ size: 62 })}</span>
           <p class="cd-greeting" role="status">${shellGreeting(child.name)}</p>
         </div>
         <p class="cd-daily-line"></p>

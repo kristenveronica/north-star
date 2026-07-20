@@ -4622,12 +4622,14 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   background: linear-gradient(to top, rgba(27, 37, 56, 0.42), rgba(27, 37, 56, 0) 68%);
 }
 .cd-guide { display: flex; align-items: center; gap: 14px; }
-.cd-guide-avatar {
-  flex: none; width: 64px; height: 64px; border-radius: 50%;
-  display: grid; place-items: center; color: var(--midnight-deep);
-  background: radial-gradient(circle at 30% 30%, var(--gold-soft), var(--gold));
-  box-shadow: 0 0 0 4px rgba(243, 235, 217, 0.18), var(--shadow-md);
-}
+/* The Guide is a character now (guide.js SVG) — the wrapper is just a sizing
+   box; the star carries its own glow. */
+.cd-guide-avatar { flex: none; display: grid; place-items: center; }
+.ns-guide { display: block; filter: drop-shadow(0 3px 8px rgba(226, 154, 60, 0.35)); }
+.ns-guide-body { transform-box: fill-box; transform-origin: center; animation: ns-guide-breathe 5.5s ease-in-out infinite; }
+.ns-guide-spark { animation: ns-guide-twinkle 3.5s ease-in-out infinite; }
+@keyframes ns-guide-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+@keyframes ns-guide-twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 .cd-greeting {
   margin: 0; max-width: 30ch;
   font-family: var(--font-serif); font-weight: 500; font-size: 20px;
@@ -4713,7 +4715,15 @@ small, .small { font-size: 13px; color: var(--text-muted); }
    stays mounted underneath so nothing re-animates when it closes. */
 .cd-mission-screen {
   position: fixed; inset: 0; z-index: 50; overflow-y: auto;
-  background: radial-gradient(120% 60% at 50% -8%, var(--primary-soft, #F6E4D6) 0%, var(--bg) 52%);
+  /* Warm top glow fading into cream, with a faint gold star-sprinkle up high so
+     the page still feels like it lives under the child's sky. */
+  background:
+    radial-gradient(2px 2px at 16% 7%, rgba(232, 181, 71, 0.55), transparent 60%),
+    radial-gradient(1.5px 1.5px at 74% 5%, rgba(232, 181, 71, 0.45), transparent 60%),
+    radial-gradient(1.5px 1.5px at 44% 11%, rgba(232, 181, 71, 0.4), transparent 60%),
+    radial-gradient(2px 2px at 88% 13%, rgba(232, 181, 71, 0.35), transparent 60%),
+    radial-gradient(1.5px 1.5px at 30% 4%, rgba(232, 181, 71, 0.4), transparent 60%),
+    radial-gradient(130% 58% at 50% -8%, var(--primary-soft, #F6E4D6) 0%, var(--bg) 52%);
   animation: cd-mission-in 380ms cubic-bezier(.2, .7, .2, 1) both;
 }
 @keyframes cd-mission-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
@@ -4728,9 +4738,11 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 
 .cd-mission-inner { max-width: 640px; margin: 0 auto; padding: 8px 24px 96px; }
 .cd-mission-role {
-  margin: 20px 0 8px; font-family: var(--font-sans);
+  display: inline-block; margin: 18px 0 12px;
+  padding: 5px 13px; border-radius: var(--r-pill);
+  background: var(--primary-soft); color: var(--primary-ink, var(--primary));
+  font-family: var(--font-sans);
   font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--primary-ink, var(--primary));
 }
 .cd-mission-title {
   margin: 0 0 14px; font-family: var(--font-serif); font-weight: 500;
@@ -4739,8 +4751,8 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 .cd-mission-story { margin: 0 0 22px; font-size: 18px; line-height: 1.55; color: var(--text-muted); }
 
 /* Guide companion — you're accompanied, not handed a worksheet. */
-.cd-mission-guide { display: flex; align-items: center; gap: 10px; margin: 6px 0 18px; }
-.cd-mission-avatar { width: 40px; height: 40px; box-shadow: 0 0 0 3px rgba(232, 181, 71, 0.18), var(--shadow-sm); }
+.cd-mission-guide { display: flex; align-items: center; gap: 12px; margin: 6px 0 18px; }
+.cd-mission-avatar { flex: none; display: grid; place-items: center; }
 .cd-mission-guideline { margin: 0; font-family: var(--font-serif); font-style: italic; font-size: 16px; color: var(--text-muted); }
 
 /* Read to me */
@@ -4909,7 +4921,8 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 /* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   .cd-sky, .cd-header, .cd-home, .cd-begin, .cd-stars circle,
-  .cd-sky-glow, .cd-guide-note, .cd-mission-screen, .cd-step { animation: none !important; }
+  .cd-sky-glow, .cd-guide-note, .cd-mission-screen, .cd-step,
+  .ns-guide-body, .ns-guide-spark { animation: none !important; }
   .cd-guide-note { opacity: 0.96; }
   .cd-lights circle, .cd-light--settling { animation: none !important; opacity: var(--glow, 0.8); }
   .cd-light-ripple { display: none; }
