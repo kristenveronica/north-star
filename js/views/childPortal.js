@@ -223,11 +223,17 @@ function cdAnnounce(container, msg) {
 // <body> so the surgical hero refresh underneath never removes it mid-flight.
 // Returns a promise that resolves the instant the ember ARRIVES (a beat before
 // it finishes fading), so the permanent light blooms in one continuous handoff.
-function cdRiseLight(targetEl, id) {
+function cdRiseLight(origin, id) {
   const sky = document.querySelector(".cd-sky");
-  const start = targetEl.getBoundingClientRect();
-  const sx = start.left + start.width / 2;
-  const sy = start.top + start.height / 2;
+  // origin may be an element (Begin) or a captured {x,y} point (when the
+  // mission page has already closed and its button is gone from the DOM).
+  let sx, sy;
+  if (origin && typeof origin.getBoundingClientRect === "function") {
+    const r = origin.getBoundingClientRect();
+    sx = r.left + r.width / 2; sy = r.top + r.height / 2;
+  } else {
+    sx = origin.x; sy = origin.y;
+  }
   const p = lightLayout(id);
   const skyRect = sky ? sky.getBoundingClientRect() : null;
   const ex = skyRect ? skyRect.left + (p.x / 100) * skyRect.width : sx;
@@ -318,12 +324,61 @@ function cdWireBegin(container, child) {
   const beginEl = container.querySelector(".cd-begin[data-ms]");
   if (!beginEl) return;
   const mission = resolveTodayMission(child);
-  if (mission) beginEl.addEventListener("click", () => cdOpenMission(container, child, mission, beginEl));
+  if (mission) beginEl.addEventListener("click", () => cdOpenMissionView(container, child, mission));
 }
 
 // Begin opens the REAL mission (reused submission flow). On completion the light
 // rises into the sky. Momentum is Light, never a number — so NO "+points" toast.
-function cdOpenMission(container, child, m, beginEl) {
+// The full-screen mission page — what the adventure actually IS and how to do
+// it, in the warm V2 register. Reuses the milestone's own story + steps (the
+// same fields the legacy openMissionDetail showed). "I did it" flows into the
+// real capture; "Not yet" simply returns to the sky. Read-aloud of the steps
+// is its own later PR — the words are all here and legible now.
+function cdMissionScreenHTML(m, project) {
+  const steps = Array.isArray(m.instructions) ? m.instructions : [];
+  return `
+    <div class="cd-mission" role="dialog" aria-modal="true" aria-label="Your mission">
+      <button class="cd-mission-back" type="button">← Not yet</button>
+      <div class="cd-mission-inner">
+        <p class="cd-mission-role">${esc(project?.questRole || "Today's adventure")}</p>
+        <h1 class="cd-mission-title">${esc(m.title)}</h1>
+        ${m.description ? `<p class="cd-mission-story">${esc(m.description)}</p>` : ""}
+        ${steps.length ? `
+          <div class="cd-mission-steps">
+            <p class="cd-mission-steps-label">Your steps</p>
+            <ol>${steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+          </div>`
+          : `<p class="cd-mission-story">When you're ready, go for it — then come back and tell me how it went.</p>`}
+        <button class="cd-begin cd-mission-done" type="button">I did it</button>
+      </div>
+    </div>`;
+}
+
+// Begin opens the mission page over the sky (the dashboard stays mounted
+// underneath, untouched, so its arrival animations never replay).
+function cdOpenMissionView(container, child, m) {
+  const root = container.querySelector(".cd");
+  if (!root) return;
+  const project = getProject(m.projectId);
+  const screen = document.createElement("div");
+  screen.className = "cd-mission-screen";
+  screen.innerHTML = cdMissionScreenHTML(m, project);
+  root.appendChild(screen);
+  screen.scrollTop = 0;
+  const close = () => screen.remove();
+  screen.querySelector(".cd-mission-back")?.addEventListener("click", close);
+  screen.querySelector(".cd-mission-done")?.addEventListener("click", (e) => {
+    // Capture where the light should launch from BEFORE the page closes.
+    const r = e.currentTarget.getBoundingClientRect();
+    const origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    cdCompleteMission(container, child, m, origin, close);
+  });
+}
+
+// The capture + completion flow. On completion: close the mission page (so the
+// sky is visible), then the light rises from `origin` and settles. Momentum is
+// Light, never a number — so NO "+points" toast.
+function cdCompleteMission(container, child, m, origin, onBefore) {
   const project = getProject(m.projectId);
   // Decide whether the Guide has anything genuinely earned to say — computed
   // from the ledger BEFORE this milestone completes (so "first light" is true).
@@ -332,14 +387,15 @@ function cdOpenMission(container, child, m, beginEl) {
   const settle = () => {
     const speak = candidate && !cdGuideSpokenThisSession;
     if (speak) cdGuideSpokenThisSession = true;
+    onBefore?.();                                     // reveal the sky before the light lands
     cdAnnounce(container, speak ? candidate : "Your sky is growing.");
     const land = () => {
       cdAddSettledLight(container, m.id);
       cdRefreshHero(container, child);
       if (speak) setTimeout(() => cdGuideNote(container, candidate), 650);
     };
-    if (cdReducedMotion()) { land(); return; }       // still, functional — no rise, no tone
-    cdRiseLight(beginEl, m.id).then(() => {
+    if (cdReducedMotion()) { land(); return; }        // still, functional — no rise, no tone
+    cdRiseLight(origin, m.id).then(() => {
       if (isSoundOn()) playSettleTone();              // the star, quietly joining the sky
       land();
     });

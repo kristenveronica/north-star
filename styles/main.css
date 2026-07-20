@@ -4696,6 +4696,51 @@ small, .small { font-size: 13px; color: var(--text-muted); }
   background: rgba(255, 255, 255, 0.4); border: 1px dashed var(--border-strong);
 }
 
+/* ---- The mission page (Begin → what to do) ---- */
+/* A calm full-screen "step into the adventure": the story + the numbered steps,
+   in the warm Home register where doing lives. Sits over the dashboard, which
+   stays mounted underneath so nothing re-animates when it closes. */
+.cd-mission-screen {
+  position: fixed; inset: 0; z-index: 50; overflow-y: auto;
+  background: radial-gradient(120% 60% at 50% -8%, var(--primary-soft, #F6E4D6) 0%, var(--bg) 52%);
+  animation: cd-mission-in 380ms cubic-bezier(.2, .7, .2, 1) both;
+}
+@keyframes cd-mission-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+.cd-mission-back {
+  position: sticky; top: 0; margin: 14px 0 0 12px;
+  border: 0; background: transparent; cursor: pointer;
+  font-family: var(--font-sans); font-size: 15px; font-weight: 600;
+  color: var(--text-muted); padding: 8px 12px; border-radius: var(--r-pill);
+}
+.cd-mission-back:hover { background: rgba(0, 0, 0, 0.05); color: var(--text); }
+
+.cd-mission-inner { max-width: 640px; margin: 0 auto; padding: 8px 24px 96px; }
+.cd-mission-role {
+  margin: 20px 0 8px; font-family: var(--font-sans);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--primary-ink, var(--primary));
+}
+.cd-mission-title {
+  margin: 0 0 14px; font-family: var(--font-serif); font-weight: 500;
+  font-size: 32px; line-height: 1.15; color: var(--text);
+}
+.cd-mission-story { margin: 0 0 22px; font-size: 18px; line-height: 1.55; color: var(--text-muted); }
+.cd-mission-steps {
+  background: var(--card, #fff); border-radius: var(--r-xl);
+  box-shadow: var(--shadow-md); padding: 20px 22px; margin-bottom: 28px;
+}
+.cd-mission-steps-label {
+  margin: 0 0 12px; font-family: var(--font-sans);
+  font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-soft);
+}
+.cd-mission-steps ol { margin: 0; padding-left: 22px; }
+.cd-mission-steps li { margin-bottom: 12px; font-size: 17px; line-height: 1.5; color: var(--text); }
+.cd-mission-steps li:last-child { margin-bottom: 0; }
+.cd-mission-steps li::marker { color: var(--primary); font-weight: 700; }
+.cd-mission-done { max-width: 420px; margin: 0 auto; }  /* inherits .cd-begin */
+
 /* ---- Focus ---- */
 .cd :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
 
@@ -4776,7 +4821,7 @@ small, .small { font-size: 13px; color: var(--text-muted); }
 /* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
   .cd-sky, .cd-header, .cd-home, .cd-begin, .cd-stars circle,
-  .cd-sky-glow, .cd-guide-note { animation: none !important; }
+  .cd-sky-glow, .cd-guide-note, .cd-mission-screen { animation: none !important; }
   .cd-guide-note { opacity: 0.96; }
   .cd-lights circle, .cd-light--settling { animation: none !important; opacity: var(--glow, 0.8); }
   .cd-light-ripple { display: none; }
