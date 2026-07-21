@@ -32,3 +32,72 @@ export async function childPortalLogin(code) {
   loadChildPortalSession({ children: [child], projects, milestones });
   return child;
 }
+
+/** The child's one warm Guide line for today (≤ 1 AI call/child/local-day,
+    cached server-side). Returns the line, or null on any failure — the caller
+    just shows its evergreen greeting instead. Never throws. */
+export async function fetchDailyGuideLine(code, localDate) {
+  try {
+    const { data, error } = await supabase.functions.invoke("child-portal", {
+      body: { action: "daily-guide", payload: { code, localDate } },
+    });
+    if (error || !data) return null;
+    return data.line || null;
+  } catch { return null; }
+}
+
+/** Persist a milestone completion (or undo) done in the child portal, server-side.
+    The child portal is an access-code session that can't write through RLS, so
+    without this a completion is local-only (lost on reload) and never becomes
+    Archive evidence. Fire-and-forget; never throws — the light already rose. */
+export async function recordChildCompletion(code, milestoneId, completed = true) {
+  try {
+    const { data, error } = await supabase.functions.invoke("child-portal", {
+      body: { action: "record-completion", payload: { code, milestoneId, completed } },
+    });
+    if (error || !data) return false;
+    return !!data.ok;
+  } catch { return false; }
+}
+
+/** Upload one evidence file from a child-portal session. Mints a service-role
+    signed upload URL (scoped to the family's own folder), then streams the file
+    straight to Storage — no bytes pass through the function. Returns the durable
+    { storagePath, ... } like uploadFamilyMedia, or null on failure. */
+export async function uploadChildEvidence(code, milestoneId, file) {
+  try {
+    const { data, error } = await supabase.functions.invoke("child-portal", {
+      body: { action: "create-evidence-upload", payload: { code, milestoneId, fileName: file.name } },
+    });
+    if (error || !data?.ok || !data.token || !data.path) return null;
+    const { error: upErr } = await supabase.storage.from("family-media").uploadToSignedUrl(data.path, data.token, file);
+    if (upErr) return null;
+    return { storagePath: data.path, fileName: file.name, fileType: file.type, fileSize: file.size };
+  } catch { return null; }
+}
+
+/** Persist evidence pointers (notes + uploaded files) for a milestone completed
+    in the child portal. `evidence` = [{ kind, text?, storagePath?, fileName?, fileType?, fileSize? }].
+    Returns the stored rows (with ids), or null. Never throws. */
+export async function recordChildEvidence(code, milestoneId, evidence) {
+  try {
+    const { data, error } = await supabase.functions.invoke("child-portal", {
+      body: { action: "record-evidence", payload: { code, milestoneId, evidence } },
+    });
+    if (error || !data?.ok) return null;
+    return Array.isArray(data.evidence) ? data.evidence : [];
+  } catch { return null; }
+}
+
+/** AI narration for the mission read-aloud. `chunks` = [{ id, text }].
+    Returns [{ id, audio }] (audio = base64 MP3, or null per chunk), or null if
+    TTS is unavailable/unconfigured — caller then falls back to the browser voice. */
+export async function fetchTts(code, chunks) {
+  try {
+    const { data, error } = await supabase.functions.invoke("child-portal", {
+      body: { action: "tts", payload: { code, chunks } },
+    });
+    if (error || !data || data.error) return null;
+    return Array.isArray(data.chunks) ? data.chunks : null;
+  } catch { return null; }
+}

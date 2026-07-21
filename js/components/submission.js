@@ -12,6 +12,7 @@
 import { esc, toast, openModal } from "./ui.js";
 import { getState } from "../store.js";
 import { uploadFamilyMedia, MAX_FILE_BYTES } from "../lib/storage.js";
+import { uploadChildEvidence, recordChildEvidence } from "../lib/childPortalCloud.js";
 
 const MAX_IMAGE_PX = 1400;
 const IMG_QUALITY = 0.8;
@@ -147,10 +148,16 @@ export function openSubmissionModal({ milestone, project, onSubmit, onSkip }) {
   foot.querySelector("[data-submit]").addEventListener("click", async () => {
     const submitBtn = foot.querySelector("[data-submit]");
     const text = body.querySelector("#sub-text").value.trim();
-    const familyId = getState()?.family?.id;
+    const state = getState();
+    const portal = !!state?.meta?.childPortalMode;               // access-code session?
+    const portalCode = portal ? state.children?.[0]?.accessCode : null;
+    const familyId = state?.family?.id;
     const childId = project?.childId || null;
+    const milestoneId = milestone?.id;
 
-    if (pending.length && !familyId) {
+    // Uploading a file needs EITHER an authenticated family (parent) OR a valid
+    // child-portal code (child). Children upload via a service-role signed URL.
+    if (pending.length && !familyId && !portalCode) {
       toast("Please make sure you're signed in before uploading files.", { type: "warning" });
       return;
     }
@@ -164,14 +171,22 @@ export function openSubmissionModal({ milestone, project, onSubmit, onSkip }) {
         const p = pending[i];
         submitBtn.textContent = pending.length > 1 ? `Uploading ${i + 1}/${pending.length}…` : "Uploading…";
         const fileObj = new File([p.blob], p.fileName, { type: p.fileType });
-        const up = await uploadFamilyMedia(fileObj, { familyId, childId });
+        const up = portal
+          ? await uploadChildEvidence(portalCode, milestoneId, fileObj)
+          : await uploadFamilyMedia(fileObj, { familyId, childId });
+        if (!up) throw new Error("upload failed");
         evidence.push({
           kind: "upload",
-          fileName: up.fileName,
+          fileName: up.fileName || p.fileName,
           fileType: p.fileType,
           fileSize: p.fileSize,
-          storagePath: up.path,   // durable cloud reference — never base64
+          storagePath: up.storagePath || up.path,   // durable cloud reference — never base64
         });
+      }
+      // A child-portal session can't sync through RLS, so persist the evidence
+      // pointers server-side (charter: family-isolated, minimal metadata).
+      if (portal && portalCode && evidence.length) {
+        recordChildEvidence(portalCode, milestoneId, evidence);
       }
       pending.forEach(p => { try { URL.revokeObjectURL(p.previewUrl); } catch { /* ignore */ } });
       modal.close();
@@ -204,8 +219,16 @@ function fileTypeLabel(type) {
   return type.split("/")[1]?.toUpperCase().slice(0, 4) || "FILE";
 }
 
-// Resize an oversized photo and return a JPEG blob ready to upload. Falls back to
-// the original file if anything goes wrong — never blocks a submission over this.
+// Resize an oversized photo and return a JPEG blob ready to upload.
+//
+// TRUST-CHARTER PRIVACY BOUNDARY (data minimisation / child privacy): the canvas
+// re-encode below ALSO strips ALL image metadata — including EXIF GPS, i.e. where
+// a child lives. This is intentional, not incidental: it must ALWAYS re-encode
+// every image (never add a "skip if small" fast-path), so we never collect a
+// child's location. See docs/data-charter-compliance.md.
+// Residual: undecodable formats (e.g. HEIC on Chrome) fall back to the original
+// file unchanged — documented; most child devices (iPad/iPhone → Safari) decode
+// and strip. Falls back to the original on any error — never blocks a submission.
 async function compressImage(file) {
   const objUrl = URL.createObjectURL(file);
   try {

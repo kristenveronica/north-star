@@ -10,10 +10,14 @@ import {
   addMilestoneSubmission, removeMilestoneEvidence,
 } from "../store.js";
 import { REFLECTION_PROMPTS } from "../seed.js";
-import { childPortalLogin } from "../lib/childPortalCloud.js";
+import { childPortalLogin, fetchDailyGuideLine, recordChildCompletion } from "../lib/childPortalCloud.js";
 import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
 import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
 import { openSubmissionModal } from "../components/submission.js";
+import { renderSky, earnedLightSVG, lightLayout } from "../components/sky.js";
+import { playSettleTone } from "../components/skySound.js";
+import { readAloudSmart, stopVoice } from "../lib/voice.js";
+import { guideAvatar } from "../components/guide.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 
 /* ============================================================
@@ -54,10 +58,14 @@ function handleMilestoneTap(milestoneId, targetEl, afterChange) {
   const s = getState();
   const m = s.milestones.find(x => x.id === milestoneId);
   if (!m) return;
+  // In a child-portal session, persist the completion server-side (it can't sync
+  // through RLS), so it survives reload AND becomes Archive evidence (LFM G1).
+  const portalCode = s.meta?.childPortalMode ? s.children[0]?.accessCode : null;
 
   // Toggle-off path: tap a completed star to undo (mistake recovery)
   if (m.completed) {
     completeMilestone(milestoneId);
+    if (portalCode) recordChildCompletion(portalCode, milestoneId, false);
     toast("Star removed");
     setTimeout(() => afterChange?.(), 250);
     return;
@@ -68,6 +76,7 @@ function handleMilestoneTap(milestoneId, targetEl, afterChange) {
     milestone: m, project,
     onSkip: () => {
       completeMilestone(milestoneId);
+      if (portalCode) recordChildCompletion(portalCode, milestoneId, true);
       celebrateMilestone(targetEl);
       const after = getState().milestones.find(x => x.id === milestoneId);
       toast(`Star earned! +${after?.momentumPoints || 0} Momentum Points`, { type: "success", duration: 3000 });
@@ -81,6 +90,7 @@ function handleMilestoneTap(milestoneId, targetEl, afterChange) {
     onSubmit: (payload) => {
       addMilestoneSubmission(milestoneId, payload);
       completeMilestone(milestoneId);
+      if (portalCode) recordChildCompletion(portalCode, milestoneId, true);
       celebrateMilestone(targetEl);
       const after = getState().milestones.find(x => x.id === milestoneId);
       const evCount = (payload.evidence || []).length;
@@ -160,6 +170,473 @@ export function renderChildLogin(container) {
   container.querySelector("#pin").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
 }
 
+/* ====== Child Dashboard V2 — shell (PR1) ======
+   Structure + feel only: the Sky backdrop, three-zone layout, Guide greeting,
+   Today Hero and Latest Light are in place; their DATA and wiring arrive in
+   later PRs (controls carry a [data-todo] marker and are inert by design).
+   Gated behind a flag so `main` stays shippable through the rebuild — enable in
+   a browser console with:  localStorage.setItem('ns_child_dashboard_v2','1')
+   The legacy dashboard body is deleted once the V2 series completes. */
+function childDashboardV2Enabled() {
+  try { return localStorage.getItem("ns_child_dashboard_v2") === "1"; }
+  catch { return false; }
+}
+
+// Warm, evergreen greeting. Also the fallback shown until the personal daily
+// Guide line (PR5) is ready, so arrival is never blocked on the network.
+function shellGreeting(name) {
+  const who = esc(name || "friend");
+  const h = new Date().getHours();
+  if (h < 5) return `The stars are still out, ${who}.`;
+  if (h < 12) return `Good morning, ${who}.`;
+  if (h < 17) return `Good afternoon, ${who}.`;
+  if (h < 20) return `Good evening, ${who}.`;
+  return `Evening, ${who}.`;
+}
+
+// Today's adventure = the child's earliest-due incomplete mission (one, never a list).
+function resolveTodayMission(child) {
+  const active = (getActiveMilestonesForChild(child.id) || []).filter(m => !m.completed);
+  active.sort((a, b) => {
+    const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+    const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+    return da - db;
+  });
+  return active[0] || null;
+}
+
+// First sentence of a description, clamped — the hero's one-line hook.
+function firstSentence(text, max = 140) {
+  const t = (text || "").trim();
+  if (!t) return "";
+  const s = t.split(/(?<=[.!?])\s/)[0];
+  return s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s;
+}
+
+const cdReducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia
+    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    : false;
+
+// The accessible equivalent of the light rising — a quiet, non-visual note for
+// screen-reader users. Never a number, never "+points".
+function cdAnnounce(container, msg) {
+  const el = container.querySelector(".cd-sr");
+  if (el) el.textContent = msg;
+}
+
+// One light rises from the finished work up into the sky and fades as the sky
+// settles with its new, permanent light. Campfire, not casino: no burst, no
+// number — just a small ember the child can watch find its place. Lives on
+// <body> so the surgical hero refresh underneath never removes it mid-flight.
+// Returns a promise that resolves the instant the ember ARRIVES (a beat before
+// it finishes fading), so the permanent light blooms in one continuous handoff.
+function cdRiseLight(origin, id) {
+  const sky = document.querySelector(".cd-sky");
+  // origin may be an element (Begin) or a captured {x,y} point (when the
+  // mission page has already closed and its button is gone from the DOM).
+  let sx, sy;
+  if (origin && typeof origin.getBoundingClientRect === "function") {
+    const r = origin.getBoundingClientRect();
+    sx = r.left + r.width / 2; sy = r.top + r.height / 2;
+  } else {
+    sx = origin.x; sy = origin.y;
+  }
+  const p = lightLayout(id);
+  const skyRect = sky ? sky.getBoundingClientRect() : null;
+  const ex = skyRect ? skyRect.left + (p.x / 100) * skyRect.width : sx;
+  const ey = skyRect ? skyRect.top + (p.y / 100) * skyRect.height : Math.max(24, sy - window.innerHeight * 0.4);
+  const dx = Math.round(ex - sx), dy = Math.round(ey - sy);
+  const dot = document.createElement("div");
+  dot.className = "cd-risinglight";
+  dot.style.left = `${sx}px`;
+  dot.style.top = `${sy}px`;
+  document.body.appendChild(dot);
+
+  if (typeof dot.animate !== "function") {         // ancient-browser fallback
+    return new Promise((res) => setTimeout(() => { dot.remove(); res(); }, 200));
+  }
+  // An ember floating up, then curving over into place — an arc, not a straight
+  // line, so it reads as alive rather than mechanical. Same every time (year
+  // five must feel like week one): calm, unhurried, watchable.
+  const anim = dot.animate([
+    { transform: "translate(0,0) scale(1)", opacity: 0.9, offset: 0 },
+    { transform: `translate(${Math.round(dx * 0.18)}px, ${Math.round(dy * 0.34 - 20)}px) scale(0.95)`, opacity: 1, offset: 0.28 },
+    { transform: `translate(${Math.round(dx * 0.82)}px, ${Math.round(dy * 0.82)}px) scale(0.78)`, opacity: 1, offset: 0.72 },
+    { transform: `translate(${dx}px, ${dy}px) scale(0.62)`, opacity: 0, offset: 1 },
+  ], { duration: 1350, easing: "cubic-bezier(.22,.61,.30,1)", fill: "forwards" });
+
+  return new Promise((res) => {
+    let handed = false;
+    const hand = () => { if (!handed) { handed = true; res(); } };
+    setTimeout(hand, 1180);                          // ≈ arrival, before the last fade
+    anim.finished.then(() => { hand(); dot.remove(); }).catch(() => { hand(); dot.remove(); });
+  });
+}
+
+// Append the child's new permanent light to their sky — it blooms softly into
+// place, and (unless motion is reduced) a single faint ring ripples out once,
+// the way a star settles into the night. No confetti, no repeat.
+function cdAddSettledLight(container, id) {
+  const g = container.querySelector(".cd-lights");
+  if (!g) return;
+  g.insertAdjacentHTML("beforeend", earnedLightSVG(id, { settling: true }));
+  if (cdReducedMotion()) return;
+  const p = lightLayout(id);
+  g.insertAdjacentHTML(
+    "beforeend",
+    `<circle class="cd-light-ripple" cx="${p.x}%" cy="${p.y}%" r="${p.r}" style="transform-box:fill-box;transform-origin:center"/>`,
+  );
+  const ripple = g.lastElementChild;
+  setTimeout(() => ripple && ripple.remove(), 1300);
+}
+
+// The Guide is silent while the light rises — it must never interrupt the
+// moment. Afterwards it offers ONE quiet, honest observation, but only when the
+// moment is genuinely singular, and at most once per portal session (so words
+// stay rare and precious, like the gold reserved for achievement). Everything
+// richer — remembering yesterday, connecting to an interest — is the AI daily
+// line's job (PR5); this is the honest, offline floor.
+let cdGuideSpokenThisSession = false;
+function cdEarnedGuideLine(childId) {
+  const completed = getChildStats(childId).milestones.filter((m) => m.completed);
+  if (completed.length === 0) return "That's your first light.";        // once in a lifetime
+  const today = new Date().toDateString();
+  const days = completed.map((m) => m.completedAt).filter(Boolean).map((t) => new Date(t).toDateString());
+  if (days.length && !days.includes(today)) return "Welcome back.";      // first light after a day away
+  return null;                                                           // otherwise, let the light speak
+}
+
+// One warm serif line beneath the greeting, on the sky. Fades itself away.
+function cdGuideNote(container, text) {
+  const header = container.querySelector(".cd-header");
+  if (!header) return;
+  header.querySelector(".cd-guide-note")?.remove();
+  const p = document.createElement("p");
+  p.className = "cd-guide-note";
+  p.textContent = text;
+  header.appendChild(p);
+  setTimeout(() => p.remove(), 6200);
+}
+
+// Swap the hero to the next adventure WITHOUT a full re-render, so the arrival
+// animations never replay. Re-wires Begin for the new mission.
+function cdRefreshHero(container, child) {
+  const hero = container.querySelector(".cd-hero");
+  if (!hero) return;
+  hero.innerHTML = renderTodayHero(resolveTodayMission(child));
+  cdWireBegin(container, child);
+}
+
+function cdWireBegin(container, child) {
+  const beginEl = container.querySelector(".cd-begin[data-ms]");
+  if (!beginEl) return;
+  const mission = resolveTodayMission(child);
+  if (mission) beginEl.addEventListener("click", () => cdOpenMissionView(container, child, mission));
+}
+
+/* ---- Latest Light — the newest thing the child made, tap to relive ---- */
+// Pulls the most recent creation from the ledger: a photo/voice/video/file they
+// added, or the note they wrote. Newest wins. Reuses renderEvidenceTile.
+function cdLatestCreation(child) {
+  const ms = getChildStats(child.id).milestones;
+  const items = [];
+  ms.forEach((m) => {
+    (m.evidence || []).forEach((e) => items.push({ kind: "evidence", ev: e, at: e.createdAt, title: m.title }));
+    const sub = m.submission;
+    if (sub && (sub.text || sub.voiceTranscript)) {
+      items.push({ kind: "note", text: sub.text || sub.voiceTranscript, at: sub.submittedAt, title: m.title });
+    }
+  });
+  items.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+  return items[0] || null;
+}
+
+function cdLatestLightHTML(child) {
+  const latest = cdLatestCreation(child);
+  if (!latest) {
+    return `<div class="cd-light-tile cd-light-tile--empty">The first thing you make will glow here.</div>`;
+  }
+  const title = latest.title ? esc(latest.title) : "Your latest light";
+  let media;
+  if (latest.kind === "evidence") {
+    const ev = latest.ev;
+    if (ev.fileType?.startsWith("image/") && ev.dataUrl) {
+      media = `<span class="cd-latest-media" style="background-image:url('${ev.dataUrl}')"></span>`;
+    } else {
+      const glyph = ev.fileType?.startsWith("video/") ? "▶" : ev.fileType?.startsWith("audio/") ? "♪" : "✦";
+      media = `<span class="cd-latest-media cd-latest-media--icon">${glyph}</span>`;
+    }
+  } else {
+    media = `<span class="cd-latest-media cd-latest-media--note">${esc(firstSentence(latest.text, 60))}</span>`;
+  }
+  return `
+    <button class="cd-light-tile cd-latest" type="button" aria-label="Relive: ${title}">
+      ${media}
+      <span class="cd-latest-cap">
+        <span class="cd-latest-cap-label">Latest light</span>
+        <span class="cd-latest-cap-title">${title}</span>
+      </span>
+    </button>`;
+}
+
+// Relive — a calm larger look at the newest creation.
+function cdRelive(child) {
+  const latest = cdLatestCreation(child);
+  if (!latest) return;
+  const body = document.createElement("div");
+  if (latest.kind === "evidence") {
+    body.innerHTML = `<div class="evidence-grid">${renderEvidenceTile(latest.ev, null, latest.title)}</div>`;
+  } else {
+    body.innerHTML = `<p style="font-size:17px;line-height:1.5">${esc(latest.text)}</p>
+      ${latest.title ? `<p class="small text-muted" style="margin-top:10px">From: ${esc(latest.title)}</p>` : ""}`;
+  }
+  openModal({ title: "Latest light", body });
+}
+
+function cdWireRelive(container, child) {
+  container.querySelector(".cd-lookback .cd-latest")?.addEventListener("click", () => cdRelive(child));
+}
+
+// After a completion, the newest creation may have changed — refresh in place.
+function cdRefreshLookback(container, child) {
+  const sec = container.querySelector(".cd-lookback");
+  if (!sec) return;
+  sec.innerHTML = `<p class="cd-lookback-label">Look back</p>${cdLatestLightHTML(child)}`;
+  cdWireRelive(container, child);
+}
+
+// Begin opens the REAL mission (reused submission flow). On completion the light
+// rises into the sky. Momentum is Light, never a number — so NO "+points" toast.
+// The full-screen mission page — what the adventure actually IS and how to do
+// it, in the warm V2 register. Reuses the milestone's own story + steps (the
+// same fields the legacy openMissionDetail showed). "I did it" flows into the
+// real capture; "Not yet" simply returns to the sky. Read-aloud of the steps
+// is its own later PR — the words are all here and legible now.
+function cdMissionScreenHTML(m, project) {
+  const steps = Array.isArray(m.instructions) ? m.instructions : [];
+  const readBtn = `<button class="cd-readaloud" type="button" aria-pressed="false">
+         <span class="cd-readaloud-ico" aria-hidden="true">▶</span>
+         <span class="cd-readaloud-label">Read to me</span>
+       </button>`;
+  return `
+    <div class="cd-mission" role="dialog" aria-modal="true" aria-label="Your mission">
+      <button class="cd-mission-back" type="button">← Not yet</button>
+      <div class="cd-mission-inner">
+        <div class="cd-mission-guide">
+          <span class="cd-mission-avatar" aria-hidden="true">${guideAvatar({ size: 46 })}</span>
+          <p class="cd-mission-guideline">Take your time — I'm right here.</p>
+        </div>
+        <p class="cd-mission-role">${esc(project?.questRole || "Today's adventure")}</p>
+        <h1 class="cd-mission-title">${esc(m.title)}</h1>
+        ${m.description ? `<p class="cd-mission-story">${esc(m.description)}</p>` : ""}
+        ${readBtn}
+        ${steps.length ? `
+          <div class="cd-mission-steps">
+            <p class="cd-mission-steps-label">Your steps</p>
+            <ol class="cd-steps-list">
+              ${steps.map((s, i) => `
+                <li class="cd-step" data-step="${i}" style="--i:${i}">
+                  <button class="cd-step-check" type="button" aria-label="Tick step ${i + 1}">
+                    <span class="cd-step-num">${i + 1}</span><span class="cd-step-tick" aria-hidden="true">✓</span>
+                  </button>
+                  <span class="cd-step-text">${esc(s)}</span>
+                </li>`).join("")}
+            </ol>
+          </div>`
+          : `<p class="cd-mission-story">When you're ready, go for it — then come back and tell me how it went.</p>`}
+        <button class="cd-begin cd-mission-done" type="button">I did it</button>
+      </div>
+    </div>`;
+}
+
+// Begin opens the mission page over the sky (the dashboard stays mounted
+// underneath, untouched, so its arrival animations never replay).
+function cdOpenMissionView(container, child, m) {
+  const root = container.querySelector(".cd");
+  if (!root) return;
+  const project = getProject(m.projectId);
+  const steps = Array.isArray(m.instructions) ? m.instructions : [];
+  const screen = document.createElement("div");
+  screen.className = "cd-mission-screen";
+  screen.innerHTML = cdMissionScreenHTML(m, project);
+  root.appendChild(screen);
+  screen.scrollTop = 0;
+
+  const close = () => { stopVoice(); screen.remove(); };
+  screen.querySelector(".cd-mission-back")?.addEventListener("click", close);
+
+  // Read to me — a warm AI voice reads the title, story, then each step, and the
+  // line being read is highlighted. A second tap stops. For kids who don't yet
+  // read the words. Falls back to the browser voice if AI narration is offline.
+  const readBtn = screen.querySelector(".cd-readaloud");
+  if (readBtn) {
+    const ico = readBtn.querySelector(".cd-readaloud-ico");
+    const label = readBtn.querySelector(".cd-readaloud-label");
+    const chunks = [{ id: "title", text: m.title }];
+    if (m.description) chunks.push({ id: "story", text: m.description });
+    steps.forEach((s, i) => chunks.push({ id: `step-${i}`, text: `Step ${i + 1}. ${s}` }));
+    const elFor = (id) => id === "title" ? screen.querySelector(".cd-mission-title")
+      : id === "story" ? screen.querySelector(".cd-mission-story")
+      : screen.querySelector(`.cd-step[data-step="${id.split("-")[1]}"]`);
+    const clearHi = () => screen.querySelectorAll(".cd-reading").forEach((n) => n.classList.remove("cd-reading"));
+    const setState = (s) => {
+      readBtn.setAttribute("aria-pressed", s === "playing" ? "true" : "false");
+      readBtn.classList.toggle("cd-readaloud--loading", s === "loading");
+      ico.textContent = s === "playing" ? "■" : "▶";
+      label.textContent = s === "loading" ? "Warming up…" : s === "playing" ? "Stop" : "Read to me";
+    };
+    readBtn.addEventListener("click", () => {
+      if (readBtn.getAttribute("aria-pressed") === "true" || readBtn.classList.contains("cd-readaloud--loading")) {
+        stopVoice(); clearHi(); setState("idle"); return;
+      }
+      readAloudSmart(child.accessCode, chunks, {
+        onLoading: (on) => setState(on ? "loading" : "playing"),
+        onChunk: (id) => { clearHi(); elFor(id)?.classList.add("cd-reading"); },
+        onDone: () => { clearHi(); setState("idle"); },
+      });
+    });
+  }
+
+  // Tap a step to tick it — an optional way to follow along. Doesn't gate
+  // anything; when every step is ticked, the finish button warms up.
+  const doneBtn = screen.querySelector(".cd-mission-done");
+  const stepEls = [...screen.querySelectorAll(".cd-step")];
+  const refreshReady = () => {
+    const allDone = stepEls.length > 0 && stepEls.every((el) => el.classList.contains("cd-step--done"));
+    doneBtn.classList.toggle("cd-mission-done--ready", allDone);
+  };
+  stepEls.forEach((el) => {
+    el.querySelector(".cd-step-check")?.addEventListener("click", () => { el.classList.toggle("cd-step--done"); refreshReady(); });
+  });
+
+  doneBtn?.addEventListener("click", (e) => {
+    stopVoice();
+    // Capture where the light should launch from BEFORE the page closes.
+    const r = e.currentTarget.getBoundingClientRect();
+    const origin = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    cdCompleteMission(container, child, m, origin, close);
+  });
+}
+
+// The capture + completion flow. On completion: close the mission page (so the
+// sky is visible), then the light rises from `origin` and settles. Momentum is
+// Light, never a number — so NO "+points" toast.
+function cdCompleteMission(container, child, m, origin, onBefore) {
+  const project = getProject(m.projectId);
+  // Decide whether the Guide has anything genuinely earned to say — computed
+  // from the ledger BEFORE this milestone completes (so "first light" is true).
+  const candidate = cdEarnedGuideLine(child.id);
+
+  const settle = () => {
+    const speak = candidate && !cdGuideSpokenThisSession;
+    if (speak) cdGuideSpokenThisSession = true;
+    onBefore?.();                                     // reveal the sky before the light lands
+    cdAnnounce(container, speak ? candidate : "Your sky is growing.");
+    const land = () => {
+      cdAddSettledLight(container, m.id);
+      cdRefreshHero(container, child);
+      cdRefreshLookback(container, child);
+      if (speak) setTimeout(() => cdGuideNote(container, candidate), 650);
+    };
+    if (cdReducedMotion()) { land(); return; }        // still, functional — no rise, no tone
+    cdRiseLight(origin, m.id).then(() => {
+      if (isSoundOn()) playSettleTone();              // the star, quietly joining the sky
+      land();
+    });
+  };
+  openSubmissionModal({
+    milestone: m, project,
+    onSkip: () => { completeMilestone(m.id); recordChildCompletion(child.accessCode, m.id, true); settle(); },
+    onSubmit: (payload) => { addMilestoneSubmission(m.id, payload); completeMilestone(m.id); recordChildCompletion(child.accessCode, m.id, true); settle(); },
+  });
+}
+
+// The Today Hero — one card, one primary action. No image/ghost actions in V1
+// (real art → later; read-aloud/ask arrive with their own PRs).
+function renderTodayHero(mission) {
+  if (!mission) {
+    return `
+      <article class="cd-hero-card">
+        <p class="cd-hero-eyebrow">Today's adventure</p>
+        <h1 class="cd-hero-title">Nothing waiting right now.</h1>
+        <p class="cd-hero-hook">Your next adventure will appear here soon.</p>
+      </article>`;
+  }
+  const hook = firstSentence(mission.description);
+  return `
+    <article class="cd-hero-card">
+      <p class="cd-hero-eyebrow">Today's adventure</p>
+      <h1 class="cd-hero-title">${esc(mission.title)}</h1>
+      ${hook ? `<p class="cd-hero-hook">${esc(hook)}</p>` : ""}
+      <button class="cd-begin" type="button" data-ms="${esc(mission.id)}">Begin</button>
+    </article>`;
+}
+
+function renderDashboardShell(container, child) {
+  const hour = new Date().getHours();
+  const mission = resolveTodayMission(child);
+  // Earned Light = one per completed milestone; seeds the child's own sky.
+  const earnedIds = getChildStats(child.id).milestones.filter(m => m.completed).map(m => m.id);
+  container.innerHTML = `
+    <div class="cd">
+      ${renderSky(hour, earnedIds)}
+      <p class="cd-sr" role="status" aria-live="polite"></p>
+
+      <a href="#/" class="cd-parentlink">Parent view</a>
+
+      <header class="cd-header">
+        <div class="cd-guide">
+          <span class="cd-guide-avatar" aria-hidden="true">${guideAvatar({ size: 62 })}</span>
+          <p class="cd-greeting" role="status">${shellGreeting(child.name)}</p>
+        </div>
+        <p class="cd-daily-line"></p>
+      </header>
+
+      <main class="cd-home">
+        <section class="cd-hero" aria-label="Today's adventure">
+          ${renderTodayHero(mission)}
+        </section>
+
+        <section class="cd-lookback" aria-label="Look back">
+          <p class="cd-lookback-label">Look back</p>
+          ${cdLatestLightHTML(child)}
+        </section>
+      </main>
+    </div>
+  `;
+
+  // The one primary action: Begin opens the real mission; on completion the light
+  // rises and the hero advances — surgically, so the arrival animations never replay.
+  cdWireBegin(container, child);
+  cdWireRelive(container, child);
+  void cdLoadDailyLine(container, child);
+}
+
+// The daily Guide line ("it remembers me") — one warm, honest sentence drawn
+// from the child's real interests + recent work, generated ≤ 1×/day server-side
+// and cached both there and here. Best-effort: silence on any failure, so it can
+// only ever ADD warmth, never delay or break the dashboard.
+function cdTodayLocal() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+async function cdLoadDailyLine(container, child) {
+  const code = child.accessCode;
+  if (!code) return;
+  const date = cdTodayLocal();
+  const key = `ns_daily_guide:${child.id}:${date}`;
+  let line = null;
+  try { line = localStorage.getItem(key); } catch { /* ignore */ }
+  if (!line) {
+    line = await fetchDailyGuideLine(code, date);
+    if (line) { try { localStorage.setItem(key, line); } catch { /* ignore */ } }
+  }
+  if (!line) return;
+  const el = container.querySelector(".cd-daily-line");
+  if (el) { el.textContent = line; el.classList.add("cd-daily-line--show"); }
+}
+
 /* ====== Portal ====== */
 export function renderChildPortal(container, params) {
   const child = getChildByCode((params.code || "").toUpperCase());
@@ -207,6 +684,9 @@ export function renderChildPortal(container, params) {
     setTimeout(() => container.querySelector("#pin")?.focus(), 50);
     return;
   }
+
+  // Child Dashboard V2 shell (flagged; structure + feel only — see PR1 above).
+  if (childDashboardV2Enabled()) { renderDashboardShell(container, child); return; }
 
   const s = getState();
   const stats = getChildStats(child.id);
