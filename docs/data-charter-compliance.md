@@ -44,6 +44,30 @@ From the Charter (verbatim intent):
 
 ---
 
+## Feature decision: giving children feedback on an uploaded video (how we do it safely)
+
+*Decided 2026-07-20. A recurring, well-intentioned feature idea: a child uploads a video (e.g. presenting a report) and North Star / their Guide gives feedback — points to improve, suggestions, and acknowledgement. This records the boundary and the approved way to build it, so no one implements the forbidden version.*
+
+**The forbidden version.** Having North Star or a Guide **watch the child's video and give feedback on the footage itself** is a **Charter violation** and must not be built. It breaks three commitments at once:
+
+1. *"Family-media is never sent to any third-party AI."* Critiquing a video means sending its frames (the child's face) and audio (the child's voice) to a vision/transcription model — the exact boundary the family-media bucket exists to defend.
+2. *"We will never build facial recognition, biometric profiling or **emotion detection** for children."* Reading a child's confidence, eye contact, or nervousness from footage **is** emotion detection on a child. Bright line.
+3. **Data minimisation + no surveillance.** Analysing how a child performs on camera is the most intimate data we hold, processed for exactly the judgement the Charter forbids.
+
+Parental consent does **not** unlock it: this is an architectural promise ("we don't build the feature"), and children's biometric/emotion analysis also carries real COPPA / BIPA-style legal exposure regardless of consent. The tempting line — *"AI watched your video: you said 'um' 11 times and looked nervous at 0:42"* — is precisely what we will never ship.
+
+**The approved way — coach on *words about* the video, never its pixels or audio.** The uploaded video stays a private keepsake in the family-media bucket; the AI never receives the file. The value is delivered through text the child or parent provides:
+
+| Pattern | How it works | Status |
+|---|---|---|
+| **Self-reflection coaching** *(recommended)* | After uploading, the child answers reflective prompts — *"What were you explaining? What was hardest? What would you change?"* — and the Guide coaches on the child's **own words**. The AI never touches the file. Stronger pedagogy, too: the child builds their own eye. | ✅ Charter-clean |
+| **Parent-as-the-eyes** | A parent watches, notes a few observations, and asks the Guide for help (*"they kept losing their place — how do I support that?"*). The human watches; the AI coaches on human-provided text. | ✅ Charter-clean; honours "parent leads" |
+| **Content-agnostic craft + acknowledgement** | The Guide offers presentation-craft tips (structure, pacing, "tell them what you'll tell them…") from the milestone type, and warmly **acknowledges the accomplishment** from metadata alone (milestone complete + evidence = video). | ✅ Charter-clean |
+
+**The rule of thumb for this and anything like it:** the Guide may respond to *what the child says about their work*; it may never *analyse the child from their media*. Acknowledgement of the **act** (they made it, they finished, they shared) is always free and safe — it needs only metadata. Feedback on the **footage** is never built.
+
+---
+
 ## The rule for future work
 
 Before any feature touches family data, check it against this map. In particular — **the family-media bucket is a hard AI boundary: its contents must never be sent to any third-party model.** If a feature needs that, it isn't built (Charter: *"We don't build the feature. We don't collect the data. We don't compromise the principle."*).
