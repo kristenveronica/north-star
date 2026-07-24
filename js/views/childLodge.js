@@ -33,7 +33,7 @@ const ROOM_W = 1536, ROOM_H = 1024;
 const BOARD_RECT = { l: 0.363, r: 0.651, t: 0.205, b: 0.420 };
 const OBJECT_POS = { x: 0.5, y: 0.40 };
 // Fireplace opening + the two windows, as fractions of the room image.
-const FIRE_RECT = { l: 0.205, r: 0.285, t: 0.45, b: 0.545 };
+const FIRE_RECT = { l: 0.17, r: 0.25, t: 0.42, b: 0.515 };
 const WIN_L = { l: 0.02, r: 0.14, t: 0.10, b: 0.55 };
 const WIN_R = { l: 0.85, r: 0.99, t: 0.10, b: 0.55 };
 
@@ -85,11 +85,11 @@ const TICK_SVG = `<svg viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" 
 // evening, cool moonlit night. Subtle by design (Living Lodge: calm, not busy).
 function timeOfDay() {
   const h = new Date().getHours();
-  if (h < 6)  return { k: "night",   grad: "linear-gradient(180deg, rgba(28,40,78,.42), rgba(12,16,34,.5))",  fire: 1 };
-  if (h < 11) return { k: "morning", grad: "linear-gradient(180deg, rgba(255,224,168,.20), rgba(255,196,128,.10))", fire: .4 };
-  if (h < 16) return { k: "midday",  grad: "linear-gradient(180deg, rgba(255,255,246,.05), rgba(255,242,214,.05))", fire: .3 };
-  if (h < 20) return { k: "evening", grad: "linear-gradient(180deg, rgba(255,178,96,.22), rgba(176,86,38,.18))",  fire: .8 };
-  return { k: "night", grad: "linear-gradient(180deg, rgba(28,40,78,.42), rgba(12,16,34,.5))", fire: 1 };
+  if (h < 6)  return { k: "night",   grad: "linear-gradient(180deg, rgba(44,58,102,.30), rgba(22,28,54,.34))",  fire: .8 };
+  if (h < 11) return { k: "morning", grad: "linear-gradient(180deg, rgba(255,228,176,.16), rgba(255,204,140,.08))", fire: .32 };
+  if (h < 16) return { k: "midday",  grad: "linear-gradient(180deg, rgba(255,255,246,.04), rgba(255,242,214,.04))", fire: .26 };
+  if (h < 20) return { k: "evening", grad: "linear-gradient(180deg, rgba(255,198,132,.15), rgba(228,150,92,.09))",  fire: .55 };
+  return { k: "night", grad: "linear-gradient(180deg, rgba(44,58,102,.30), rgba(22,28,54,.34))", fire: .8 };
 }
 
 function greeting(name) {
@@ -283,8 +283,8 @@ function positionFire(main, fireOpacity) {
   const glow = main.querySelector("#lg-fireglow");
   if (!glow) return;
   const f = projectImageRect(main, FIRE_RECT);
-  const cx = f.x + f.w / 2, cy = f.y + f.h * 0.55;
-  const r = Math.max(f.w, f.h) * 2.2;
+  const cx = f.x + f.w / 2, cy = f.y + f.h * 0.5;
+  const r = Math.max(f.w, f.h) * 1.9;
   glow.style.left = (cx - r / 2) + "px";
   glow.style.top = (cy - r / 2) + "px";
   glow.style.width = r + "px";
@@ -316,27 +316,21 @@ function startLodgeFx(main) {
     ctx.clearRect(0, 0, W, H);
 
     const f = projectImageRect(main, FIRE_RECT);
-    const fx = f.x + f.w / 2, fy = f.y + f.h * 0.8, fw = f.w;
+    // Anchor embers just above the log bed of the *baked* fire in the image.
+    const fx = f.x + f.w / 2, fy = f.y + f.h * 0.72, fw = f.w;
 
-    // flickering fire core (additive warm light)
-    const flick = 0.72 + 0.18 * Math.sin(t * 7.3) + 0.1 * Math.sin(t * 17.1) + rand(-0.04, 0.04);
+    // A few embers drifting up from the fire — occasional, small, warm. We do
+    // NOT draw a synthetic flame: the fire painted into the room is already
+    // photoreal, so we only add life on top of it (embers + the soft CSS glow).
     ctx.globalCompositeOperation = "screen";
-    const g = ctx.createRadialGradient(fx, fy - fw * 0.35, 2, fx, fy - fw * 0.35, fw * 1.15);
-    g.addColorStop(0, `rgba(255,190,90,${0.34 * flick})`);
-    g.addColorStop(0.5, `rgba(255,140,55,${0.16 * flick})`);
-    g.addColorStop(1, "rgba(255,110,40,0)");
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(fx, fy - fw * 0.35, fw * 1.15, 0, 6.2832); ctx.fill();
-
-    // embers rising from the fire
-    if (embers.length < 22 && Math.random() < 0.6) {
-      embers.push({ x: fx + rand(-fw * 0.3, fw * 0.3), y: fy, vx: rand(-0.25, 0.25), vy: rand(-1.4, -0.6), life: 1, size: rand(0.8, 2.2), hue: rand(20, 45) });
+    if (embers.length < 10 && Math.random() < 0.28) {
+      embers.push({ x: fx + rand(-fw * 0.22, fw * 0.22), y: fy, vx: rand(-0.18, 0.18), vy: rand(-1.0, -0.45), life: 1, size: rand(0.6, 1.6), hue: rand(22, 42) });
     }
-    embers.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy -= 0.004; p.vx += rand(-0.03, 0.03); p.life -= 0.012; });
+    embers.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy -= 0.004; p.vx += rand(-0.03, 0.03); p.life -= 0.014; });
     embers = embers.filter(p => p.life > 0);
     embers.forEach(p => {
-      ctx.globalAlpha = Math.max(0, p.life) * 0.9;
-      ctx.fillStyle = `hsl(${p.hue},100%,${55 + p.life * 12}%)`;
+      ctx.globalAlpha = Math.max(0, p.life) * 0.7;
+      ctx.fillStyle = `hsl(${p.hue},100%,${58 + p.life * 10}%)`;
       ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.2832); ctx.fill();
     });
     ctx.globalAlpha = 1;
@@ -641,20 +635,23 @@ const LODGE_CSS = `
 .lg-page .kid-content{padding-top:2px!important}
 .lg-page .kid-content > .row{margin-bottom:8px!important}
 .lg-page .kid-hello{font-size:29px}
-.lg-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 40%;z-index:0}
+.lg-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 40%;z-index:0;
+  filter:brightness(1.12) saturate(1.03)}
 .lg-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;
-  background:linear-gradient(180deg,rgba(12,8,4,.55) 0%,rgba(12,8,4,.12) 26%,rgba(12,8,4,.12) 54%,rgba(12,8,4,.75) 100%)}
+  background:linear-gradient(180deg,rgba(12,8,4,.34) 0%,rgba(12,8,4,.05) 28%,rgba(12,8,4,.05) 56%,rgba(12,8,4,.52) 100%)}
 /* Living Lodge — Layer 1: time-of-day wash + fireplace glow */
 .lg-tod{position:absolute;inset:0;z-index:2;pointer-events:none;mix-blend-mode:soft-light;transition:background 1.2s ease}
-/* ambient fireplace glow — position/size set by JS (positionFire) to the stove */
+/* soft firelight spilling from the (baked-in) fire — position/size set by JS
+   (positionFire) to the stove. Deliberately soft + blurred so it reads as
+   dancing light, never a hard disc. */
 .lg-fireglow{position:absolute;z-index:2;pointer-events:none;border-radius:50%;
-  background:radial-gradient(circle at 50% 48%,rgba(255,150,62,.42),rgba(255,120,40,0) 66%);
-  mix-blend-mode:screen;animation:lgFlicker 6s ease-in-out infinite}
-@keyframes lgFlicker{0%,100%{filter:blur(8px) brightness(1)}25%{filter:blur(8px) brightness(.93)}
-  50%{filter:blur(9px) brightness(1.1)}75%{filter:blur(8px) brightness(1.04)}}
+  background:radial-gradient(circle at 50% 50%,rgba(255,160,70,.30),rgba(255,120,40,.08) 45%,rgba(255,120,40,0) 72%);
+  mix-blend-mode:screen;filter:blur(14px);animation:lgFlicker 5.5s ease-in-out infinite}
+@keyframes lgFlicker{0%,100%{filter:blur(14px) brightness(1)}22%{filter:blur(13px) brightness(.9)}
+  48%{filter:blur(16px) brightness(1.12)}72%{filter:blur(14px) brightness(1.03)}}
 /* the living-fire + dust canvas */
 .lg-fx{position:absolute;inset:0;z-index:2;pointer-events:none}
-@media (prefers-reduced-motion:reduce){.lg-fireglow{animation:none;filter:blur(8px)}}
+@media (prefers-reduced-motion:reduce){.lg-fireglow{animation:none;filter:blur(14px)}}
 
 .lg-topbar{position:absolute;z-index:5;top:0;left:0;right:0;padding:26px 34px;display:flex;align-items:flex-start;justify-content:space-between}
 .lg-greet h1{font-family:var(--lg-serif);font-weight:500;font-size:clamp(28px,3.4vw,44px);margin:0;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.5)}
