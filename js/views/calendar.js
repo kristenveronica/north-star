@@ -4,7 +4,6 @@
    ============================================================ */
 
 import { getState } from "../store.js";
-import { availableDomains } from "../seed.js";
 import { esc, fmtDate, childColor } from "../components/ui.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
@@ -37,14 +36,10 @@ export function renderCalendar(container) {
       </div>
     </div>
 
-    <div class="row mb-2" style="gap:8px;flex-wrap:wrap">
+    ${s.children.length > 1 ? `<div class="row mb-2" style="gap:8px;flex-wrap:wrap">
       <button class="chip ${_childFilter === "all" ? "selected" : ""}" data-cf="all">All children</button>
       ${s.children.map(c => `<button class="chip ${_childFilter === c.id ? "selected" : ""}" data-cf="${c.id}">${esc(c.name)}</button>`).join("")}
-      <div style="width:1px;background:var(--border);margin:0 4px;align-self:stretch"></div>
-      <button class="chip ${_domainFilter === "all" ? "selected" : ""}" data-df="all">All domains</button>
-      ${availableDomains(s.family).map(d =>
-        `<button class="chip ${_domainFilter === d.id ? "selected" : ""}" data-df="${d.id}">${esc(d.short)}</button>`).join("")}
-    </div>
+    </div>` : ""}
 
     <div class="cal-grid">
       ${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => `<div class="cal-head">${d}</div>`).join("")}
@@ -57,7 +52,6 @@ export function renderCalendar(container) {
   container.querySelector("#today").addEventListener("click", () => { _viewDate = new Date(); rerender(); });
 
   container.querySelectorAll("[data-cf]").forEach(b => b.addEventListener("click", () => { _childFilter = b.dataset.cf; rerender(); }));
-  container.querySelectorAll("[data-df]").forEach(b => b.addEventListener("click", () => { _domainFilter = b.dataset.df; rerender(); }));
 
   container.querySelectorAll("[data-open-proj]").forEach(b => b.addEventListener("click", () => navigate("/projects/" + b.dataset.openProj)));
 }

@@ -836,47 +836,62 @@ export function renderChildCalendar(container, params) {
   const monthCount = Object.values(events).reduce((n, arr) => n + arr.length, 0);
   const col = childColor(child.avatarIndex); // events wear the child's own colour
 
-  const monthNav = `
+  const monthLabel = first.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const subtitle = monthCount
+    ? `You have ${monthCount} thing${monthCount === 1 ? "" : "s"} happening this month. Tap any one to open it.`
+    : "Nothing due this month — a good time to plan ahead. Use ← → to look around.";
+
+  const navBtns = `
     <div class="btn-row">
       <button class="btn btn-sm" id="kc-prev" aria-label="Previous month">←</button>
-      <span class="fw-700" style="min-width:150px;text-align:center">${first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
       <button class="btn btn-sm" id="kc-next" aria-label="Next month">→</button>
       <button class="btn btn-sm" id="kc-today">Today</button>
     </div>`;
 
-  const kidContent = `
-    <div class="kid-content">
-      <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
-        <div style="font-size:30px">📅</div>
-        <div style="flex:1;min-width:240px">
-          <h1 class="kid-hello" style="margin:0">Your calendar</h1>
-          <p class="small text-muted" style="margin:2px 0 0">${monthCount ? `You have ${monthCount} thing${monthCount === 1 ? "" : "s"} happening this month. Tap any one to open it.` : "Nothing due this month — a good time to plan ahead. Use ← → to look around."}</p>
-        </div>
-      </div>
+  const calBody = `
+    <div class="cal-grid">
+      ${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => `<div class="cal-head">${d}</div>`).join("")}
+      ${renderKidCells(year, month, daysInMonth, startWeekday, events, col)}
+    </div>
+    <p class="small text-muted" style="margin-top:12px">⭐ = a project is due · the other stars are your missions. Seeing them here helps you plan when to do each one.</p>`;
 
-      <div class="cal-grid">
-        ${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => `<div class="cal-head">${d}</div>`).join("")}
-        ${renderKidCells(year, month, daysInMonth, startWeekday, events, col)}
-      </div>
-
-      <p class="small text-muted" style="margin-top:12px">⭐ = a project is due · the other stars are your missions. Seeing them here helps you plan when to do each one.</p>
-    </div>`;
-
-  // With the Lodge on, keep the persistent sidebar and render the calendar in it.
+  // With the Lodge on, keep the persistent sidebar and make the month the page title.
   const mount = nsLodgeEnabled()
     ? lodgeShell(container, child, "Calendar", "page")
     : container;
   mount.innerHTML = nsLodgeEnabled()
-    ? `<div class="topbar-kid" style="justify-content:flex-end">${monthNav}</div>${kidContent}`
+    ? `
+      <div class="lg-pagehead">
+        <div>
+          <h1 style="margin:0">${monthLabel}</h1>
+          <p class="small text-muted" style="margin:2px 0 0">${subtitle}</p>
+        </div>
+        ${navBtns}
+      </div>
+      <div class="kid-content" style="padding-top:8px">${calBody}</div>`
     : `
       <div class="topbar-kid">
         <a href="#/kid/${child.accessCode}" class="row" style="gap:10px;align-items:center;text-decoration:none;color:inherit">
           <div class="child-card-avatar avatar-${child.avatarIndex}" style="width:36px;height:36px;font-size:14px">${initials(child.name)}</div>
           <span class="small text-muted">← Back to my portal</span>
         </a>
-        ${monthNav}
+        <div class="btn-row">
+          <button class="btn btn-sm" id="kc-prev" aria-label="Previous month">←</button>
+          <span class="fw-700" style="min-width:150px;text-align:center">${monthLabel}</span>
+          <button class="btn btn-sm" id="kc-next" aria-label="Next month">→</button>
+          <button class="btn btn-sm" id="kc-today">Today</button>
+        </div>
       </div>
-      ${kidContent}`;
+      <div class="kid-content">
+        <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+          <div style="font-size:30px">📅</div>
+          <div style="flex:1;min-width:240px">
+            <h1 class="kid-hello" style="margin:0">Your calendar</h1>
+            <p class="small text-muted" style="margin:2px 0 0">${subtitle}</p>
+          </div>
+        </div>
+        ${calBody}
+      </div>`;
 
   mount.querySelector("#kc-prev").addEventListener("click", () => { _kidCalDate = new Date(year, month - 1, 1); rerender(); });
   container.querySelector("#kc-next").addEventListener("click", () => { _kidCalDate = new Date(year, month + 1, 1); rerender(); });

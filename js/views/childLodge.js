@@ -32,6 +32,10 @@ const ROOM_IMG = "assets/images/lodge/room.jpg";
 const ROOM_W = 1536, ROOM_H = 1024;
 const BOARD_RECT = { l: 0.363, r: 0.651, t: 0.205, b: 0.420 };
 const OBJECT_POS = { x: 0.5, y: 0.40 };
+// Fireplace opening + the two windows, as fractions of the room image.
+const FIRE_RECT = { l: 0.43, r: 0.495, t: 0.55, b: 0.645 };
+const WIN_L = { l: 0.02, r: 0.14, t: 0.10, b: 0.55 };
+const WIN_R = { l: 0.85, r: 0.99, t: 0.10, b: 0.55 };
 
 // The eight guides. Art lives at assets/images/guides/{band}/{id}.png.
 const GUIDES = [
@@ -176,7 +180,8 @@ export function renderLodge(container, child) {
       <img class="lg-bg" src="${ROOM_IMG}" alt="The Guide Lodge" />
       <div class="lg-scrim"></div>
       <div class="lg-tod lg-tod--${tod.k}" style="background:${tod.grad}"></div>
-      <div class="lg-fireglow" style="opacity:${tod.fire}"></div>
+      <div class="lg-fireglow" id="lg-fireglow" style="opacity:${tod.fire}"></div>
+      <canvas class="lg-fx" id="lg-fx" aria-hidden="true"></canvas>
       <header class="lg-topbar">
         <div class="lg-greet">
           <h1>${greeting(child.name)}</h1>
@@ -203,23 +208,42 @@ export function renderLodge(container, child) {
     // place the guide cutouts in the room (off for now — see lodgeGuidesOn)
     if (lodgeGuidesOn()) renderGuides(main, child, band, build);
 
-    // anchor the plan to the painted board and shrink text to fit (no drift)
-    requestAnimationFrame(() => layoutBoard(container));
+    // anchor the plan to the board, seat the fireplace glow, start the living fire
+    requestAnimationFrame(() => {
+      layoutBoard(container);
+      positionFire(main, tod.fire);
+      startLodgeFx(main);
+    });
   }
 
-  // keep the board aligned + fitted when the window changes
+  // keep the board + fire aligned when the window changes
   if (!window.__lgResizeBound) {
     window.__lgResizeBound = true;
     let raf = 0;
     window.addEventListener("resize", () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
-        document.querySelectorAll(".child-portal").forEach(cp => layoutBoard(cp));
+        document.querySelectorAll(".child-portal").forEach(cp => {
+          layoutBoard(cp);
+          const m = cp.querySelector("#lg-main");
+          if (m) positionFire(m);
+        });
       });
     });
   }
 
   build();
+}
+
+/* Map a fractional rectangle of the room image to on-screen px (object-fit:cover).
+   Shared by the board, the fireplace, and the window light so everything stays
+   anchored to the painting at any window size. */
+function projectImageRect(main, R) {
+  const W = main.clientWidth, H = main.clientHeight;
+  const scale = Math.max(W / ROOM_W, H / ROOM_H);
+  const dw = ROOM_W * scale, dh = ROOM_H * scale;
+  const offX = (W - dw) * OBJECT_POS.x, offY = (H - dh) * OBJECT_POS.y;
+  return { x: offX + R.l * dw, y: offY + R.t * dh, w: (R.r - R.l) * dw, h: (R.b - R.t) * dh };
 }
 
 /* Anchor .lg-board to the board painted in the room photo, then auto-shrink
@@ -230,13 +254,8 @@ function layoutBoard(container) {
   if (!main || !board) return;
   const W = main.clientWidth, H = main.clientHeight;
   if (!W || !H) return;
-  const scale = Math.max(W / ROOM_W, H / ROOM_H);       // object-fit: cover
-  const dw = ROOM_W * scale, dh = ROOM_H * scale;
-  const offX = (W - dw) * OBJECT_POS.x;                 // crop offset from object-position
-  const offY = (H - dh) * OBJECT_POS.y;
-  const R = BOARD_RECT;
-  const bx = offX + R.l * dw, by = offY + R.t * dh;
-  const bw = (R.r - R.l) * dw, bh = (R.b - R.t) * dh;
+  const bR = projectImageRect(main, BOARD_RECT);
+  const bx = bR.x, by = bR.y, bw = bR.w, bh = bR.h;
   const padX = bw * 0.08, padTop = bh * 0.14, padBot = bh * 0.12;
   board.style.left = (bx + padX) + "px";
   board.style.top = (by + padTop) + "px";
@@ -256,6 +275,92 @@ function fitBoard(board) {
   while (board.scrollHeight > board.clientHeight + 1 && size > 8 && guard < 60) {
     size -= 0.5; board.style.fontSize = size + "px"; guard++;
   }
+}
+
+/* Seat the ambient fireplace glow over the painted stove (base light +
+   reduced-motion fallback). Intensity is set by time of day. */
+function positionFire(main, fireOpacity) {
+  const glow = main.querySelector("#lg-fireglow");
+  if (!glow) return;
+  const f = projectImageRect(main, FIRE_RECT);
+  const cx = f.x + f.w / 2, cy = f.y + f.h * 0.55;
+  const r = Math.max(f.w, f.h) * 2.2;
+  glow.style.left = (cx - r / 2) + "px";
+  glow.style.top = (cy - r / 2) + "px";
+  glow.style.width = r + "px";
+  glow.style.height = r + "px";
+  if (fireOpacity != null) glow.style.opacity = fireOpacity;
+}
+
+/* ---------- Living Lodge Layer 2: the fire + dust motes ----------
+   One lightweight canvas: a flickering fire core, rising embers, and slow dust
+   motes in the window light. Self-terminating (stops when the canvas leaves the
+   DOM — navigation/rebuild), and skipped entirely for reduced-motion. */
+function startLodgeFx(main) {
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) return;
+  const canvas = main.querySelector("#lg-fx");
+  if (!canvas || canvas.dataset.on === "1") return;
+  canvas.dataset.on = "1";
+  const ctx = canvas.getContext("2d");
+  let embers = [], motes = [], t = 0;
+
+  const rand = (a, b) => a + Math.random() * (b - a);
+
+  function frame() {
+    if (!canvas.isConnected) return;           // rebuilt or navigated away → stop
+    const W = main.clientWidth, H = main.clientHeight;
+    if (canvas.width !== W) canvas.width = W;
+    if (canvas.height !== H) canvas.height = H;
+    t += 0.016;
+    ctx.clearRect(0, 0, W, H);
+
+    const f = projectImageRect(main, FIRE_RECT);
+    const fx = f.x + f.w / 2, fy = f.y + f.h * 0.8, fw = f.w;
+
+    // flickering fire core (additive warm light)
+    const flick = 0.72 + 0.18 * Math.sin(t * 7.3) + 0.1 * Math.sin(t * 17.1) + rand(-0.04, 0.04);
+    ctx.globalCompositeOperation = "screen";
+    const g = ctx.createRadialGradient(fx, fy - fw * 0.35, 2, fx, fy - fw * 0.35, fw * 1.15);
+    g.addColorStop(0, `rgba(255,190,90,${0.34 * flick})`);
+    g.addColorStop(0.5, `rgba(255,140,55,${0.16 * flick})`);
+    g.addColorStop(1, "rgba(255,110,40,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(fx, fy - fw * 0.35, fw * 1.15, 0, 6.2832); ctx.fill();
+
+    // embers rising from the fire
+    if (embers.length < 22 && Math.random() < 0.6) {
+      embers.push({ x: fx + rand(-fw * 0.3, fw * 0.3), y: fy, vx: rand(-0.25, 0.25), vy: rand(-1.4, -0.6), life: 1, size: rand(0.8, 2.2), hue: rand(20, 45) });
+    }
+    embers.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy -= 0.004; p.vx += rand(-0.03, 0.03); p.life -= 0.012; });
+    embers = embers.filter(p => p.life > 0);
+    embers.forEach(p => {
+      ctx.globalAlpha = Math.max(0, p.life) * 0.9;
+      ctx.fillStyle = `hsl(${p.hue},100%,${55 + p.life * 12}%)`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.2832); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // dust motes drifting in the window light
+    const cols = [projectImageRect(main, WIN_L), projectImageRect(main, WIN_R)];
+    if (motes.length < 30 && Math.random() < 0.35) {
+      const c = cols[Math.random() < 0.5 ? 0 : 1];
+      motes.push({ x: c.x + Math.random() * c.w, y: c.y + Math.random() * c.h, vx: rand(-0.12, 0.12), vy: rand(0.06, 0.16), life: rand(0.6, 1), size: rand(0.6, 1.6), ph: rand(0, 6.28) });
+    }
+    motes.forEach(p => { p.x += p.vx; p.y += p.vy; p.life -= 0.002; });
+    motes = motes.filter(p => p.life > 0 && p.y < H + 10);
+    motes.forEach(p => {
+      const tw = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.4 + p.ph));
+      ctx.globalAlpha = Math.min(1, p.life) * tw * 0.45;
+      ctx.fillStyle = "rgba(255,246,224,1)";
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.2832); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
 }
 
 /* ---------- parchment close-up of a single mission ---------- */
@@ -529,8 +634,8 @@ const LODGE_CSS = `
 .lg-main.lg-page{overflow-y:auto;background:radial-gradient(ellipse at top right,#FBE3D0 0%,#FBF6EE 55%)}
 /* light page content (calendar, etc.) rendered inside the shell */
 .lg-page .lg-pagehead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
-  padding:22px 32px 0;max-width:1100px;margin:0 auto}
-.lg-page .lg-pagehead h1{font-family:var(--lg-serif);font-size:32px;color:#3a2c17;margin:0}
+  padding:14px 32px 0;max-width:1100px;margin:0 auto}
+.lg-page .lg-pagehead h1{font-family:var(--lg-serif);font-size:30px;color:#3a2c17;margin:0}
 /* lift the calendar onto the first fold: trim top whitespace + heading */
 .lg-page .topbar-kid{padding:12px 32px 2px!important}
 .lg-page .kid-content{padding-top:2px!important}
@@ -541,12 +646,15 @@ const LODGE_CSS = `
   background:linear-gradient(180deg,rgba(12,8,4,.55) 0%,rgba(12,8,4,.12) 26%,rgba(12,8,4,.12) 54%,rgba(12,8,4,.75) 100%)}
 /* Living Lodge — Layer 1: time-of-day wash + fireplace glow */
 .lg-tod{position:absolute;inset:0;z-index:2;pointer-events:none;mix-blend-mode:soft-light;transition:background 1.2s ease}
-.lg-fireglow{position:absolute;z-index:2;pointer-events:none;left:5%;bottom:20%;width:26%;height:36%;border-radius:50%;
-  background:radial-gradient(circle at 50% 55%,rgba(255,150,62,.5),rgba(255,120,40,0) 66%);
+/* ambient fireplace glow — position/size set by JS (positionFire) to the stove */
+.lg-fireglow{position:absolute;z-index:2;pointer-events:none;border-radius:50%;
+  background:radial-gradient(circle at 50% 48%,rgba(255,150,62,.42),rgba(255,120,40,0) 66%);
   mix-blend-mode:screen;animation:lgFlicker 6s ease-in-out infinite}
-@keyframes lgFlicker{0%,100%{filter:blur(6px) brightness(1);transform:scale(1)}
-  25%{filter:blur(6px) brightness(.92)}50%{filter:blur(7px) brightness(1.12);transform:scale(1.03)}75%{filter:blur(6px) brightness(1.04)}}
-@media (prefers-reduced-motion:reduce){.lg-fireglow{animation:none;filter:blur(6px)}}
+@keyframes lgFlicker{0%,100%{filter:blur(8px) brightness(1)}25%{filter:blur(8px) brightness(.93)}
+  50%{filter:blur(9px) brightness(1.1)}75%{filter:blur(8px) brightness(1.04)}}
+/* the living-fire + dust canvas */
+.lg-fx{position:absolute;inset:0;z-index:2;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.lg-fireglow{animation:none;filter:blur(8px)}}
 
 .lg-topbar{position:absolute;z-index:5;top:0;left:0;right:0;padding:26px 34px;display:flex;align-items:flex-start;justify-content:space-between}
 .lg-greet h1{font-family:var(--lg-serif);font-weight:500;font-size:clamp(28px,3.4vw,44px);margin:0;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.5)}
