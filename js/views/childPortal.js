@@ -11,7 +11,7 @@ import {
 } from "../store.js";
 import { REFLECTION_PROMPTS } from "../seed.js";
 import { childPortalLogin, fetchDailyGuideLine, recordChildCompletion } from "../lib/childPortalCloud.js";
-import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS } from "../components/ui.js";
+import { esc, icon, nsIcon, renderCountdown, fmtDate, toast, openModal, DOMAIN_COLOR_CLASS, childColor } from "../components/ui.js";
 import { celebrateMilestone, celebrateProject, isSoundOn, toggleSound } from "../components/celebrate.js";
 import { openSubmissionModal } from "../components/submission.js";
 import { renderSky, earnedLightSVG, lightLayout } from "../components/sky.js";
@@ -19,6 +19,7 @@ import { playSettleTone } from "../components/skySound.js";
 import { readAloudSmart, stopVoice } from "../lib/voice.js";
 import { guideAvatar } from "../components/guide.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
+import { renderLodge, nsLodgeEnabled, lodgeShell } from "./childLodge.js";
 
 /* ============================================================
    handleMilestoneTap — shared milestone interaction.
@@ -54,7 +55,7 @@ function openMissionDetail(milestoneId) {
   openModal({ title: "Your mission", body, footer: foot });
 }
 
-function handleMilestoneTap(milestoneId, targetEl, afterChange) {
+export function handleMilestoneTap(milestoneId, targetEl, afterChange) {
   const s = getState();
   const m = s.milestones.find(x => x.id === milestoneId);
   if (!m) return;
@@ -685,6 +686,10 @@ export function renderChildPortal(container, params) {
     return;
   }
 
+  // The Living Lodge (flagged; ships dark on main — see docs/living-lodge-vision.md).
+  // enable per device:  localStorage.setItem('ns_lodge','1')
+  if (nsLodgeEnabled()) { renderLodge(container, child); return; }
+
   // Child Dashboard V2 shell (flagged; structure + feel only — see PR1 above).
   if (childDashboardV2Enabled()) { renderDashboardShell(container, child); return; }
 
@@ -829,21 +834,17 @@ export function renderChildCalendar(container, params) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const events = collectKidEvents(s, child, year, month);
   const monthCount = Object.values(events).reduce((n, arr) => n + arr.length, 0);
+  const col = childColor(child.avatarIndex); // events wear the child's own colour
 
-  container.innerHTML = `
-    <div class="topbar-kid">
-      <a href="#/kid/${child.accessCode}" class="row" style="gap:10px;align-items:center;text-decoration:none;color:inherit">
-        <div class="child-card-avatar avatar-${child.avatarIndex}" style="width:36px;height:36px;font-size:14px">${initials(child.name)}</div>
-        <span class="small text-muted">← Back to my portal</span>
-      </a>
-      <div class="btn-row">
-        <button class="btn btn-sm" id="kc-prev" aria-label="Previous month">←</button>
-        <span class="fw-700" style="min-width:150px;text-align:center">${first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
-        <button class="btn btn-sm" id="kc-next" aria-label="Next month">→</button>
-        <button class="btn btn-sm" id="kc-today">Today</button>
-      </div>
-    </div>
+  const monthNav = `
+    <div class="btn-row">
+      <button class="btn btn-sm" id="kc-prev" aria-label="Previous month">←</button>
+      <span class="fw-700" style="min-width:150px;text-align:center">${first.toLocaleDateString(undefined, { month: "long", year: "numeric" })}</span>
+      <button class="btn btn-sm" id="kc-next" aria-label="Next month">→</button>
+      <button class="btn btn-sm" id="kc-today">Today</button>
+    </div>`;
 
+  const kidContent = `
     <div class="kid-content">
       <div class="row" style="gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
         <div style="font-size:30px">📅</div>
@@ -855,14 +856,29 @@ export function renderChildCalendar(container, params) {
 
       <div class="cal-grid">
         ${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d => `<div class="cal-head">${d}</div>`).join("")}
-        ${renderKidCells(year, month, daysInMonth, startWeekday, events)}
+        ${renderKidCells(year, month, daysInMonth, startWeekday, events, col)}
       </div>
 
       <p class="small text-muted" style="margin-top:12px">⭐ = a project is due · the other stars are your missions. Seeing them here helps you plan when to do each one.</p>
-    </div>
-  `;
+    </div>`;
 
-  container.querySelector("#kc-prev").addEventListener("click", () => { _kidCalDate = new Date(year, month - 1, 1); rerender(); });
+  // With the Lodge on, keep the persistent sidebar and render the calendar in it.
+  const mount = nsLodgeEnabled()
+    ? lodgeShell(container, child, "Calendar", "page")
+    : container;
+  mount.innerHTML = nsLodgeEnabled()
+    ? `<div class="topbar-kid" style="justify-content:flex-end">${monthNav}</div>${kidContent}`
+    : `
+      <div class="topbar-kid">
+        <a href="#/kid/${child.accessCode}" class="row" style="gap:10px;align-items:center;text-decoration:none;color:inherit">
+          <div class="child-card-avatar avatar-${child.avatarIndex}" style="width:36px;height:36px;font-size:14px">${initials(child.name)}</div>
+          <span class="small text-muted">← Back to my portal</span>
+        </a>
+        ${monthNav}
+      </div>
+      ${kidContent}`;
+
+  mount.querySelector("#kc-prev").addEventListener("click", () => { _kidCalDate = new Date(year, month - 1, 1); rerender(); });
   container.querySelector("#kc-next").addEventListener("click", () => { _kidCalDate = new Date(year, month + 1, 1); rerender(); });
   container.querySelector("#kc-today").addEventListener("click", () => { _kidCalDate = new Date(); rerender(); });
   container.querySelectorAll("[data-open-hq]").forEach(b => b.addEventListener("click", () => navigate(`/kid/${child.accessCode}/project/${b.dataset.openHq}`)));
@@ -889,7 +905,7 @@ function collectKidEvents(s, child, year, month) {
   return out;
 }
 
-function renderKidCells(year, month, daysInMonth, startWeekday, events) {
+function renderKidCells(year, month, daysInMonth, startWeekday, events, col = "#C97B4E") {
   const today = new Date();
   const cells = [];
   const prevMonthDays = new Date(year, month, 0).getDate();
@@ -903,7 +919,7 @@ function renderKidCells(year, month, daysInMonth, startWeekday, events) {
     cells.push(`
       <div class="cal-cell ${isToday ? "today" : ""}">
         <div class="d">${day}</div>
-        ${dayEvents.slice(0, 3).map(e => `<span class="cal-event dom-${e.domain || "brain"}" data-open-hq="${e.projectId}" style="cursor:pointer" title="${esc(e.tooltip)}">${esc(e.label)}</span>`).join("")}
+        ${dayEvents.slice(0, 3).map(e => `<span class="cal-event" data-open-hq="${e.projectId}" style="cursor:pointer;background:${col};color:#fff;border:0" title="${esc(e.tooltip)}">${esc(e.label)}</span>`).join("")}
         ${dayEvents.length > 3 ? `<span class="cal-event" style="background:var(--bg-2);color:var(--text-muted)">+${dayEvents.length - 3} more</span>` : ""}
       </div>
     `);
