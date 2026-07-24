@@ -38,7 +38,7 @@ const WIN_L = { l: 0.02, r: 0.14, t: 0.10, b: 0.55 };
 const WIN_R = { l: 0.85, r: 0.99, t: 0.10, b: 0.55 };
 // Living objects (Layer 2b): the mug that steams, and warm points that flicker
 // (lantern + mantel candles). All fractions of the room image; tune to taste.
-const MUG_RECT = { l: 0.1595, r: 0.2015, t: 0.76, b: 0.81 };
+const MUG_RECT = { l: 0.1945, r: 0.2365, t: 0.76, b: 0.81 };
 const FLICKER = [
   { name: "lantern (right)", x: 0.93,  y: 0.77,  r: 0.05,  hue: 34 },
   { name: "candle (mantel)", x: 0.10,  y: 0.335, r: 0.028, hue: 40 },
