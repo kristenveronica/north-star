@@ -33,7 +33,7 @@ const ROOM_W = 1536, ROOM_H = 1024;
 const BOARD_RECT = { l: 0.363, r: 0.651, t: 0.205, b: 0.420 };
 const OBJECT_POS = { x: 0.5, y: 0.40 };
 // Fireplace opening + the two windows, as fractions of the room image.
-const FIRE_RECT = { l: 0.43, r: 0.495, t: 0.55, b: 0.645 };
+const FIRE_RECT = { l: 0.205, r: 0.285, t: 0.45, b: 0.545 };
 const WIN_L = { l: 0.02, r: 0.14, t: 0.10, b: 0.55 };
 const WIN_R = { l: 0.85, r: 0.99, t: 0.10, b: 0.55 };
 
