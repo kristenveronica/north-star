@@ -36,6 +36,14 @@ const OBJECT_POS = { x: 0.5, y: 0.40 };
 const FIRE_RECT = { l: 0.205, r: 0.28, t: 0.42, b: 0.515 };
 const WIN_L = { l: 0.02, r: 0.14, t: 0.10, b: 0.55 };
 const WIN_R = { l: 0.85, r: 0.99, t: 0.10, b: 0.55 };
+// Living objects (Layer 2b): the mug that steams, and warm points that flicker
+// (lantern + mantel candles). All fractions of the room image; tune to taste.
+const MUG_RECT = { l: 0.072, r: 0.114, t: 0.76, b: 0.81 };
+const FLICKER = [
+  { name: "lantern (right)", x: 0.93,  y: 0.77,  r: 0.05,  hue: 34 },
+  { name: "candle (mantel)", x: 0.10,  y: 0.335, r: 0.028, hue: 40 },
+  { name: "candle (mantel)", x: 0.205, y: 0.325, r: 0.028, hue: 40 },
+];
 
 // The eight guides. Art lives at assets/images/guides/{band}/{id}.png.
 const GUIDES = [
@@ -90,6 +98,16 @@ function timeOfDay() {
   if (h < 16) return { k: "midday",  grad: "linear-gradient(180deg, rgba(255,255,246,.04), rgba(255,242,214,.04))", fire: .26 };
   if (h < 20) return { k: "evening", grad: "linear-gradient(180deg, rgba(255,198,132,.15), rgba(228,150,92,.09))",  fire: .55 };
   return { k: "night", grad: "linear-gradient(180deg, rgba(44,58,102,.30), rgba(22,28,54,.34))", fire: .8 };
+}
+
+// A warm line under the greeting — of the lodge, not the old "sky" home.
+function lodgeTagline(k) {
+  return {
+    night:   "The fire's still warm and the lodge is quiet.",
+    morning: "The fire's lit and the day is yours.",
+    midday:  "Sunlight's pouring through the windows.",
+    evening: "The fire's warm and your plan is ready.",
+  }[k] || "Welcome home.";
 }
 
 function greeting(name) {
@@ -185,7 +203,7 @@ export function renderLodge(container, child) {
       <header class="lg-topbar">
         <div class="lg-greet">
           <h1>${greeting(child.name)}</h1>
-          <p>Your sky is growing brighter.</p>
+          <p>${lodgeTagline(tod.k)}</p>
         </div>
       </header>
       <section class="lg-board" id="lg-board" aria-label="Today's plan">
@@ -303,7 +321,7 @@ function startLodgeFx(main) {
   if (!canvas || canvas.dataset.on === "1") return;
   canvas.dataset.on = "1";
   const ctx = canvas.getContext("2d");
-  let embers = [], motes = [], t = 0;
+  let embers = [], motes = [], steam = [], t = 0;
 
   const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -335,6 +353,17 @@ function startLodgeFx(main) {
     });
     ctx.globalAlpha = 1;
 
+    // candle + lantern flames flicker — a soft warm glow over each baked light
+    FLICKER.forEach((pt, i) => {
+      const pr = projectImageRect(main, { l: pt.x, r: pt.x + pt.r, t: pt.y, b: pt.y });
+      const cx = pr.x, cy = pr.y, rad = Math.max(6, pr.w);
+      const fl = 0.7 + 0.28 * Math.sin(t * (5 + i * 1.3) + i * 2.1) + rand(-0.05, 0.05);
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+      g.addColorStop(0, `hsla(${pt.hue},95%,63%,${0.16 * Math.max(0, fl)})`);
+      g.addColorStop(1, `hsla(${pt.hue},95%,55%,0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, 6.2832); ctx.fill();
+    });
+
     // dust motes drifting in the window light
     const cols = [projectImageRect(main, WIN_L), projectImageRect(main, WIN_R)];
     if (motes.length < 30 && Math.random() < 0.35) {
@@ -350,6 +379,23 @@ function startLodgeFx(main) {
       ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.2832); ctx.fill();
     });
     ctx.globalAlpha = 1;
+
+    // steam curling up from the mug on the desk
+    const mug = projectImageRect(main, MUG_RECT);
+    const mx = mug.x + mug.w * 0.5;
+    if (steam.length < 12 && Math.random() < 0.22) {
+      steam.push({ x: mx + rand(-mug.w * 0.12, mug.w * 0.12), y: mug.y, vy: rand(-0.45, -0.28), vx: rand(-0.04, 0.04), life: 1, size: rand(mug.w * 0.22, mug.w * 0.34), ph: rand(0, 6.28) });
+    }
+    steam.forEach(p => { p.y += p.vy; p.x += p.vx + Math.sin(t * 1.6 + p.ph) * 0.12; p.size += 0.22; p.life -= 0.009; });
+    steam = steam.filter(p => p.life > 0);
+    steam.forEach(p => {
+      const a = Math.max(0, p.life) * 0.09;
+      const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size);
+      g.addColorStop(0, `rgba(255,251,244,${a})`);
+      g.addColorStop(1, "rgba(255,251,244,0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, 6.2832); ctx.fill();
+    });
+
     ctx.globalCompositeOperation = "source-over";
 
     requestAnimationFrame(frame);
