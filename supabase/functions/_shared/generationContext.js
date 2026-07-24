@@ -30,10 +30,11 @@ const isExpired = (reviewAt, now) => !!reviewAt && new Date(reviewAt).getTime() 
 
 /**
  * buildGenerationContext — turn canonical rows into a structured context.
- * @param understandings  rows from `understandings` (already family+subject scoped by the caller)
- * @param recentProjects  recent project rows for this child: [{domains:[], title, status}]
- * @param rhythm          family rhythm setting: {daysPerWeek, hoursPerDay}
- * @param nowIso          ISO timestamp (injected for testability)
+ * @param {object} [input]
+ * @param {any[]} [input.understandings]  rows from `understandings` (already family+subject scoped by the caller)
+ * @param {any[]} [input.recentProjects]  recent project rows for this child: [{domains:[], title, status}]
+ * @param {any} [input.rhythm]            family rhythm setting: {daysPerWeek, hoursPerDay}
+ * @param {string} [input.nowIso]         ISO timestamp (injected for testability)
  */
 export function buildGenerationContext({ understandings = [], recentProjects = [], rhythm = null, nowIso } = {}) {
   const now = nowIso ? new Date(nowIso).getTime() : 0;
