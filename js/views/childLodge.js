@@ -45,6 +45,26 @@ const FLICKER = [
   { name: "candle (mantel)", x: 0.25,  y: 0.265, r: 0.026, hue: 40 },
 ];
 
+// Living Lodge — Layer 3: the pets. Transparent sprites (matted from art) that
+// live in the room. Each picks a resting spot on load — so it has "moved" since
+// last visit — and breathes gently. Add more pets, and more poses per pet, here
+// as art arrives. `aspect` = sprite native h/w. `spots`: the sprite's
+// bottom-centre anchor (x, y) + width `w`, all fractions of the room image;
+// `flip` mirrors the sprite (it faces right by default) to face the room.
+const PETS = [
+  {
+    id: "samson",
+    src: "assets/images/lodge/pets/samson.webp",
+    aspect: 635 / 900,
+    spots: [
+      { x: 0.60, y: 0.99, w: 0.31, flip: true  },  // on the rug, facing in
+      { x: 0.33, y: 0.92, w: 0.25, flip: false },  // resting by the hearth
+      { x: 0.76, y: 1.00, w: 0.28, flip: true  },  // over by Kai's build station
+    ],
+  },
+];
+const _petSpot = {};  // pet id → chosen spot index, stable for this visit
+
 // The eight guides. Art lives at assets/images/guides/{band}/{id}.png.
 const GUIDES = [
   { id: "joe",    name: "Joe",    title: "The Coach" },
@@ -197,6 +217,7 @@ export function renderLodge(container, child) {
     main.innerHTML = `
       <img class="lg-bg" src="${ROOM_IMG}" alt="The Guide Lodge" />
       <div class="lg-scrim"></div>
+      <div class="lg-pets" id="lg-pets" aria-hidden="true"></div>
       <div class="lg-tod lg-tod--${tod.k}" style="background:${tod.grad}"></div>
       <div class="lg-fireglow" id="lg-fireglow" style="opacity:${tod.fire}"></div>
       <canvas class="lg-fx" id="lg-fx" aria-hidden="true"></canvas>
@@ -230,6 +251,7 @@ export function renderLodge(container, child) {
     requestAnimationFrame(() => {
       layoutBoard(container);
       positionFire(main, tod.fire);
+      renderPets(main);
       startLodgeFx(main);
     });
   }
@@ -244,7 +266,7 @@ export function renderLodge(container, child) {
         document.querySelectorAll(".child-portal").forEach(cp => {
           layoutBoard(cp);
           const m = cp.querySelector("#lg-main");
-          if (m) positionFire(m);
+          if (m) { positionFire(m); renderPets(m); }
         });
       });
     });
@@ -308,6 +330,45 @@ function positionFire(main, fireOpacity) {
   glow.style.width = r + "px";
   glow.style.height = r + "px";
   if (fireOpacity != null) glow.style.opacity = fireOpacity;
+}
+
+/* ---------- Living Lodge Layer 3: the pets ----------
+   Map a pet's fractional spot (bottom-centre anchor + width) to on-screen px
+   with the same object-fit:cover geometry as the board and fire. */
+function projectPetBox(main, spot, aspect) {
+  const W = main.clientWidth, H = main.clientHeight;
+  const scale = Math.max(W / ROOM_W, H / ROOM_H);
+  const dw = ROOM_W * scale, dh = ROOM_H * scale;
+  const offX = (W - dw) * OBJECT_POS.x, offY = (H - dh) * OBJECT_POS.y;
+  const cx = offX + spot.x * dw, by = offY + spot.y * dh;
+  const w = spot.w * dw, h = w * aspect;
+  return { left: cx - w / 2, top: by - h, w, h };
+}
+
+/* Place each pet in the room. Idempotent: builds the sprite once, then just
+   repositions on resize. Each pet keeps the resting spot it drew this visit,
+   so it appears to have moved between visits but never jumps mid-session. */
+function renderPets(main) {
+  const host = main.querySelector("#lg-pets");
+  if (!host) return;
+  PETS.forEach(pet => {
+    if (!(pet.id in _petSpot)) _petSpot[pet.id] = Math.floor(Math.random() * pet.spots.length);
+    const spot = pet.spots[_petSpot[pet.id]];
+    const box = projectPetBox(main, spot, pet.aspect);
+    let el = host.querySelector(`.lg-pet[data-pet="${pet.id}"]`);
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "lg-pet";
+      el.dataset.pet = pet.id;
+      el.innerHTML = `<div class="lg-pet-shadow"></div><img class="lg-pet-img" src="${pet.src}" alt="" />`;
+      host.appendChild(el);
+    }
+    el.classList.toggle("flip", !!spot.flip);
+    el.style.left = box.left + "px";
+    el.style.top = box.top + "px";
+    el.style.width = box.w + "px";
+    el.style.height = box.h + "px";
+  });
 }
 
 /* ---------- Living Lodge Layer 2: the fire + dust motes ----------
@@ -698,6 +759,19 @@ const LODGE_CSS = `
 /* the living-fire + dust canvas */
 .lg-fx{position:absolute;inset:0;z-index:2;pointer-events:none}
 @media (prefers-reduced-motion:reduce){.lg-fireglow{animation:none;filter:blur(14px)}}
+/* Living Lodge — Layer 3: pets (transparent sprites, breathe gently, grounded
+   by a soft contact shadow). Flip lives on the container so it never fights the
+   breathe animation on the image. */
+.lg-pets{position:absolute;inset:0;z-index:2;pointer-events:none}
+.lg-pet{position:absolute}
+.lg-pet.flip{transform:scaleX(-1)}
+.lg-pet-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;
+  transform-origin:50% 96%;animation:lgBreathe 4.8s ease-in-out infinite;
+  filter:drop-shadow(0 8px 12px rgba(0,0,0,.30))}
+.lg-pet-shadow{position:absolute;left:14%;right:14%;bottom:1%;height:6%;
+  background:radial-gradient(ellipse at center,rgba(0,0,0,.36),rgba(0,0,0,0) 72%);filter:blur(4px)}
+@keyframes lgBreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.006) translateY(-0.5%)}}
+@media (prefers-reduced-motion:reduce){.lg-pet-img{animation:none}}
 
 .lg-topbar{position:absolute;z-index:5;top:0;left:0;right:0;padding:26px 34px;display:flex;align-items:flex-start;justify-content:space-between}
 .lg-greet h1{font-family:var(--lg-serif);font-weight:500;font-size:clamp(28px,3.4vw,44px);margin:0;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.5)}
