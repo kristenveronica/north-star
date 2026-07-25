@@ -40,9 +40,9 @@ const WIN_R = { l: 0.85, r: 0.99, t: 0.10, b: 0.55 };
 // (lantern + mantel candles). All fractions of the room image; tune to taste.
 const MUG_RECT = { l: 0.1945, r: 0.2365, t: 0.76, b: 0.81 };
 const FLICKER = [
-  { name: "lantern (right)", x: 0.93,  y: 0.77,  r: 0.05,  hue: 34 },
-  { name: "candle (mantel)", x: 0.10,  y: 0.335, r: 0.028, hue: 40 },
-  { name: "candle (mantel)", x: 0.205, y: 0.325, r: 0.028, hue: 40 },
+  { name: "lantern (right)", x: 0.94,  y: 0.78,  r: 0.05,  hue: 34 },
+  { name: "candle (mantel)", x: 0.225, y: 0.27,  r: 0.026, hue: 40 },
+  { name: "candle (mantel)", x: 0.25,  y: 0.265, r: 0.026, hue: 40 },
 ];
 
 // The eight guides. Art lives at assets/images/guides/{band}/{id}.png.
