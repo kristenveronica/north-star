@@ -54,16 +54,23 @@ const FLICKER = [
 const PETS = [
   {
     id: "samson",
-    src: "assets/images/lodge/pets/samson.webp",
-    aspect: 635 / 900,
-    spots: [
-      { x: 0.60, y: 0.99, w: 0.31, flip: true  },  // on the rug, facing in
-      { x: 0.33, y: 0.92, w: 0.25, flip: false },  // resting by the hearth
-      { x: 0.76, y: 1.00, w: 0.28, flip: true  },  // over by Kai's build station
+    poses: [
+      { src: "assets/images/lodge/pets/samson-lying.webp",    aspect: 635 / 900, spots: [
+        { x: 0.55, y: 0.93, w: 0.28, flip: true  },   // rug centre, facing left
+        { x: 0.62, y: 0.94, w: 0.26, flip: true  },   // rug right-of-centre
+      ] },
+      { src: "assets/images/lodge/pets/samson-sleeping.webp", aspect: 347 / 1000, spots: [
+        { x: 0.53, y: 0.93, w: 0.30, flip: false },   // asleep on the rug
+        { x: 0.60, y: 0.94, w: 0.30, flip: true  },
+      ] },
+      { src: "assets/images/lodge/pets/samson-sitting.webp",  aspect: 900 / 598, spots: [
+        { x: 0.56, y: 0.93, w: 0.17, flip: false },   // sitting up, alert
+        { x: 0.60, y: 0.93, w: 0.17, flip: true  },
+      ] },
     ],
   },
 ];
-const _petSpot = {};  // pet id → chosen spot index, stable for this visit
+const _petSpot = {};  // pet id → {pose, spot}, stable for this visit
 
 // The eight guides. Art lives at assets/images/guides/{band}/{id}.png.
 const GUIDES = [
@@ -352,15 +359,20 @@ function renderPets(main) {
   const host = main.querySelector("#lg-pets");
   if (!host) return;
   PETS.forEach(pet => {
-    if (!(pet.id in _petSpot)) _petSpot[pet.id] = Math.floor(Math.random() * pet.spots.length);
-    const spot = pet.spots[_petSpot[pet.id]];
-    const box = projectPetBox(main, spot, pet.aspect);
+    if (!(pet.id in _petSpot)) {
+      const pose = Math.floor(Math.random() * pet.poses.length);
+      const spot = Math.floor(Math.random() * pet.poses[pose].spots.length);
+      _petSpot[pet.id] = { pose, spot };
+    }
+    const pose = pet.poses[_petSpot[pet.id].pose];
+    const spot = pose.spots[_petSpot[pet.id].spot];
+    const box = projectPetBox(main, spot, pose.aspect);
     let el = host.querySelector(`.lg-pet[data-pet="${pet.id}"]`);
     if (!el) {
       el = document.createElement("div");
       el.className = "lg-pet";
       el.dataset.pet = pet.id;
-      el.innerHTML = `<div class="lg-pet-shadow"></div><img class="lg-pet-img" src="${pet.src}" alt="" />`;
+      el.innerHTML = `<div class="lg-pet-shadow"></div><img class="lg-pet-img" src="${pose.src}" alt="" />`;
       host.appendChild(el);
     }
     el.classList.toggle("flip", !!spot.flip);
