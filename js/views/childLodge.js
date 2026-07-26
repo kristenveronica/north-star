@@ -69,6 +69,27 @@ const PETS = [
       ] },
     ],
   },
+  {
+    id: "maxi",
+    poses: [
+      { src: "assets/images/lodge/pets/maxi-sitting.webp",    aspect: 640 / 468, spots: [
+        { x: 0.39, y: 0.965, w: 0.10, flip: false },  // front-left, facing in
+        { x: 0.72, y: 0.965, w: 0.10, flip: true  },  // front-right
+      ] },
+      { src: "assets/images/lodge/pets/maxi-stretching.webp", aspect: 451 / 560, spots: [
+        { x: 0.39, y: 0.96,  w: 0.15, flip: true  },  // stretch faces left natively
+        { x: 0.71, y: 0.96,  w: 0.15, flip: false },
+      ] },
+      { src: "assets/images/lodge/pets/maxi-walking.webp",    aspect: 499 / 560, spots: [
+        { x: 0.40, y: 0.96,  w: 0.15, flip: true  },
+        { x: 0.71, y: 0.96,  w: 0.15, flip: false },
+      ] },
+      { src: "assets/images/lodge/pets/maxi-curled.webp",     aspect: 321 / 560, spots: [
+        { x: 0.37, y: 0.95,  w: 0.14, flip: false },  // curled asleep
+        { x: 0.73, y: 0.95,  w: 0.14, flip: false },
+      ] },
+    ],
+  },
 ];
 const _petSpot = {};  // pet id → {pose, spot}, stable for this visit
 
@@ -358,14 +379,26 @@ function projectPetBox(main, spot, aspect) {
 function renderPets(main) {
   const host = main.querySelector("#lg-pets");
   if (!host) return;
+  const placed = [];  // horizontal footprints already taken this render
+  const overlap = (a, b) => Math.max(0, Math.min(a.r, b.r) - Math.max(a.l, b.l));
   PETS.forEach(pet => {
     if (!(pet.id in _petSpot)) {
-      const pose = Math.floor(Math.random() * pet.poses.length);
-      const spot = Math.floor(Math.random() * pet.poses[pose].spots.length);
-      _petSpot[pet.id] = { pose, spot };
+      // Consider every pose×spot; prefer ones that don't sit on another pet
+      // (least horizontal overlap), then pick at random among the best.
+      const cands = [];
+      pet.poses.forEach((po, pi) => po.spots.forEach((sp, si) => {
+        const foot = { l: sp.x - sp.w / 2, r: sp.x + sp.w / 2 };
+        const ov = placed.reduce((s, p) => s + overlap(foot, p), 0);
+        cands.push({ pi, si, ov });
+      }));
+      const minOv = Math.min(...cands.map(c => c.ov));
+      const best = cands.filter(c => c.ov <= minOv + 1e-4);
+      const pick = best[Math.floor(Math.random() * best.length)];
+      _petSpot[pet.id] = { pose: pick.pi, spot: pick.si };
     }
     const pose = pet.poses[_petSpot[pet.id].pose];
     const spot = pose.spots[_petSpot[pet.id].spot];
+    placed.push({ l: spot.x - spot.w / 2, r: spot.x + spot.w / 2 });
     const box = projectPetBox(main, spot, pose.aspect);
     let el = host.querySelector(`.lg-pet[data-pet="${pet.id}"]`);
     if (!el) {
