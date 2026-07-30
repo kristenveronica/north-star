@@ -189,10 +189,13 @@ export function activeProjectCount(projects = []) {
   return projects.filter((p) => CONSUMING_STATUSES.has(p && p.status)).length;
 }
 
-/** Coarse milestone-minutes estimate from momentum points (our only effort proxy). */
+/** Milestone-minutes estimate. Prefer the model's honest estimatedMinutes when
+ *  present and sane; otherwise fall back to the momentum-points proxy. */
 export function estimateMilestoneMinutes(m = {}) {
+  const est = Number(m.estimatedMinutes);
+  if (Number.isFinite(est) && est > 0) return clamp(est, 5, 180);
   const pts = Number(m.momentumPoints) || 10;
-  return clamp(pts * 3, 20, 120);
+  return clamp(pts * 3, 20, 180);
 }
 
 // A result may exceed the hard capacity ceiling by at most this factor before it is

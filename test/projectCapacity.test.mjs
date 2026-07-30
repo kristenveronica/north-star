@@ -198,7 +198,16 @@ test("insufficient-capacity capacity → substance passthrough is insufficient_c
 test("missing milestone durations use the momentum-point fallback", () => {
   assert.equal(estimateMilestoneMinutes({}), 30);
   assert.equal(estimateMilestoneMinutes({ momentumPoints: 20 }), 60);
-  assert.equal(estimateMilestoneMinutes({ momentumPoints: 100 }), 120);
+  assert.equal(estimateMilestoneMinutes({ momentumPoints: 100 }), 180); // clamp ceiling raised for substantial missions
+});
+test("honest estimatedMinutes is preferred over the momentum-point proxy", () => {
+  // The model's explicit estimate wins when present and sane…
+  assert.equal(estimateMilestoneMinutes({ estimatedMinutes: 75, momentumPoints: 10 }), 75);
+  // …clamped to a sane range…
+  assert.equal(estimateMilestoneMinutes({ estimatedMinutes: 400 }), 180);
+  assert.equal(estimateMilestoneMinutes({ estimatedMinutes: 2 }), 5);
+  // …and a missing/invalid estimate falls back to momentum points.
+  assert.equal(estimateMilestoneMinutes({ estimatedMinutes: 0, momentumPoints: 20 }), 60);
 });
 
 /* ---------- parent-facing copy is simple + non-judgmental ---------- */

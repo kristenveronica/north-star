@@ -457,6 +457,7 @@ export function createProjectFromTemplate(t, child, status = "active") {
       description: m.description || "",
       instructions: Array.isArray(m.instructions) ? m.instructions : [],
       dueDate: md.toISOString(),
+      estimatedMinutes: Number.isFinite(m.estimatedMinutes) ? m.estimatedMinutes : null,
       momentumPoints: m.momentumPoints, reflectionRequired: !!m.reflectionRequired, order: i,
     });
   });

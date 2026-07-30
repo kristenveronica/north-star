@@ -383,12 +383,13 @@ const PROJECT_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["title", "description", "instructions", "dueOffsetDays", "momentumPoints", "reflectionRequired"],
+        required: ["title", "description", "instructions", "dueOffsetDays", "estimatedMinutes", "momentumPoints", "reflectionRequired"],
         properties: {
           title: { type: "string" },
           description: { type: "string" },
           instructions: { type: "array", items: { type: "string" } },
           dueOffsetDays: { type: "integer" },
+          estimatedMinutes: { type: "integer" },   // honest time for THIS child to work through all the steps well
           momentumPoints: { type: "integer" },
           reflectionRequired: { type: "boolean" },
         },
@@ -425,12 +426,12 @@ const PROJECT_SCHEMA = {
 
 function sizeGuidance(size: string, age: number | null) {
   const a = typeof age === "number" ? age : 10;
-  const young = a <= 8;
+  const young = a <= 7;
   const granularity = young
-    ? "This child is young — make missions TINY and frequent (each doable in one short sitting). Prefer MANY small missions (8–12+) over a few big ones, with smaller point values each."
-    : a <= 12
-    ? "Make missions small and clearly bounded — several short steps the child can finish in a sitting or two."
-    : "This child is older — fewer, more substantial missions are fine, but each must still be concrete and measurable.";
+    ? "This child is very young — make missions TINY and frequent (each doable in one short sitting, roughly 10–20 min of real doing). Prefer MANY small missions over a few big ones, with smaller point values each. estimatedMinutes ~10–20 each."
+    : a <= 11
+    ? "Make each mission a clear, bounded chunk the child can sink into for one focused sitting (roughly 25–45 minutes of genuine work) — several concrete steps that add up, NEVER a task that finishes in a few minutes. estimatedMinutes ~25–45 each."
+    : "This child is 12+ and capable — make each mission a SUBSTANTIAL session (roughly 45–90 minutes of genuine work): several real steps that add up to something they can be proud of. Fewer, meatier missions beat many trivial ones. Never a mission that finishes in a few minutes. estimatedMinutes ~45–90 each.";
   if (!size || size === "auto") {
     return `SIZE: YOU CHOOSE — read the parent's request and this child, then pick the most fitting scope yourself and set "durationDays" + "sizeBand" to match. Small (7–14 days, 3–6 missions) for a focused single interest; medium (~30 days, 6–10 missions) for something richer; large/term (~63 days, 8–14 missions, a lasting habit) only when they clearly describe a habit, a big build, or a season-long journey (e.g. a multi-week trip). Don't over-scope — match the spark. ${granularity}`;
   }
@@ -623,12 +624,29 @@ EVERY MILESTONE ("mission") MUST BE:
 - ACCOUNTABLE — name who they show or tell when done (a parent, or a project partner).
 - CONTROLLABLE — the child controls the outcome; avoid steps that mostly wait on someone else (rare
   exceptions allowed). Momentum comes from the child being able to act and finish.
-- SMALL & SHORT — so it feels achievable. Break work down; it's better to have more small missions.
+- SUBSTANTIAL — each mission is a real, satisfying chunk of work (a proper sitting), NOT a 5-minute errand.
+  The child should sink into it and come out with something they made, did, or figured out. If a step would
+  take under ~15 minutes on its own, combine it with related work into one fuller mission or expand it with
+  genuine depth. Achievable AND meaty — momentum comes from finishing something real, not something trivial.
 
-Each mission's "instructions" is an array of 1–4 concrete ACTION STEPS using strong action verbs such as:
-build, research, call, speak to, draw a diagram, make a poster, calculate, write out, read, buy, bake,
-make, share, collaborate, ask, generate, design. Tell them EXACTLY what to do and who to show it to.
-"description" is a one-line summary of the mission; "instructions" are the steps to follow.
+Each mission's "instructions" is an array of 3–7 concrete ACTION STEPS that TOGETHER fill the mission's whole
+work session, using strong action verbs such as: build, research, call, speak to, draw a diagram, make a poster,
+calculate, write out, read, buy, bake, make, share, collaborate, ask, generate, design, test, measure, practise,
+compare, record. Give enough real steps that the child is genuinely occupied for the mission's estimated time.
+Tell them EXACTLY what to do and who to show it to. "description" is a one-line summary of the mission;
+"instructions" are the full set of steps to work through.
+
+SET "estimatedMinutes" HONESTLY for every mission — the real time THIS child (at their age; see SIZE granularity)
+would spend doing ALL its steps well. Use it as a design tool: if a mission's estimatedMinutes comes out small,
+it is too thin — add depth or merge it. The missions' estimatedMinutes should ADD UP to roughly the total work
+budget (see LEARNING RHYTHM), spread across the quest.
+
+START TODAY (first mission) — the FIRST mission (dueOffsetDays 0) MUST be something the child can DO right now,
+today, with what they already have — never a week of planning, shopping or setup before anything happens. When
+the parent's request is about DOING an activity (an outing, cooking together, a build, time with a sibling), the
+first mission must get them actually DOING a real (if simple) version of it TODAY — fold any prep into that first
+real experience rather than spending the whole first mission on preparation. Front-load the doing; deepen the
+planning, budgeting and skills in later missions.
 
 REWARDS & TOLLS (suggestions only — the parent decides): scale the reward to the size — a term-long quest
 earns a BIG reward; a 1–2 week quest a small one. Award more momentum points overall for larger quests
