@@ -18,6 +18,7 @@ import { handleMilestoneTap } from "./childPortal.js";
 import { recordChildCompletion } from "../lib/childPortalCloud.js";
 import { celebrateMilestone } from "../components/celebrate.js";
 import { esc, toast } from "../components/ui.js";
+import { buildTodayPlan, fmtMinutes } from "../lib/dailyPlan.js";
 
 export function nsLodgeEnabled() {
   try { return localStorage.getItem("ns_lodge") === "1"; }
@@ -223,10 +224,16 @@ export function renderLodge(container, child) {
   function build() {
     const stats = getChildStats(child.id) || {};
     const allUpcoming = (getActiveMilestonesForChild(child.id) || []).filter(m => !m.completed);
-    const upcoming = allUpcoming.slice(0, 4);
+    // Daily-load intelligence: today's set fills to the family's daily target,
+    // drawn across all this child's projects (see js/lib/dailyPlan.js).
+    const dayPlan = buildTodayPlan(allUpcoming, getState().family?.rhythm || {});
+    const upcoming = dayPlan.items.map(it => it.milestone);
     const moreCount = allUpcoming.length - upcoming.length;
     const total = stats.totalMilestones ?? stats.total ?? 0;
     const pct = total ? Math.round((stats.completedMilestones ?? 0) / total * 100) : 0;
+    const dayTimeLine = upcoming.length
+      ? `about ${fmtMinutes(dayPlan.totalMinutes)} today${dayPlan.status === "light" ? " — a lighter day" : ""}`
+      : "";
 
     const planItems = upcoming.length
       ? upcoming.map((m, i) => `
@@ -257,6 +264,7 @@ export function renderLodge(container, child) {
       </header>
       <section class="lg-board" id="lg-board" aria-label="Today's plan">
         <h2>Today's Plan</h2>
+        ${dayTimeLine ? `<div class="lg-daytime">${esc(dayTimeLine)}</div>` : ""}
         <div class="lg-rule" aria-hidden="true"></div>
         ${total ? `<div class="lg-prog"><span style="width:${pct}%"></span></div>` : ""}
         <ul class="lg-plan">${planItems}</ul>
@@ -828,6 +836,7 @@ const LODGE_CSS = `
 .lg-board{position:absolute;z-index:3;top:20%;left:1%;width:22%;height:24vh;overflow:hidden;
   cursor:default;text-align:left;background:none;border:0;padding:0;color:#463819;font-size:15px;font-weight:500}
 .lg-board h2{font-family:var(--lg-serif);font-size:1.35em;font-weight:700;margin:0 0 .1em;color:#54431f;text-align:center;line-height:1.05}
+.lg-daytime{text-align:center;font-size:.8em;color:#8a6f3f;margin:0 0 .15em;font-style:italic}
 .lg-rule{height:.4em;margin:0 auto .5em;width:55%;background:no-repeat center/100% 100% url("${RULE_SVG}")}
 .lg-prog{height:.42em;border-radius:999px;background:rgba(120,95,55,.22);overflow:hidden;margin:0 0 .6em}
 .lg-prog span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#C98A34,#8fd6a6)}

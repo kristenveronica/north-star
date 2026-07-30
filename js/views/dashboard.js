@@ -6,6 +6,7 @@
 import { getState, getChildStats, getActiveMilestonesForChild, getAllUpcomingEvents } from "../store.js";
 import { esc, renderCountdown, icon, DOMAIN_COLOR_CLASS, fmtDate } from "../components/ui.js";
 import { navigate } from "../router.js";
+import { buildTodayPlan, fmtMinutes } from "../lib/dailyPlan.js";
 
 export function renderDashboard(container) {
   const s = getState();
@@ -89,7 +90,9 @@ export function renderDashboard(container) {
 
 function childStatCard(c) {
   const stats = getChildStats(c.id);
-  const milestones = getActiveMilestonesForChild(c.id).slice(0, 2);
+  // Time-balanced "today" set across all this child's projects (daily-load intelligence).
+  const day = buildTodayPlan(getActiveMilestonesForChild(c.id), getState().family?.rhythm || {});
+  const milestones = day.items.map(it => it.milestone);
   const totalAvailable = stats.activeProjects.reduce((s, p) => s + (p.momentumPointsAvailable || 0), 0) || 1;
   const pct = Math.min(100, Math.round((stats.totalMomentum / totalAvailable) * 100));
 
@@ -111,7 +114,7 @@ function childStatCard(c) {
         <div class="stack-tight"><span class="small text-muted">Projects</span><span class="fw-700">${stats.activeProjects.length} active</span></div>
       </div>
       ${milestones.length ? `
-        <div class="small text-muted fw-600 mb-1">Next milestones</div>
+        <div class="small text-muted fw-600 mb-1">Today · ${fmtMinutes(day.totalMinutes)}${day.status === "light" ? " · lighter day" : ""}</div>
         <div class="stack" style="gap:6px">
           ${milestones.map(m => `
             <div class="row" style="gap:8px;font-size:13px">

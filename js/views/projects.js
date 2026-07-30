@@ -18,6 +18,7 @@ import { INVENTORY_CATEGORIES } from "../lib/inventoryCatalog.js";
 import { availableDomains, domainShort, REFLECTION_PROMPTS } from "../seed.js";
 import { esc, icon, toast, openModal, confirmDialog, renderCountdown, fmtDate, sparkle, DOMAIN_COLOR_CLASS, childColor } from "../components/ui.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
+import { milestoneMinutes, loadByDay, scheduleMilestones } from "../lib/dailyPlan.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 
@@ -415,7 +416,23 @@ function projectSnapshot(t) {
    status: "active" (accepted) or "draft" (saved to review later). */
 export function createProjectFromTemplate(t, child, status = "active") {
   const start = new Date(); start.setHours(17, 0, 0, 0);
-  const due = new Date(start); due.setDate(due.getDate() + t.durationDays);
+
+  // Capacity-informed scheduling (daily-load intelligence): place this project's
+  // missions onto learning days, packing each day up to the family's daily target
+  // and respecting the load the child's OTHER active projects already committed —
+  // so across all their projects a day fills to about the time the family wants.
+  const rhythm = getState().family?.rhythm || {};
+  const otherActiveMs = getState().milestones.filter((m) => {
+    if (m.completed) return false;
+    const p = getState().projects.find((pp) => pp.id === m.projectId);
+    return p && p.childId === child.id && p.status !== "completed";
+  });
+  const newItems = (t.milestones || []).map((m, i) => ({ id: String(i), minutes: milestoneMinutes(m) }));
+  const scheduled = scheduleMilestones(newItems, loadByDay(otherActiveMs), rhythm, start);
+  const dueByIdx = new Map(scheduled.map((s) => [s.id, s.dueDate]));
+  const due = scheduled.length
+    ? scheduled.reduce((mx, s) => (s.dueDate > mx ? s.dueDate : mx), scheduled[0].dueDate)
+    : (() => { const d = new Date(start); d.setDate(d.getDate() + (t.durationDays || 14)); return d; })();
   const project = addProject({
     childId: child.id,
     title: t.title,
@@ -451,7 +468,9 @@ export function createProjectFromTemplate(t, child, status = "active") {
     status,
   });
   (t.milestones || []).forEach((m, i) => {
-    const md = new Date(start); md.setDate(md.getDate() + m.dueOffsetDays);
+    // Scheduled learning-day due date (Part B); fall back to the model's offset.
+    const md = dueByIdx.get(String(i))
+      || (() => { const d = new Date(start); d.setDate(d.getDate() + (m.dueOffsetDays || 0)); return d; })();
     addMilestone({
       projectId: project.id, title: m.title,
       description: m.description || "",
