@@ -138,7 +138,8 @@ async function createSession(payload: any) {
 
   const base = basePriceId(plan, interval);
   if (!base) return json({ error: `No base price configured for '${plan}' (${interval}).` }, 400);
-  if (!email) return json({ error: "An email is required to start checkout." }, 400);
+  // Email is OPTIONAL: our own pricing page passes it, but an ad "/join" link
+  // sends none and lets Stripe Checkout collect it (lowest-friction cold traffic).
 
   const prices = PRICES[interval];
   const line_items: { price: string; quantity: number }[] = [{ price: base, quantity: 1 }];
@@ -173,7 +174,7 @@ async function createSession(payload: any) {
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
-    customer_email: email,
+    ...(email ? { customer_email: email } : {}), // omit → Stripe collects it
     line_items,
     // Collect a card even during the trial, so billing resumes automatically.
     payment_method_collection: "always",

@@ -46,7 +46,7 @@ import { renderReflections } from "./views/reflections.js";
 import {
   renderPublicShell, renderHome, renderAbout, renderHowItWorks,
   renderFeaturesPublic, renderTrustCharter, renderPricing, renderContact, renderLogin, renderSignup, renderResetPassword,
-  renderCoPay,
+  renderCoPay, renderJoin,
 } from "./views/marketing.js";
 import { initAuth, isLoggedIn, onAuthChange, currentUserId } from "./auth.js";
 
@@ -234,6 +234,9 @@ registerRoute("/contact",      withPublicShell(renderContact));
 registerRoute("/login",        withPublicShell(renderLogin));
 registerRoute("/signup",       withPublicShell(renderSignup));
 registerRoute("/reset-password", withPublicShell(renderResetPassword));
+// Ad-funnel direct link → straight to Stripe Checkout for a tier ($9 first month).
+registerRoute("/join",          withPublicShell(renderJoin));
+registerRoute("/join/:plan",    (c, p) => withPublicShell((cont) => renderJoin(cont, p))(c));
 // Split payments: a co-parent covers their share (token-gated, no account needed).
 registerRoute("/co-pay",         withPublicShell(renderCoPay));
 registerRoute("/co-pay/:token",  (c, p) => withPublicShell((cont) => renderCoPay(cont, p))(c));

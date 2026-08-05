@@ -2049,3 +2049,39 @@ export function renderCoPay(container, params) {
       <p class="pm-lede">${esc(err.message || "Please ask the other parent to resend your invite.")}</p></div>`);
   });
 }
+
+/* ============================================================
+   Join — a direct ad-funnel link (e.g. from Meta) that jumps STRAIGHT
+   to Stripe Checkout for a tier, with the $9 first month already applied
+   (no promo code). Stripe collects the email. Use links like:
+     https://app.northstar-family.com/#/join/flourish
+   ============================================================ */
+export function renderJoin(container, params) {
+  const raw = (params?.plan || new URLSearchParams(location.hash.split("?")[1] || "").get("plan") || "flourish").toLowerCase();
+  const plan = ["foundation", "flourish", "legacy"].includes(raw) ? raw : "flourish";
+  const FN = `${SUPABASE_URL}/functions/v1/public-checkout`;
+
+  container.innerHTML = `
+    <div class="pm"><div class="pm-hero" style="padding-top:64px">
+      ${logoLockup()}
+      <h1 class="pm-h1" style="margin-top:18px">Taking you to secure checkout…</h1>
+      <p class="pm-lede">Your first month is just <b>$9</b>, then your membership continues at the founding rate. One moment.</p>
+      <div class="pm-err" id="join-err" style="margin-top:14px"></div>
+    </div></div>`;
+
+  (async () => {
+    try {
+      const res = await fetch(FN, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_PUBLISHABLE_KEY, "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}` },
+        body: JSON.stringify({ action: "create", payload: { plan, interval: "month" } }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || `Request failed (${res.status})`);
+      window.location.href = data.url;
+    } catch (e) {
+      container.querySelector("#join-err").innerHTML =
+        `${esc(e.message || "Couldn't start checkout just now.")}<br><a href="#/pricing?plan=${plan}" style="color:var(--primary);font-weight:600">Go to memberships →</a>`;
+    }
+  })();
+}
