@@ -64,12 +64,13 @@ const normalizePlan = (p: string) => (PLAN_KEYS.includes(String(p || "").toLower
 function basePriceId(plan: string, interval: string): string {
   const P = normalizePlan(plan).toUpperCase();
   const I = interval === "year" ? "YEAR" : "MONTH";
-  return env(`STRIPE_PRICE_${P}_${I}`) || env(`STRIPE_PRICE_BASE_${I}`) || "";
+  return (env(`STRIPE_PRICE_${P}_${I}`) || env(`STRIPE_PRICE_BASE_${I}`) || "").trim();
 }
 // Optional $9-first-month intro coupon per tier (Stripe coupon, duration=once).
 // Env: STRIPE_INTRO_COUPON_FOUNDATION / _FLOURISH / _LEGACY (or a single fallback).
+// .trim() guards against stray whitespace/newlines pasted into the secret.
 function introCoupon(plan: string): string {
-  return env(`STRIPE_INTRO_COUPON_${normalizePlan(plan).toUpperCase()}`) || env("STRIPE_INTRO_COUPON") || "";
+  return (env(`STRIPE_INTRO_COUPON_${normalizePlan(plan).toUpperCase()}`) || env("STRIPE_INTRO_COUPON") || "").trim();
 }
 
 // 12-month commitment: full-price families commit to a year. Enforced SOFTLY via
