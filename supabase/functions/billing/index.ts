@@ -50,6 +50,11 @@ const AISEAT: Record<string, string> = {
 };
 const AI_PERMS = ["contrib:generate", "contrib:reports"];
 
+// Price-id sets for identifying the BASE line item (neither a child seat nor an
+// AI seat) when re-pricing it for split payments.
+const SEAT_IDS = new Set([env("STRIPE_PRICE_SEAT_MONTH"), env("STRIPE_PRICE_SEAT_YEAR")].filter(Boolean));
+const AISEAT_IDS = new Set([env("STRIPE_PRICE_AISEAT_MONTH"), env("STRIPE_PRICE_AISEAT_YEAR")].filter(Boolean));
+
 // 12-month commitment: full-price families commit to a year. Enforced SOFTLY via
 // an in-app retention gauntlet (not a Stripe schedule). Beta families are exempt.
 const COMMITMENT_MONTHS = 12;
@@ -98,7 +103,7 @@ async function resolveFamily(req: Request) {
 
 // Billing mutations are owner-only. Read-only actions (prices/status/claims) are
 // available to any ACTIVE member. Enforced server-side — never trust the client.
-const OWNER_ONLY = new Set(["create-checkout", "add-seat", "create-portal", "pause", "resume", "cancel", "keep"]);
+const OWNER_ONLY = new Set(["create-checkout", "add-seat", "create-portal", "pause", "resume", "cancel", "keep", "configure-split", "remove-split"]);
 const OWNER_ROLES = new Set(["architect", "co_architect"]);
 
 /** Get-or-create the family's Stripe customer + family_billing row. */
@@ -470,6 +475,111 @@ async function createPortal(familyId: string) {
   return json({ url: session.url });
 }
 
+// ============================================================================
+// SPLIT PAYMENTS (guarantor side). A blended family's Primary Owner (guarantor)
+// invites a co-parent to fund a SHARE of the base plan. The guarantor keeps
+// paying 100% until the co-payer's first payment lands (webhook then drops the
+// guarantor to their share) — so the family is never under-collected, and never
+// locked out if the co-payer lapses. See stripe-webhook for the automation.
+// ============================================================================
+
+/** Guarantor configures (or reconfigures) the split and gets an invite link to
+    send the co-parent. Does NOT change the guarantor's charge yet — that happens
+    automatically once the co-payer actually pays. */
+async function configureSplit(familyId: string, guarantorEmail: string, userId: string, payload: any) {
+  const copayerEmail = (payload?.copayerEmail || "").toString().trim().toLowerCase();
+  const gPct = Math.round(Number(payload?.guarantorPct));
+  if (!copayerEmail || !copayerEmail.includes("@")) return json({ error: "A valid co-parent email is required." }, 400);
+  if (copayerEmail === (guarantorEmail || "").toLowerCase()) return json({ error: "The co-parent must use a different email from yours." }, 400);
+  if (!Number.isFinite(gPct) || gPct < 1 || gPct > 99) return json({ error: "Your share must be between 1% and 99%." }, 400);
+  const coPct = 100 - gPct;
+
+  const row = await billingRow(familyId);
+  if (!row?.stripe_subscription_id || !["active", "trialing"].includes(row.status)) {
+    return json({ needsBase: true }); // must have a live base subscription first
+  }
+
+  // Guarantor payer row — stays at 100% until the co-payer pays (no revenue gap).
+  await admin.from("billing_payers").upsert({
+    family_id: familyId, email: (guarantorEmail || "").toLowerCase(), user_id: userId,
+    is_guarantor: true, share_pct: 100, status: "active",
+    stripe_customer_id: row.stripe_customer_id, stripe_subscription_id: row.stripe_subscription_id,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "family_id,email" });
+
+  // Placeholder co-payer row — pending until their first payment.
+  await admin.from("billing_payers").upsert({
+    family_id: familyId, email: copayerEmail, is_guarantor: false,
+    share_pct: coPct, status: "pending", updated_at: new Date().toISOString(),
+  }, { onConflict: "family_id,email" });
+
+  // One live invite per co-payer: revoke any prior pending, then mint a fresh one.
+  await admin.from("invitations").update({ status: "revoked" })
+    .eq("family_id", familyId).eq("email", copayerEmail).eq("status", "pending");
+  const token = (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "");
+  const { error: invErr } = await admin.from("invitations").insert({
+    family_id: familyId, email: copayerEmail, billing_share_pct: coPct,
+    intended_role: "contributor", token, status: "pending", invited_by: userId,
+  });
+  if (invErr) return json({ error: `Could not create the invite: ${invErr.message}` }, 500);
+
+  const appUrl = env("APP_URL") || "http://localhost:8765";
+  return json({ ok: true, copayer: { email: copayerEmail, sharePct: coPct, status: "pending" },
+    guarantorPct: gPct, inviteUrl: `${appUrl}/#/co-pay/${token}` });
+}
+
+/** Current split status for the billing UI (any active member may read). */
+async function getSplit(familyId: string) {
+  const { data: payers } = await admin.from("billing_payers")
+    .select("email, share_pct, is_guarantor, status").eq("family_id", familyId);
+  const co = (payers || []).find((p: any) => !p.is_guarantor);
+  const guarantor = (payers || []).find((p: any) => p.is_guarantor);
+  if (!co) return json({ enabled: false });
+
+  const { data: inv } = await admin.from("invitations")
+    .select("token, status").eq("family_id", familyId).eq("email", co.email)
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const appUrl = env("APP_URL") || "http://localhost:8765";
+  return json({
+    enabled: true,
+    guarantorPct: guarantor?.share_pct ?? (100 - (co.share_pct || 0)),
+    copayer: { email: co.email, sharePct: co.share_pct, status: co.status },
+    inviteUrl: inv?.status === "pending" ? `${appUrl}/#/co-pay/${inv.token}` : null,
+  });
+}
+
+/** Restore the guarantor's base line item to the full price (used on remove). */
+async function restoreGuarantorFull(familyId: string) {
+  const row = await billingRow(familyId);
+  if (!row?.stripe_subscription_id) return;
+  const interval = row.base_interval === "year" ? "year" : "month";
+  const fullBaseId = PRICES[interval]?.base;
+  if (!fullBaseId) return;
+  const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id);
+  const baseItem = sub.items.data.find((it: any) => !SEAT_IDS.has(it.price.id) && !AISEAT_IDS.has(it.price.id));
+  if (!baseItem || baseItem.price.id === fullBaseId) return;
+  await stripe.subscriptions.update(row.stripe_subscription_id, {
+    items: [{ id: baseItem.id, price: fullBaseId }], proration_behavior: "create_prorations",
+  });
+}
+
+/** End the split: cancel the co-payer's subscription, revoke the invite, and
+    restore the guarantor to the full price. */
+async function removeSplit(familyId: string) {
+  const { data: co } = await admin.from("billing_payers")
+    .select("id, stripe_subscription_id").eq("family_id", familyId).eq("is_guarantor", false).maybeSingle();
+  if (co?.stripe_subscription_id) {
+    try { await stripe.subscriptions.update(co.stripe_subscription_id, { cancel_at_period_end: true }); } catch { /* best effort */ }
+  }
+  await admin.from("invitations").update({ status: "revoked" })
+    .eq("family_id", familyId).eq("status", "pending");
+  if (co?.id) await admin.from("billing_payers").delete().eq("id", co.id);
+  try { await restoreGuarantorFull(familyId); } catch (e) { console.error("[billing] restore full failed:", e); }
+  await admin.from("billing_payers").update({ share_pct: 100, updated_at: new Date().toISOString() })
+    .eq("family_id", familyId).eq("is_guarantor", true);
+  return json({ ok: true });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -494,6 +604,9 @@ Deno.serve(async (req) => {
     if (action === "sync-ai-seats")   return await syncAiSeats(familyId, user!.id);
     if (action === "create-portal")   return await createPortal(familyId);
     if (action === "get-subscription") return await getSubscription(familyId);
+    if (action === "configure-split") return await configureSplit(familyId, email, user!.id, payload || {});
+    if (action === "get-split")       return await getSplit(familyId);
+    if (action === "remove-split")    return await removeSplit(familyId);
     if (action === "pause")           return await pauseSubscription(familyId, Number(payload?.months) || 1);
     if (action === "resume")          return await resumeSubscription(familyId);
     if (action === "cancel")          return await cancelSubscription(familyId);

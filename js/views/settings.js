@@ -9,7 +9,7 @@ import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 import { hasAccount, currentUserEmail, attachAccountToExistingFamily, changePassword, logout } from "../auth.js";
 import { childProfileLimit, childSeatsUsed } from "../lib/entitlements.js";
-import { openBillingPortal, aiSeatCount, syncAiSeats, getSubscription, resumeSubscription, keepSubscription } from "../lib/billing.js";
+import { openBillingPortal, aiSeatCount, syncAiSeats, getSubscription, resumeSubscription, keepSubscription, getSplit, configureSplit, removeSplit } from "../lib/billing.js";
 import { openCancelFlow } from "../components/cancelFlow.js";
 import { isOwnerActing } from "../lib/permissions.js";
 import { eraseAccount, ERASE_CONFIRM_PHRASE } from "../lib/account.js";
@@ -83,6 +83,10 @@ export function renderSettings(container) {
             <button class="btn" id="go-children">Add a child profile</button>
             <button class="btn btn-ghost" id="cancel-sub" style="margin-left:auto;color:var(--text-muted)">Cancel membership</button>
           </div>
+          ${isOwnerActing(s) ? `
+            <div class="divider"></div>
+            <div id="split-panel" aria-live="polite"></div>
+          ` : ""}
         </div>
 
         <div class="card">
@@ -205,6 +209,9 @@ export function renderSettings(container) {
 
   // Live subscription status line (commitment / paused / ending), loaded async.
   loadSubStatus(container);
+
+  // Split payments panel (owner-only; rendered async into #split-panel).
+  loadSplit(container);
 
   // Reconcile adult AI seats with current membership (server recomputes the count).
   container.querySelector("#sync-seats")?.addEventListener("click", async (e) => {
@@ -382,6 +389,94 @@ async function loadSubStatus(container) {
   } else {
     host.textContent = "Your membership is active.";
   }
+}
+
+/* Render the split-payments panel (owner-only). Lets the guarantor invite a
+   co-parent to fund their share, see status, copy the payment link, or stop.
+   Best-effort: silently no-ops if billing isn't configured or reachable. */
+async function loadSplit(container) {
+  const host = container.querySelector("#split-panel");
+  if (!host) return;
+  let split;
+  try { split = await getSplit(); } catch { host.textContent = ""; return; }
+
+  const statusLabel = (st) => st === "active" ? "Active ✓"
+    : st === "past_due" ? "Payment overdue"
+    : st === "pending" ? "Awaiting their first payment"
+    : "Inactive";
+
+  if (split?.enabled) {
+    const co = split.copayer || {};
+    host.innerHTML = `
+      <div class="fw-700 small">Sharing the cost with a co-parent</div>
+      <p class="text-muted small" style="margin:4px 0 10px;max-width:54ch">
+        <strong>${esc(co.email || "")}</strong> covers <strong>${co.sharePct}%</strong> on their own card;
+        you cover <strong>${split.guarantorPct}%</strong>. Status: <strong>${statusLabel(co.status)}</strong>.
+        ${co.status !== "active" ? " Your card covers the full membership until their first payment lands — the family is never interrupted." : ""}
+      </p>
+      ${split.inviteUrl ? `
+        <div class="field" style="margin:0">
+          <label class="small">Their payment link</label>
+          <div class="row" style="gap:8px">
+            <input class="input" id="split-link" readonly value="${esc(split.inviteUrl)}" style="flex:1;font-size:12px"/>
+            <button class="btn btn-sm" id="split-copy">Copy</button>
+          </div>
+          <div class="small text-muted" style="margin-top:4px">Send this to the co-parent so they can set up their share.</div>
+        </div>` : ""}
+      <button class="btn btn-ghost btn-sm" id="split-remove" style="margin-top:10px;color:var(--text-muted)">Stop sharing the cost</button>
+      <div class="small text-muted" id="split-msg" style="margin-top:6px" aria-live="polite"></div>`;
+
+    host.querySelector("#split-copy")?.addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(split.inviteUrl); toast("Link copied", { type: "success" }); }
+      catch { const i = host.querySelector("#split-link"); i.select(); document.execCommand("copy"); }
+    });
+    host.querySelector("#split-remove")?.addEventListener("click", async (e) => {
+      const ok = await confirmDialog({
+        title: "Stop sharing the cost?",
+        message: "The co-parent's payment will be cancelled at their period end, and your card will cover the full membership again.",
+        confirmLabel: "Stop sharing",
+      });
+      if (!ok) return;
+      e.currentTarget.disabled = true;
+      try { await removeSplit(); toast("Cost-sharing ended — you now cover the full membership.", { type: "success" }); loadSplit(container); }
+      catch (err) { host.querySelector("#split-msg").textContent = err.message || "Couldn't update just now."; e.currentTarget.disabled = false; }
+    });
+    return;
+  }
+
+  // Not enabled → offer setup.
+  host.innerHTML = `
+    <div class="fw-700 small">Share the cost with a co-parent</div>
+    <p class="text-muted small" style="margin:4px 0 10px;max-width:54ch">Blended family? Invite the other parent to pay their share of the membership on their own card. You stay the guarantor — if their payment ever lapses, your card keeps the family running.</p>
+    <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div class="field" style="flex:1;min-width:200px;margin:0">
+        <label class="small">Co-parent's email</label>
+        <input class="input" id="split-email" type="email" placeholder="coparent@example.com"/>
+      </div>
+      <div class="field" style="width:130px;margin:0">
+        <label class="small">Your share</label>
+        <div class="row" style="gap:6px;align-items:center">
+          <input class="input" id="split-pct" type="number" min="1" max="99" value="50" style="width:70px"/>
+          <span class="small text-muted">%</span>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" id="split-invite">Create invite</button>
+    </div>
+    <div class="small text-muted" id="split-msg" style="margin-top:8px" aria-live="polite"></div>`;
+
+  host.querySelector("#split-invite")?.addEventListener("click", async (e) => {
+    const email = host.querySelector("#split-email").value.trim();
+    const pct = Number(host.querySelector("#split-pct").value);
+    const msg = host.querySelector("#split-msg");
+    if (!email) { msg.textContent = "Enter the co-parent's email."; return; }
+    e.currentTarget.disabled = true; msg.textContent = "Creating…";
+    try {
+      const res = await configureSplit(email, pct);
+      if (res?.needsBase) { msg.textContent = "Start your own membership first, then you can share the cost."; e.currentTarget.disabled = false; return; }
+      toast("Co-pay invite created — share the link with the co-parent.", { type: "success" });
+      loadSplit(container);
+    } catch (err) { msg.textContent = err.message || "Couldn't create the invite."; e.currentTarget.disabled = false; }
+  });
 }
 
 function frameworkRow(f, enabled) {

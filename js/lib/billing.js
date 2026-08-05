@@ -125,3 +125,50 @@ export function aiSeatCount(state) {
 export function syncAiSeats() {
   return invokeBilling("sync-ai-seats");
 }
+
+/* ---------- Split payments (blended families) ----------
+   The guarantor (Primary Owner) invites a co-parent to fund a SHARE of the base
+   plan. The guarantor keeps paying 100% until the co-parent's first payment
+   lands; then Stripe drops the guarantor to their share (webhook). If the
+   co-parent lapses, the guarantor is restored to full automatically — the family
+   is never locked out. Entitlement always rides on the guarantor's subscription. */
+
+/** Configure/reconfigure the split. guarantorPct is the OWNER's share (1–99);
+    the co-parent gets the remainder. Returns { ok, inviteUrl, copayer, guarantorPct }
+    or { needsBase:true } if there's no live base subscription yet. */
+export function configureSplit(copayerEmail, guarantorPct) {
+  return invokeBilling("configure-split", { copayerEmail, guarantorPct });
+}
+
+/** Current split status: { enabled, guarantorPct, copayer:{email,sharePct,status}, inviteUrl }. */
+export function getSplit() {
+  return invokeBilling("get-split");
+}
+
+/** End the split — cancels the co-parent's subscription and restores the guarantor to full. */
+export function removeSplit() {
+  return invokeBilling("remove-split");
+}
+
+/* ---------- Co-payer side (public, token-gated — no account needed) ---------- */
+async function invokePublic(action, payload = {}) {
+  const { data, error } = await supabase.functions.invoke("public-checkout", { body: { action, payload } });
+  if (error) {
+    let msg = error.message || "Request failed";
+    try { const body = await error.context?.json?.(); if (body?.error) msg = body.error; } catch { /* ignore */ }
+    throw new Error(msg);
+  }
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+/** What the co-parent will pay: { valid, email, sharePct, amount, currency, interval }. */
+export function coPayInfo(token) {
+  return invokePublic("copay-info", { token });
+}
+
+/** Start the co-parent's Stripe Checkout for their share. Redirects to Stripe. */
+export async function startCoPayCheckout(token) {
+  const { url } = await invokePublic("copay-create", { token });
+  if (url) window.location.href = url;
+}

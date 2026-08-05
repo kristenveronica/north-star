@@ -26,6 +26,7 @@ const stripe: any = new Stripe(env("STRIPE_SECRET_KEY"), {
 const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
 
 const SEAT_PRICES = new Set([env("STRIPE_PRICE_SEAT_MONTH"), env("STRIPE_PRICE_SEAT_YEAR")].filter(Boolean));
+const AISEAT_PRICES = new Set([env("STRIPE_PRICE_AISEAT_MONTH"), env("STRIPE_PRICE_AISEAT_YEAR")].filter(Boolean));
 
 /** Write the subscription's current shape into family_billing (trigger sets the limit). */
 // deno-lint-ignore no-explicit-any
@@ -73,6 +74,104 @@ async function syncSubscription(sub: any) {
   }, { onConflict: "family_id" });
 }
 
+// ---------------------------------------------------------------------------
+// SPLIT PAYMENTS (blended families — two parents, one family).
+//
+// A co-payer's subscription is tagged metadata.payer_role = 'co'. It funds a
+// SHARE of the base plan and is tracked in billing_payers — it never drives the
+// family's entitlement (that rides on the guarantor's subscription, unchanged).
+//
+// Model: "guarantor backstops" (grace_then_primary). The guarantor keeps paying
+// 100% until the co-payer's FIRST payment lands; then the guarantor's base item
+// drops to their share so the two shares sum to the full price. If the co-payer
+// ever lapses, the guarantor is restored to 100% automatically — the family is
+// never locked out and revenue never dips below full.
+// ---------------------------------------------------------------------------
+
+function payerStatusFrom(s: string): string {
+  if (s === "active" || s === "trialing") return "active";
+  if (s === "past_due" || s === "unpaid" || s === "incomplete") return "past_due";
+  return "canceled"; // canceled | incomplete_expired
+}
+
+/** Re-price the guarantor's base line item to `pct`% of the full base price.
+    pct >= 100 restores the real base price id. Idempotent (no-ops when the
+    amount already matches, so repeated co-payer events don't churn prices). */
+// deno-lint-ignore no-explicit-any
+async function adjustGuarantorBase(familyId: string, pct: number) {
+  const { data: fb } = await admin.from("family_billing")
+    .select("stripe_subscription_id, base_interval").eq("family_id", familyId).maybeSingle();
+  if (!fb?.stripe_subscription_id) return;
+
+  const interval = fb.base_interval === "year" ? "year" : "month";
+  const fullBaseId = env(interval === "year" ? "STRIPE_PRICE_BASE_YEAR" : "STRIPE_PRICE_BASE_MONTH");
+  if (!fullBaseId) return;
+
+  const sub = await stripe.subscriptions.retrieve(fb.stripe_subscription_id);
+  // The base item is the recurring item that is neither a child seat nor an AI seat.
+  const baseItem = sub.items.data.find((it: any) =>
+    !SEAT_PRICES.has(it.price.id) && !AISEAT_PRICES.has(it.price.id));
+  if (!baseItem) return;
+
+  const full = await stripe.prices.retrieve(fullBaseId);
+  const target = pct >= 100 ? (full.unit_amount || 0) : Math.round((full.unit_amount || 0) * pct / 100);
+  if ((baseItem.price.unit_amount || 0) === target && (pct < 100 || baseItem.price.id === fullBaseId)) {
+    return; // already at the right price — nothing to do
+  }
+
+  const items = pct >= 100
+    ? [{ id: baseItem.id, price: fullBaseId }]
+    : [{
+        id: baseItem.id,
+        price_data: {
+          currency: full.currency,
+          unit_amount: target,
+          recurring: { interval: full.recurring?.interval || interval },
+          product: typeof full.product === "string" ? full.product : full.product?.id,
+        },
+      }];
+  await stripe.subscriptions.update(fb.stripe_subscription_id, { items, proration_behavior: "create_prorations" });
+  await admin.from("billing_payers")
+    .update({ share_pct: pct, updated_at: new Date().toISOString() })
+    .eq("family_id", familyId).eq("is_guarantor", true);
+}
+
+/** Handle a co-payer's subscription event: mirror it into billing_payers and
+    (de)activate the guarantor's cost offset accordingly. */
+// deno-lint-ignore no-explicit-any
+async function syncCoPayer(sub: any) {
+  const familyId = sub.metadata?.family_id;
+  const email = (sub.metadata?.copayer_email || "").toLowerCase();
+  if (!familyId || !email) { console.warn("[webhook] co-payer sub missing family/email", sub.id); return; }
+
+  const status = payerStatusFrom(sub.status);
+  const { data: existing } = await admin.from("billing_payers")
+    .select("id, share_pct").eq("family_id", familyId).eq("email", email).maybeSingle();
+  const sharePct = Number(sub.metadata?.share_pct) || existing?.share_pct || null;
+
+  const row: Record<string, unknown> = {
+    family_id: familyId, email, is_guarantor: false,
+    stripe_customer_id: sub.customer as string, stripe_subscription_id: sub.id,
+    status, updated_at: new Date().toISOString(),
+  };
+  if (sharePct) row.share_pct = sharePct;
+  if (existing) await admin.from("billing_payers").update(row).eq("id", existing.id);
+  else await admin.from("billing_payers").insert(row);
+
+  try {
+    if (status === "active") {
+      await admin.from("invitations").update({ status: "accepted" })
+        .eq("family_id", familyId).eq("email", email).eq("status", "pending");
+      if (sharePct) await adjustGuarantorBase(familyId, 100 - sharePct); // guarantor covers the rest
+    } else {
+      // Lapse → grace_then_primary: the guarantor absorbs the full cost again.
+      await adjustGuarantorBase(familyId, 100);
+    }
+  } catch (e) {
+    console.error("[webhook] guarantor re-price failed:", (e as Error).message);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("POST only", { status: 405 });
 
@@ -94,15 +193,19 @@ Deno.serve(async (req) => {
     switch (event.type) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
-      case "customer.subscription.deleted":
-        await syncSubscription(event.data.object);
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as any;
+        if (sub.metadata?.payer_role === "co") await syncCoPayer(sub);
+        else await syncSubscription(sub);
         break;
+      }
       case "checkout.session.completed": {
         const s = event.data.object as any;
         if (s.subscription) {
           const sub = await stripe.subscriptions.retrieve(s.subscription as string);
           if (!sub.metadata?.family_id && s.metadata?.family_id) sub.metadata = s.metadata;
-          await syncSubscription(sub);
+          if (sub.metadata?.payer_role === "co") await syncCoPayer(sub);
+          else await syncSubscription(sub);
         }
         break;
       }

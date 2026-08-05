@@ -38,6 +38,7 @@
 // ============================================================================
 
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno&no-check";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2?target=deno";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -54,6 +55,10 @@ const stripe: any = new Stripe(env("STRIPE_SECRET_KEY"), {
   apiVersion: "2024-06-20",
   httpClient: Stripe.createFetchHttpClient(),
 });
+
+// Service-role client — only used by the token-gated co-payer flow to read an
+// invitation and the family's base interval. Never exposed to the caller.
+const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
 
 const PRICES: Record<string, { base: string; seat: string; aiseat: string }> = {
   month:   { base: env("STRIPE_PRICE_BASE_MONTH"),   seat: env("STRIPE_PRICE_SEAT_MONTH"),   aiseat: env("STRIPE_PRICE_AISEAT_MONTH")   },
@@ -187,6 +192,91 @@ async function checkSubscription(payload: any) {
   return json({ active: false });
 }
 
+// ---------------------------------------------------------------------------
+// SPLIT PAYMENTS — co-payer side (token-gated, no account required).
+//
+// The guarantor configures a split in-app; that mints an invitation with
+// billing_share_pct. The co-parent opens the link (#/co-pay?token=…) which calls
+// these two actions. `copay-info` shows what they'll pay; `copay-create` starts
+// a Stripe Checkout for their SHARE of the base plan. The subscription is tagged
+// metadata.payer_role='co' so the webhook routes it to billing_payers (not the
+// family's entitlement) and drops the guarantor's charge to the remainder.
+// ---------------------------------------------------------------------------
+
+/** Validate a co-pay token → the invitation + the family's base interval. */
+async function loadCoInvite(token: string) {
+  const t = (token || "").toString().trim();
+  if (!t) return { error: "Missing invite token." };
+  const { data: inv } = await admin.from("invitations")
+    .select("family_id, email, billing_share_pct, status, expires_at")
+    .eq("token", t).maybeSingle();
+  if (!inv || inv.status !== "pending") return { error: "This invite is no longer valid." };
+  if (inv.billing_share_pct == null) return { error: "This invite is not a payment invite." };
+  if (inv.expires_at && Date.parse(inv.expires_at) < Date.now()) return { error: "This invite has expired." };
+  const { data: fb } = await admin.from("family_billing")
+    .select("base_interval, status").eq("family_id", inv.family_id).maybeSingle();
+  const interval = fb?.base_interval === "year" ? "year" : "month";
+  return { inv, interval };
+}
+
+/** What the co-parent will pay: their share of the base plan. */
+async function copayInfo(payload: any) {
+  const loaded = await loadCoInvite(payload?.token);
+  if (loaded.error) return json({ valid: false, error: loaded.error });
+  const { inv, interval } = loaded;
+  const baseId = PRICES[interval!]?.base;
+  if (!baseId) return json({ valid: false, error: "Billing is not configured." });
+  const p = await stripe.prices.retrieve(baseId);
+  const share = Number(inv!.billing_share_pct) || 0;
+  return json({
+    valid: true, email: inv!.email, sharePct: share, interval,
+    amount: Math.round((p.unit_amount || 0) * share / 100),
+    fullAmount: p.unit_amount, currency: p.currency,
+  });
+}
+
+/** Start the co-parent's Checkout for their share of the base plan. */
+async function copayCreate(payload: any) {
+  const loaded = await loadCoInvite(payload?.token);
+  if (loaded.error) return json({ error: loaded.error }, 400);
+  const { inv, interval } = loaded;
+  const baseId = PRICES[interval!]?.base;
+  if (!baseId) return json({ error: "Billing is not configured." }, 400);
+
+  const share = Number(inv!.billing_share_pct) || 0;
+  const p = await stripe.prices.retrieve(baseId);
+  const unit = Math.round((p.unit_amount || 0) * share / 100);
+  const productId = typeof p.product === "string" ? p.product : p.product?.id;
+
+  const customer = await stripe.customers.create({
+    email: inv!.email || undefined,
+    metadata: { family_id: inv!.family_id, payer_role: "co" },
+  });
+  const appUrl = env("APP_URL") || "http://localhost:8765";
+  const meta = { family_id: inv!.family_id, payer_role: "co", copayer_email: (inv!.email || "").toLowerCase(),
+    invite_token: (payload?.token || "").toString(), share_pct: String(share) };
+
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    customer: customer.id,
+    line_items: [{
+      price_data: {
+        currency: p.currency,
+        unit_amount: unit,
+        recurring: { interval: p.recurring?.interval || interval },
+        product: productId,
+      },
+      quantity: 1,
+    }],
+    payment_method_collection: "always",
+    subscription_data: { metadata: meta },
+    metadata: meta,
+    success_url: `${appUrl}/?copay=success#/co-pay`,
+    cancel_url: `${appUrl}/?copay=cancelled#/co-pay/${(payload?.token || "").toString()}`,
+  });
+  return json({ url: session.url });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -197,6 +287,8 @@ Deno.serve(async (req) => {
     if (action === "prices") return await getPrices();
     if (action === "create") return await createSession(payload || {});
     if (action === "check-subscription") return await checkSubscription(payload || {});
+    if (action === "copay-info") return await copayInfo(payload || {});
+    if (action === "copay-create") return await copayCreate(payload || {});
     return json({ error: `Unknown action: ${action}` }, 400);
   } catch (e) {
     console.error("[public-checkout] error:", e);

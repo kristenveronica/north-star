@@ -13,6 +13,7 @@ import { logoLockup, logoStacked } from "../components/logo.js";
 import { accSection, accToolbar, wireAccordion } from "../components/accordion.js";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "../lib/supabase.js";
 import { getPendingCheckout, getPendingInvite } from "../lib/repo.js";
+import { coPayInfo, startCoPayCheckout } from "../lib/billing.js";
 
 /** Ask the public-checkout function whether an email already has a LIVE
     subscription. Used to gate sign-up so only subscribers can create an account.
@@ -1961,5 +1962,78 @@ export function renderSignup(container) {
     container.querySelector("#" + id)?.addEventListener("keydown", e => {
       if (e.key === "Enter") createBtn.click();
     });
+  });
+}
+
+/* ============================================================
+   Co-pay — a blended family's co-parent covers their SHARE of the
+   membership. Public + token-gated (no account required). The guarantor
+   generates this link in Settings → Membership. See lib/billing.js +
+   supabase/functions/public-checkout (copay-info / copay-create).
+   ============================================================ */
+export function renderCoPay(container, params) {
+  const token = (params?.token || "").trim();
+  const paid = new URLSearchParams(location.search).get("copay") === "success";
+  const money = (amt, cur = "usd") => amt == null ? "—"
+    : new Intl.NumberFormat(undefined, { style: "currency", currency: (cur || "usd").toUpperCase() }).format(amt / 100);
+
+  const shell = (inner) => `<div class="pm"><div class="pm-hero" style="padding-bottom:8px">${logoLockup()}</div>${inner}</div>`;
+
+  if (paid) {
+    container.innerHTML = shell(`
+      <div class="pm-hero">
+        <span class="pm-eyebrow">A shared North Star membership</span>
+        <h1 class="pm-h1">Thank you — you're all set.</h1>
+        <p class="pm-lede">Your share of the membership is now active, billed to your own card. A receipt is on its way by email, and you can update your card any time from the link on that receipt. There's nothing else you need to do.</p>
+      </div>`);
+    return;
+  }
+
+  if (!token) {
+    container.innerHTML = shell(`
+      <div class="pm-hero"><h1 class="pm-h1">This link needs a valid invite.</h1>
+      <p class="pm-lede">Please open the co-pay link the other parent sent you, or ask them to resend it.</p></div>`);
+    return;
+  }
+
+  container.innerHTML = shell(`<div class="pm-hero"><p class="pm-lede">Loading your invite…</p></div>`);
+
+  coPayInfo(token).then((info) => {
+    if (!info?.valid) {
+      container.innerHTML = shell(`
+        <div class="pm-hero"><h1 class="pm-h1">This invite is no longer valid.</h1>
+        <p class="pm-lede">${esc(info?.error || "Please ask the other parent to resend your co-pay link.")}</p></div>`);
+      return;
+    }
+    const per = info.interval === "year" ? "year" : "month";
+    container.innerHTML = shell(`
+      <div class="pm-hero">
+        <span class="pm-eyebrow">A shared North Star membership</span>
+        <h1 class="pm-h1">You've been invited to share the cost.</h1>
+        <p class="pm-lede">The other parent has set up a North Star family membership and asked you to cover your share. It's your own card and your own receipt, billed separately — set up your part below.</p>
+      </div>
+      <div class="pm-calc" style="max-width:520px;margin:24px auto 0">
+        <h3 class="pm-calc-head">Your share</h3>
+        <div class="pm-chosen" style="font-size:1.15rem"><b>${money(info.amount, info.currency)}</b> / ${per}
+          <span class="pm-muted" style="font-weight:600">· ${info.sharePct}% of the membership</span></div>
+        <p class="pm-calc-sub" style="margin-top:10px">Billed to <b>${esc(info.email)}</b>. The other parent covers the remainder. If your payment ever lapses, the family keeps their access — you can simply restart here.</p>
+        <button class="pm-go" id="copay-go" type="button">Pay my share →</button>
+        <div class="pm-trust">Secure payment via Stripe · Billed separately from the other parent · Cancel anytime</div>
+        <div class="pm-err" id="copay-err"></div>
+      </div>`);
+    const btn = container.querySelector("#copay-go");
+    btn?.addEventListener("click", async () => {
+      btn.disabled = true; btn.textContent = "Redirecting to secure checkout…";
+      try {
+        await startCoPayCheckout(token);
+      } catch (err) {
+        container.querySelector("#copay-err").textContent = err.message || "Couldn't start checkout.";
+        btn.disabled = false; btn.textContent = "Pay my share →";
+      }
+    });
+  }).catch((err) => {
+    container.innerHTML = shell(`
+      <div class="pm-hero"><h1 class="pm-h1">This link isn't working right now.</h1>
+      <p class="pm-lede">${esc(err.message || "Please ask the other parent to resend your invite.")}</p></div>`);
   });
 }
