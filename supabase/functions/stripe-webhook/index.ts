@@ -17,7 +17,8 @@
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno&no-check";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2?target=deno";
 
-const env = (k: string) => Deno.env.get(k) || "";
+// .trim() so a stray newline/space pasted into any secret can never break it.
+const env = (k: string) => (Deno.env.get(k) || "").trim();
 // deno-lint-ignore no-explicit-any
 const stripe: any = new Stripe(env("STRIPE_SECRET_KEY"), {
   apiVersion: "2024-06-20",

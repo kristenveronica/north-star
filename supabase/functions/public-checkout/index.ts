@@ -48,7 +48,8 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
-const env = (k: string) => Deno.env.get(k) || "";
+// .trim() so a stray newline/space pasted into any secret can never break it.
+const env = (k: string) => (Deno.env.get(k) || "").trim();
 
 // deno-lint-ignore no-explicit-any
 const stripe: any = new Stripe(env("STRIPE_SECRET_KEY"), {
