@@ -79,6 +79,14 @@ const COMMITMENT_MONTHS = 12;
 // Service-role client for writing the family_billing mapping (bypasses RLS).
 const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"));
 
+// current_period_end moved from the Subscription to its line items in Stripe API
+// 2025-03-31+. Read from either location defensively.
+// deno-lint-ignore no-explicit-any
+const periodEndISO = (s: any): string | null => {
+  const t = s?.current_period_end ?? s?.items?.data?.[0]?.current_period_end;
+  return t ? new Date(t * 1000).toISOString() : null;
+};
+
 /** From a Stripe subscription, derive the commitment shape we persist + show.
     Beta = stamped at checkout (metadata.beta). committed_until = start + 12mo. */
 // deno-lint-ignore no-explicit-any
@@ -349,7 +357,7 @@ async function persistSubscription(familyId: string, customerId: string, sub: an
     base_interval: interval === "year" ? "year" : "month",
     extra_seats: extraSeats,
     status: sub.status,
-    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    current_period_end: periodEndISO(sub),
     is_beta: commit.isBeta,
     committed_until: commit.committedUntil,
     paused_until: commit.pausedUntil === "indefinite" ? null : commit.pausedUntil,
@@ -418,7 +426,7 @@ async function getSubscription(familyId: string) {
     pausedUntil: commit.pausedUntil === "indefinite" ? null : commit.pausedUntil,
     isPaused: !!sub.pause_collection,
     cancelAtPeriodEnd: commit.cancelAtPeriodEnd,
-    currentPeriodEnd: new Date(sub.current_period_end * 1000).toISOString(),
+    currentPeriodEnd: periodEndISO(sub),
   });
 }
 
@@ -428,7 +436,7 @@ async function reflect(familyId: string, sub: any) {
   const commit = commitmentOf(sub);
   await admin.from("family_billing").update({
     status: sub.status,
-    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    current_period_end: periodEndISO(sub),
     is_beta: commit.isBeta,
     committed_until: commit.committedUntil,
     paused_until: commit.pausedUntil === "indefinite" ? null : commit.pausedUntil,
@@ -473,7 +481,7 @@ async function cancelSubscription(familyId: string) {
   if (!row?.stripe_subscription_id) return json({ error: "No subscription to cancel." }, 400);
   const sub = await stripe.subscriptions.update(row.stripe_subscription_id, { cancel_at_period_end: true });
   await reflect(familyId, sub);
-  return json({ ok: true, endsAt: new Date(sub.current_period_end * 1000).toISOString() });
+  return json({ ok: true, endsAt: periodEndISO(sub) });
 }
 
 /** Undo a scheduled cancellation — "actually, stay". */

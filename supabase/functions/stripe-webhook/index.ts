@@ -28,6 +28,15 @@ const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY")
 const SEAT_PRICES = new Set([env("STRIPE_PRICE_SEAT_MONTH"), env("STRIPE_PRICE_SEAT_YEAR")].filter(Boolean));
 const AISEAT_PRICES = new Set([env("STRIPE_PRICE_AISEAT_MONTH"), env("STRIPE_PRICE_AISEAT_YEAR")].filter(Boolean));
 
+// current_period_end moved from the Subscription to its line items in Stripe API
+// 2025-03-31+ (the webhook renders events at the account version, which may be
+// newer than our SDK). Read it from either location, defensively.
+// deno-lint-ignore no-explicit-any
+const periodEndISO = (s: any): string | null => {
+  const t = s?.current_period_end ?? s?.items?.data?.[0]?.current_period_end;
+  return t ? new Date(t * 1000).toISOString() : null;
+};
+
 // ---- Subscription tiers: resolve a tier's base price for re-pricing ----
 const PLAN_KEYS = ["foundation", "flourish", "legacy"];
 const normalizePlan = (p: string) => (PLAN_KEYS.includes(String(p || "").toLowerCase()) ? String(p).toLowerCase() : "foundation");
@@ -74,7 +83,7 @@ async function syncSubscription(sub: any) {
     base_interval: interval === "year" ? "year" : interval === "month" ? "month" : null,
     extra_seats: extraSeats,
     status: sub.status, // active | trialing | past_due | canceled | unpaid | ...
-    current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
+    current_period_end: periodEndISO(sub),
     is_beta: isBeta,
     committed_until: committedUntil,
     paused_until: pausedUntil,
