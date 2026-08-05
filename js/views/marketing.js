@@ -1412,11 +1412,27 @@ const MEMBERSHIP_BELIEFS = [
 export function renderPricing(container) {
   const FN = `${SUPABASE_URL}/functions/v1/public-checkout`;
   const money = (amt, cur = "usd") => amt == null ? "—"
-    : new Intl.NumberFormat(undefined, { style: "currency", currency: (cur || "usd").toUpperCase() }).format(amt / 100);
-  const planOf = (k) => MEMBERSHIP_PLANS.find(p => p.key === k) || {};
+    : new Intl.NumberFormat(undefined, { style: "currency", currency: (cur || "usd").toUpperCase(), maximumFractionDigits: 0 }).format(amt / 100);
 
-  let interval = null, children = 1, adults = 0, prices = null;
+  // Three tiers — the capability model. All include 5 children + 2 adults and a
+  // $9 first month. Foundation is complete on its own; upgrading adds depth.
+  const TIERS = [
+    { key: "foundation", name: "Foundation", blurb: "The complete core North Star experience.",
+      bullets: ["Everything you need to homeschool beautifully", "Projects, portfolio, reflections & calendar", "Two Guides, Character Journal & momentum"] },
+    { key: "flourish", name: "Flourish", tag: "Most loved", blurb: "North Star begins to understand your family more deeply.",
+      bullets: ["Everything in Foundation, plus:", "Growth Reports & Family Inventory", "Rewards & Tolls", "Deeper Guide memory & richer personalisation"] },
+    { key: "legacy", name: "Legacy", blurb: "North Star becomes your family's operating system for the future.",
+      bullets: ["Everything in Flourish, plus:", "Family North Star — the living heart", "Family Councils, Child Insights & Community", "Parent & family ↔ Guide mentoring"] },
+  ];
+  const FOUNDING = { foundation: 49, flourish: 69, legacy: 99 }; // display fallback before Stripe prices load
+  const INCLUDED_CHILDREN = 5, INCLUDED_ADULTS = 2;
+  const interval = "month";
+
+  let plan = null, prices = null, children = INCLUDED_CHILDREN, adults = INCLUDED_ADULTS;
   const $ = (sel) => container.querySelector(sel);
+  const tierAmount = (key) => prices?.[interval]?.[key]?.amount ?? null;
+  const tierCur = (key) => prices?.[interval]?.[key]?.currency || "usd";
+  const preselect = new URLSearchParams((location.hash.split("?")[1] || "")).get("plan");
 
   async function call(action, payload) {
     const res = await fetch(FN, {
@@ -1436,11 +1452,15 @@ export function renderPricing(container) {
         <span class="pm-eyebrow">Join North Star</span>
         <h1 class="pm-h1">A different way to raise learners.</h1>
         <p class="pm-lede">North Star helps families build a learning path around who their child is becoming, what they love, and the values they are growing up inside.</p>
+        <button class="pm-go" id="pm-reveal" type="button">See memberships →</button>
+        <div class="pm-trust" style="margin-top:14px">$9 for your first month · 5 children + 2 adults included · cancel anytime</div>
       </div>
 
-      <!-- Membership cards — above the fold (populated synchronously below) -->
-      <p class="pm-cards-note">Every membership is a <b>12-month journey</b> — simply choose how you'd like to pay. Your first child is always included.</p>
-      <div class="pm-cards" id="pm-cards"></div>
+      <!-- Tiers — revealed only after the visitor chooses to look -->
+      <div class="pm-tiers" id="pm-tiers" hidden>
+        <p class="pm-cards-note">Every membership includes <b>5 children + 2 contributing adults</b> and starts at <b>$9 for your first month</b>. Foundation is complete on its own — upgrade only when you're ready for more.</p>
+        <div class="pm-tier-grid" id="pm-tier-grid"></div>
+      </div>
 
       <!-- Configurator (appears after a card is chosen) -->
       <div class="pm-config" id="pm-config">
@@ -1502,90 +1522,82 @@ export function renderPricing(container) {
     </div>
   `;
 
-  const availablePlans = () => MEMBERSHIP_PLANS.filter(p => prices?.[p.key]?.base);
-
-  function cardHtml(p) {
-    const set = prices?.[p.key] || {};
-    const cur = set.base?.currency || "usd";
-    // Show a shimmer where the price will be until the live amount loads, so the
-    // two cards appear instantly and only the number fills in (no layout jump).
-    const priceHtml = prices
-      ? money(set.base?.amount ?? null, cur)
-      : `<span class="pm-price-skeleton" aria-hidden="true"></span>`;
-    // On the annual card, show the saving vs paying monthly for the year.
-    let saveHtml = "";
-    if (p.featured && prices?.month?.base?.amount && prices?.year?.base?.amount) {
-      const save = prices.month.base.amount * 12 - prices.year.base.amount;
-      if (save > 0) saveHtml = `<div class="pm-psave">Save ${money(save, cur)} vs paying monthly</div>`;
-    }
+  function tierCardHtml(t) {
+    // Live Stripe amount if configured, else the founding price so the page
+    // reads correctly even before Stripe is wired.
+    const amt = tierAmount(t.key);
+    const priceHtml = amt != null ? money(amt, tierCur(t.key)) : `$${FOUNDING[t.key]}`;
     return `
-      <div class="pm-plan ${p.featured ? "featured" : ""} ${interval === p.key ? "selected" : ""}" data-plan="${p.key}">
-        ${p.tag ? `<div class="pm-ribbon">${p.tag}</div>` : ""}
+      <div class="pm-plan ${t.tag ? "featured" : ""} ${plan === t.key ? "selected" : ""}" data-plan="${t.key}">
+        ${t.tag ? `<div class="pm-ribbon">${t.tag}</div>` : ""}
         <div class="pm-pstar">✦</div>
-        <div class="pm-pname">${p.name}</div>
-        <div class="pm-pterm">12-month membership</div>
+        <div class="pm-pname">${t.name}</div>
         <div class="pm-pprice">${priceHtml}</div>
-        <div class="pm-pper">${p.per} · your first child included</div>
-        ${saveHtml}
-        <div class="pm-pdesc">${p.desc}</div>
-        <button class="pm-cta" type="button">${interval === p.key ? "Selected ✓" : "Choose " + p.name}</button>
+        <div class="pm-pper">/month · founding rate</div>
+        <div class="pm-pdesc">${t.blurb}</div>
+        <ul class="pm-plist">${t.bullets.map(b => `<li>${b}</li>`).join("")}</ul>
+        <button class="pm-cta" type="button">${plan === t.key ? "Selected ✓" : "Choose " + t.name}</button>
       </div>`;
   }
 
-  function renderCards() {
-    const host = $("#pm-cards");
-    // Before prices load, render BOTH cards (with a price skeleton) so the
-    // membership options are visible immediately — no "Loading…" placeholder
-    // that lets the philosophy section flash up before the cards arrive.
-    const list = prices ? availablePlans() : MEMBERSHIP_PLANS;
-    if (prices && !list.length) {
-      host.innerHTML = `<div class="pm-loading">Memberships are being finalised — please check back shortly.</div>`;
-      return;
-    }
-    host.innerHTML = list.map(cardHtml).join("");
+  function renderTiers() {
+    const host = $("#pm-tier-grid");
+    if (!host) return;
+    host.innerHTML = TIERS.map(tierCardHtml).join("");
     host.querySelectorAll("[data-plan]").forEach(card => card.addEventListener("click", () => choose(card.dataset.plan)));
   }
 
+  function reveal() {
+    const t = $("#pm-tiers");
+    if (!t) return;
+    t.hidden = false;
+    renderTiers();
+    setTimeout(() => t.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  }
+
   function choose(key) {
-    interval = key;
-    renderCards();
+    plan = key;
+    renderTiers();
     renderConfig();
     $("#pm-config").classList.add("open");
     setTimeout(() => $("#pm-config").scrollIntoView({ behavior: "smooth", block: "center" }), 80);
   }
 
   function renderConfig() {
-    if (!interval) return;
-    const p = planOf(interval);
-    const set = prices?.[interval] || {};
-    const cur = set.base?.currency || "usd";
-    const extraChild = Math.max(0, children - 1);
+    if (!plan) return;
+    const t = TIERS.find(x => x.key === plan) || {};
+    const cur = tierCur(plan);
+    const baseAmt = tierAmount(plan);
+    const baseShown = baseAmt != null ? money(baseAmt, cur) : `$${FOUNDING[plan]}`;
+    const extraChild = Math.max(0, children - INCLUDED_CHILDREN);
+    const extraAdult = Math.max(0, adults - INCLUDED_ADULTS);
 
     $("#pm-children").textContent = children;
     $("#pm-adults").textContent = adults;
-    $("#pm-child-note").textContent = extraChild ? `Your first child + ${extraChild} more` : "Your first child is included.";
-    $("#pm-chosen").innerHTML = `12-month membership · paid ${p.name.toLowerCase()} · ${money(set.base?.amount ?? null, cur)} ${p.per}
+    $("#pm-child-note").textContent = extraChild ? `${INCLUDED_CHILDREN} included + ${extraChild} more` : `${INCLUDED_CHILDREN} children included`;
+    $("#pm-chosen").innerHTML = `Paid ${t.name} membership · <b>$9 first month</b>, then ${baseShown}/mo
       <button type="button" id="pm-change">change</button>`;
     $("#pm-change").addEventListener("click", () => {
       $("#pm-config").classList.remove("open");
-      interval = null; renderCards();
-      $("#pm-cards").scrollIntoView({ behavior: "smooth", block: "center" });
+      plan = null; renderTiers();
+      $("#pm-tiers").scrollIntoView({ behavior: "smooth", block: "center" });
     });
 
-    const baseAmt = set.base?.amount ?? null, seatAmt = set.seat?.amount ?? null, aiAmt = set.aiseat?.amount ?? null;
-    const total = baseAmt == null ? null : baseAmt + extraChild * (seatAmt || 0) + adults * (aiAmt || 0);
-    const per = p.per === "per year" ? "/yr" : "/mo";
+    const seatAmt = prices?.[interval]?.seat?.amount ?? null, aiAmt = prices?.[interval]?.aiseat?.amount ?? null;
+    const total = baseAmt == null ? null : baseAmt + extraChild * (seatAmt || 0) + extraAdult * (aiAmt || 0);
 
     $("#pm-breakdown").innerHTML = `
-      <div class="pm-row"><span>Base membership · your first child</span><span>${money(baseAmt, cur)}${per}</span></div>
-      ${extraChild > 0 ? `<div class="pm-row"><span class="pm-muted">${extraChild} additional ${extraChild === 1 ? "child" : "children"}</span><span>${money(seatAmt != null ? seatAmt * extraChild : null, cur)}${per}</span></div>` : ""}
-      ${adults > 0 ? `<div class="pm-row"><span class="pm-muted">${adults} supporting ${adults === 1 ? "adult" : "adults"}</span><span>${money(aiAmt != null ? aiAmt * adults : null, cur)}${per}</span></div>` : ""}
-      <div class="pm-total"><span>Total</span><span>${money(total, cur)}${per}</span></div>`;
-    $("#pm-go").disabled = baseAmt == null;
+      <div class="pm-row"><span>First month</span><span><b>${money(900, cur)}</b></span></div>
+      <div class="pm-row"><span>${t.name} · 5 children + 2 adults</span><span>${baseShown}/mo</span></div>
+      ${extraChild > 0 ? `<div class="pm-row"><span class="pm-muted">${extraChild} additional ${extraChild === 1 ? "child" : "children"}</span><span>${money(seatAmt != null ? seatAmt * extraChild : null, cur)}/mo</span></div>` : ""}
+      ${extraAdult > 0 ? `<div class="pm-row"><span class="pm-muted">${extraAdult} additional ${extraAdult === 1 ? "adult" : "adults"}</span><span>${money(aiAmt != null ? aiAmt * extraAdult : null, cur)}/mo</span></div>` : ""}
+      <div class="pm-total"><span>Then monthly</span><span>${money(total, cur)}/mo</span></div>`;
+    $("#pm-go").disabled = false;
   }
 
-  container.querySelectorAll("[data-step-child]").forEach(b => b.addEventListener("click", () => { children = Math.max(1, children + (+b.dataset.stepChild)); renderConfig(); }));
-  container.querySelectorAll("[data-step-adult]").forEach(b => b.addEventListener("click", () => { adults = Math.max(0, adults + (+b.dataset.stepAdult)); renderConfig(); }));
+  container.querySelectorAll("[data-step-child]").forEach(b => b.addEventListener("click", () => { children = Math.max(INCLUDED_CHILDREN, children + (+b.dataset.stepChild)); renderConfig(); }));
+  container.querySelectorAll("[data-step-adult]").forEach(b => b.addEventListener("click", () => { adults = Math.max(INCLUDED_ADULTS, adults + (+b.dataset.stepAdult)); renderConfig(); }));
+  $("#pm-reveal").addEventListener("click", reveal);
 
   $("#pm-promo-toggle").addEventListener("click", () => {
     const w = $("#pm-promo-wrap");
@@ -1601,15 +1613,15 @@ export function renderPricing(container) {
 
   $("#pm-go").addEventListener("click", async () => {
     $("#pm-err").textContent = "";
-    if (!interval) { $("#pm-err").textContent = "Please choose a membership above."; return; }
+    if (!plan) { $("#pm-err").textContent = "Please choose a membership above."; return; }
     const email = $("#pm-email").value.trim();
     if (!email) { $("#pm-err").textContent = "Please enter your email."; return; }
     const go = $("#pm-go");
     go.disabled = true; go.textContent = "Redirecting…";
     try {
       const { url } = await call("create", {
-        interval, email, promoCode: $("#pm-promo").value.trim(),
-        childSeats: Math.max(0, children - 1), adultSeats: adults,
+        plan, interval, email, promoCode: $("#pm-promo").value.trim(),
+        childSeats: Math.max(0, children - INCLUDED_CHILDREN), adultSeats: Math.max(0, adults - INCLUDED_ADULTS),
       });
       window.location.href = url;
     } catch (e) {
@@ -1618,13 +1630,13 @@ export function renderPricing(container) {
     }
   });
 
-  // Render the cards immediately (skeleton prices) so the page never flashes an
-  // empty/loading state, then fetch live prices and fill them in.
-  renderCards();
+  // Fetch live prices, then reveal + preselect if arriving with ?plan= (e.g. from
+  // an in-app upgrade intro page). Founding prices show until Stripe is wired.
   (async () => {
-    try { prices = await call("prices"); } catch (e) { $("#pm-err").textContent = e.message; }
-    renderCards();
-    if (interval) renderConfig(); // if a card was chosen before prices loaded, fill totals
+    try { prices = await call("prices"); } catch { /* founding fallback prices show */ }
+    if (!$("#pm-tiers").hidden) renderTiers();
+    if (plan) renderConfig();
+    if (preselect && ["foundation", "flourish", "legacy"].includes(preselect)) { reveal(); choose(preselect); }
   })();
 }
 
