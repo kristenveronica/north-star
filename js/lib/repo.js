@@ -98,7 +98,12 @@ function fromFamilyRows(famRow, profile, membership) {
     structure: famRow.structure || "unified",
     // Subscription entitlements — SERVER-MANAGED, read-only on the client.
     // Never written back in toProfileRow; the client must not raise its own limits.
-    entitlements: { childProfileLimit: profile?.child_profile_limit ?? 1 },
+    // `plan` (foundation|flourish|legacy) is denormalised onto family_profiles by
+    // the billing-entitlement trigger; null → founding-launch grandfather default.
+    entitlements: {
+      childProfileLimit: profile?.child_profile_limit ?? 1,
+      plan: profile?.plan || null,
+    },
     // Family Rhythm config (reads once migration 0013 adds the column; {} before).
     rhythm: profile?.rhythm || {},
     // Living Family Inventory context (reads once 0018 adds the column; {} before).

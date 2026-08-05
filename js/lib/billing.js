@@ -19,12 +19,18 @@ async function invokeBilling(action, payload = {}) {
 }
 
 /**
- * Start the base subscription checkout (includes 1 child).
- * interval: 'month' | 'year'. seats: extra child seats to buy in the same checkout.
+ * Start the base subscription checkout for a tier (includes 5 children).
+ * interval: 'month' | 'year'. seats: extra child seats. plan: foundation|flourish|legacy.
  */
-export async function startBaseCheckout(interval = "month", seats = 0) {
-  const { url } = await invokeBilling("create-checkout", { interval, seats });
+export async function startBaseCheckout(interval = "month", seats = 0, plan = "foundation") {
+  const { url } = await invokeBilling("create-checkout", { interval, seats, plan });
   if (url) window.location.href = url;
+}
+
+/** Upgrade/downgrade an existing subscription to another tier (Stripe prorates).
+    Returns { ok, plan } or { needsBase:true } if there's no live subscription. */
+export function changePlan(plan) {
+  return invokeBilling("change-plan", { plan });
 }
 
 /**

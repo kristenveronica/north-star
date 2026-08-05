@@ -67,19 +67,33 @@ const PRICES: Record<string, { base: string; seat: string; aiseat: string }> = {
 };
 const INTERVALS = ["month", "quarter", "year"];
 
-/** Return amounts so the public page can show pricing without hard-coding it.
-    Quarterly only appears once its prices are configured in Stripe (else null). */
+// ---- Subscription tiers (Foundation / Flourish / Legacy) ----
+const PLAN_KEYS = ["foundation", "flourish", "legacy"];
+const normalizePlan = (p: string) => (PLAN_KEYS.includes(String(p || "").toLowerCase()) ? String(p).toLowerCase() : "foundation");
+function basePriceId(plan: string, interval: string): string {
+  const P = normalizePlan(plan).toUpperCase();
+  const I = interval === "year" ? "YEAR" : interval === "quarter" ? "QUARTER" : "MONTH";
+  return env(`STRIPE_PRICE_${P}_${I}`) || env(`STRIPE_PRICE_BASE_${I}`) || "";
+}
+// $9-first-month intro coupon per tier (Stripe coupon, duration=once).
+function introCoupon(plan: string): string {
+  return env(`STRIPE_INTRO_COUPON_${normalizePlan(plan).toUpperCase()}`) || env("STRIPE_INTRO_COUPON") || "";
+}
+
+/** Return amounts so the public page can show tier pricing without hard-coding
+    it. Each interval carries foundation/flourish/legacy base prices + seat +
+    aiseat. A tier is null until its price is configured in Stripe. */
 async function getPrices() {
+  const retrieve = async (id: string) => {
+    if (!id) return null;
+    try { const p = await stripe.prices.retrieve(id); return { amount: p.unit_amount, currency: p.currency, interval: p.recurring?.interval || null }; }
+    catch { return null; }
+  };
   const result: Record<string, Record<string, unknown>> = { month: {}, quarter: {}, year: {} };
   for (const interval of INTERVALS) {
-    for (const key of ["base", "seat", "aiseat"] as const) {
-      const id = PRICES[interval]?.[key] || "";
-      if (!id) { result[interval][key] = null; continue; }
-      try {
-        const p = await stripe.prices.retrieve(id);
-        result[interval][key] = { amount: p.unit_amount, currency: p.currency, interval: p.recurring?.interval || interval };
-      } catch { result[interval][key] = null; }
-    }
+    for (const plan of PLAN_KEYS) result[interval][plan] = await retrieve(basePriceId(plan, interval));
+    result[interval].seat = await retrieve(PRICES[interval]?.seat || "");
+    result[interval].aiseat = await retrieve(PRICES[interval]?.aiseat || "");
   }
   return json(result);
 }
@@ -116,18 +130,20 @@ function betaTrial(code: string): { trialEnd?: number; trialDays?: number } | nu
 
 async function createSession(payload: any) {
   const interval = INTERVALS.includes(payload?.interval) ? payload.interval : "month";
-  const childSeats = Math.max(0, Math.floor(Number(payload?.childSeats) || 0)); // extra children beyond the 1 included
+  const plan = normalizePlan(payload?.plan);
+  const childSeats = Math.max(0, Math.floor(Number(payload?.childSeats) || 0)); // extra children beyond the 5 included
   const adultSeats = Math.max(0, Math.floor(Number(payload?.adultSeats) || 0)); // adult AI contributor seats
   const email = (payload?.email || "").toString().trim();
   const code = (payload?.promoCode || "").toString();
 
-  const prices = PRICES[interval];
-  if (!prices?.base) return json({ error: `No base price configured for '${interval}'.` }, 400);
+  const base = basePriceId(plan, interval);
+  if (!base) return json({ error: `No base price configured for '${plan}' (${interval}).` }, 400);
   if (!email) return json({ error: "An email is required to start checkout." }, 400);
 
-  const line_items: { price: string; quantity: number }[] = [{ price: prices.base, quantity: 1 }];
-  if (childSeats > 0 && prices.seat)  line_items.push({ price: prices.seat,  quantity: childSeats });
-  if (adultSeats > 0 && prices.aiseat) line_items.push({ price: prices.aiseat, quantity: adultSeats });
+  const prices = PRICES[interval];
+  const line_items: { price: string; quantity: number }[] = [{ price: base, quantity: 1 }];
+  if (childSeats > 0 && prices?.seat)  line_items.push({ price: prices.seat,  quantity: childSeats });
+  if (adultSeats > 0 && prices?.aiseat) line_items.push({ price: prices.aiseat, quantity: adultSeats });
 
   const appUrl = env("APP_URL") || "http://localhost:8765";
   const siteUrl = env("PUBLIC_SITE_URL") || appUrl;
@@ -140,7 +156,7 @@ async function createSession(payload: any) {
 
   // deno-lint-ignore no-explicit-any
   const subscription_data: any = {
-    metadata: { pending: "1", base_interval: interval, source: "public-checkout", beta: isBeta ? "1" : "0" },
+    metadata: { pending: "1", base_interval: interval, plan, source: "public-checkout", beta: isBeta ? "1" : "0" },
   };
   if (trial?.trialEnd) {
     subscription_data.trial_end = trial.trialEnd;             // fixed calendar date
@@ -151,22 +167,26 @@ async function createSession(payload: any) {
     subscription_data.trial_settings = { end_behavior: { missing_payment_method: "cancel" } };
   }
 
+  // $9 first month: a one-off intro coupon on the first invoice (only when NOT a
+  // beta trial — beta families get a free trial instead). duration=once in Stripe.
+  const coupon = trial ? "" : introCoupon(plan);
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer_email: email,
     line_items,
-    // Collect a card even during the trial, so billing resumes automatically at day 30.
+    // Collect a card even during the trial, so billing resumes automatically.
     payment_method_collection: "always",
-    allow_promotion_codes: false, // our beta code is handled here as a trial, not a Stripe coupon
+    ...(coupon ? { discounts: [{ coupon }] } : { allow_promotion_codes: false }),
     subscription_data,
     // Return into the APP's SIGN-UP page so the buyer creates their account; the
     // session id is claimed on first hydrate (links the paid sub to their family).
     success_url: `${appUrl}/?checkout_session={CHECKOUT_SESSION_ID}#/signup`,
     cancel_url: `${siteUrl}/?checkout=cancelled#/pricing`,
-    metadata: { pending: "1", base_interval: interval, child_seats: String(childSeats), adult_seats: String(adultSeats) },
+    metadata: { pending: "1", base_interval: interval, plan, child_seats: String(childSeats), adult_seats: String(adultSeats) },
   });
 
-  return json({ url: session.url, isBeta, trialEnd: trial?.trialEnd, trialDays: trial?.trialDays });
+  return json({ url: session.url, isBeta, plan, trialEnd: trial?.trialEnd, trialDays: trial?.trialDays });
 }
 
 /** Gateway helper for the sign-up page: does this email already have a LIVE

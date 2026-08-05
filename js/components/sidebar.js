@@ -7,6 +7,8 @@ import { getState } from "../store.js";
 import { hasAccount, currentUserEmail } from "../auth.js";
 import { logoLockup } from "./logo.js";
 import { currentMember, canAccessPath, getViewAs } from "../lib/permissions.js";
+import { hasFeature } from "../lib/entitlements.js";
+import { featureForRoute, PLANS } from "../lib/plans.js";
 
 const GROUPS = [
   {
@@ -88,14 +90,22 @@ export function renderSidebar() {
       </div>
 
       ${groups.map(g => {
-        const itemsHtml = g.items.map(item => `
-            <a class="nav-item ${path === item.path || (item.path !== "/" && path.startsWith(item.path)) ? "active" : ""}" href="#${item.path}">
+        const itemsHtml = g.items.map(item => {
+          // Premium features stay VISIBLE with a soft tier badge (e.g. "Legacy")
+          // rather than being hidden — opening one lands on the intro page.
+          const gf = featureForRoute(item.path);
+          const locked = gf && !hasFeature(gf.key);
+          const tier = locked ? (PLANS[gf.minPlan]?.name || "") : "";
+          return `
+            <a class="nav-item ${path === item.path || (item.path !== "/" && path.startsWith(item.path)) ? "active" : ""}${locked ? " nav-locked" : ""}" href="#${item.path}">
               <span class="ico">${icon(item.icon)}</span>
               <span>${item.label}</span>
               ${item.path === "/materials" && plannedCount ? `<span class="badge">${plannedCount}</span>` : ""}
+              ${locked ? `<span class="badge" style="background:var(--gold-soft);color:var(--gold-ink)" title="Included in ${tier}">${tier}</span>` : ""}
               ${item.premium ? `<span class="badge" style="background:var(--gold-soft);color:var(--gold-ink)">Premium</span>` : ""}
             </a>
-          `).join("");
+          `;
+        }).join("");
         if (!g.collapsible) {
           return `
         <div class="nav-section">

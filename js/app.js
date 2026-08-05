@@ -13,6 +13,9 @@ import { mountRouter, registerRoute, currentPath, navigate } from "./router.js";
 import { renderSidebar } from "./components/sidebar.js";
 import { startCountdownTicker, esc } from "./components/ui.js";
 import { currentMember, canAccessPath, getViewAs, setViewAs, clearViewAs } from "./lib/permissions.js";
+import { hasFeature } from "./lib/entitlements.js";
+import { featureForRoute } from "./lib/plans.js";
+import { renderFeatureIntro } from "./components/premiumGate.js";
 import { enableAutoVoice } from "./components/voiceInput.js";
 import { logoMarkSVG } from "./components/logo.js";
 
@@ -141,7 +144,15 @@ export function withParentShell(container, viewFn, params) {
     sidebarEl.addEventListener("scroll", () => { _sidebarScroll = sidebarEl.scrollTop; }, { passive: true });
   }
   const mainEl = shell.querySelector("#main-content");
-  viewFn(mainEl, params);
+  // Entitlement gate: premium features stay VISIBLE in the nav, but opening one
+  // the family's plan doesn't include yet lands on an elegant introduction page
+  // (never a paywall) instead of the real view — URL + sidebar stay intact.
+  const gatedFeature = featureForRoute(reqPath);
+  if (gatedFeature && (gatedFeature.state === "coming_soon" || !hasFeature(gatedFeature.key))) {
+    renderFeatureIntro(mainEl, gatedFeature.key);
+  } else {
+    viewFn(mainEl, params);
+  }
 
   // Previewing a member's portal? Show a calm banner with an exit (Owner only).
   if (getViewAs()) {
@@ -257,6 +268,10 @@ registerRoute("/insights-reports/:id", (c, p) => withParentShell(c, renderInsigh
 registerRoute("/councils",       (c, p) => withParentShell(c, renderCouncils, p));
 registerRoute("/councils/:id",   (c, p) => withParentShell(c, renderCouncilDetail, p));
 registerRoute("/settings",  (c, p) => withParentShell(c, renderSettings, p));
+// Legacy features not yet built — the entitlement gate always shows their
+// "coming soon" intro page (linked from the pricing/Legacy showcase).
+registerRoute("/community", (c, p) => withParentShell(c, () => {}, p));
+registerRoute("/mentoring", (c, p) => withParentShell(c, () => {}, p));
 
 // child portal
 registerRoute("/kid",          (c)    => withChildShell(c, renderChildLogin));

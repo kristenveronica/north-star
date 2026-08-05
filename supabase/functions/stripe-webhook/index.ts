@@ -28,6 +28,15 @@ const admin = createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY")
 const SEAT_PRICES = new Set([env("STRIPE_PRICE_SEAT_MONTH"), env("STRIPE_PRICE_SEAT_YEAR")].filter(Boolean));
 const AISEAT_PRICES = new Set([env("STRIPE_PRICE_AISEAT_MONTH"), env("STRIPE_PRICE_AISEAT_YEAR")].filter(Boolean));
 
+// ---- Subscription tiers: resolve a tier's base price for re-pricing ----
+const PLAN_KEYS = ["foundation", "flourish", "legacy"];
+const normalizePlan = (p: string) => (PLAN_KEYS.includes(String(p || "").toLowerCase()) ? String(p).toLowerCase() : "foundation");
+function basePriceId(plan: string, interval: string): string {
+  const P = normalizePlan(plan).toUpperCase();
+  const I = interval === "year" ? "YEAR" : "MONTH";
+  return env(`STRIPE_PRICE_${P}_${I}`) || env(`STRIPE_PRICE_BASE_${I}`) || "";
+}
+
 /** Write the subscription's current shape into family_billing (trigger sets the limit). */
 // deno-lint-ignore no-explicit-any
 async function syncSubscription(sub: any) {
@@ -70,6 +79,9 @@ async function syncSubscription(sub: any) {
     committed_until: committedUntil,
     paused_until: pausedUntil,
     cancel_at_period_end: !!sub.cancel_at_period_end,
+    // Stamp the tier when the subscription carries it (don't clobber on a legacy
+    // claim that predates tiers). The DB trigger denormalises this to the family.
+    ...(sub.metadata?.plan ? { plan: normalizePlan(sub.metadata.plan) } : {}),
     updated_at: new Date().toISOString(),
   }, { onConflict: "family_id" });
 }
@@ -100,11 +112,11 @@ function payerStatusFrom(s: string): string {
 // deno-lint-ignore no-explicit-any
 async function adjustGuarantorBase(familyId: string, pct: number) {
   const { data: fb } = await admin.from("family_billing")
-    .select("stripe_subscription_id, base_interval").eq("family_id", familyId).maybeSingle();
+    .select("stripe_subscription_id, base_interval, plan").eq("family_id", familyId).maybeSingle();
   if (!fb?.stripe_subscription_id) return;
 
   const interval = fb.base_interval === "year" ? "year" : "month";
-  const fullBaseId = env(interval === "year" ? "STRIPE_PRICE_BASE_YEAR" : "STRIPE_PRICE_BASE_MONTH");
+  const fullBaseId = basePriceId(fb.plan || "foundation", interval);
   if (!fullBaseId) return;
 
   const sub = await stripe.subscriptions.retrieve(fb.stripe_subscription_id);

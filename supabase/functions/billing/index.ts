@@ -55,6 +55,23 @@ const AI_PERMS = ["contrib:generate", "contrib:reports"];
 const SEAT_IDS = new Set([env("STRIPE_PRICE_SEAT_MONTH"), env("STRIPE_PRICE_SEAT_YEAR")].filter(Boolean));
 const AISEAT_IDS = new Set([env("STRIPE_PRICE_AISEAT_MONTH"), env("STRIPE_PRICE_AISEAT_YEAR")].filter(Boolean));
 
+// ---- Subscription tiers (Foundation / Flourish / Legacy) ----
+// Each tier has its own base price. Env: STRIPE_PRICE_FOUNDATION_MONTH/_YEAR,
+// STRIPE_PRICE_FLOURISH_MONTH/_YEAR, STRIPE_PRICE_LEGACY_MONTH/_YEAR. Falls back
+// to the legacy single-base env (STRIPE_PRICE_BASE_*) so an un-tiered setup works.
+const PLAN_KEYS = ["foundation", "flourish", "legacy"];
+const normalizePlan = (p: string) => (PLAN_KEYS.includes(String(p || "").toLowerCase()) ? String(p).toLowerCase() : "foundation");
+function basePriceId(plan: string, interval: string): string {
+  const P = normalizePlan(plan).toUpperCase();
+  const I = interval === "year" ? "YEAR" : "MONTH";
+  return env(`STRIPE_PRICE_${P}_${I}`) || env(`STRIPE_PRICE_BASE_${I}`) || "";
+}
+// Optional $9-first-month intro coupon per tier (Stripe coupon, duration=once).
+// Env: STRIPE_INTRO_COUPON_FOUNDATION / _FLOURISH / _LEGACY (or a single fallback).
+function introCoupon(plan: string): string {
+  return env(`STRIPE_INTRO_COUPON_${normalizePlan(plan).toUpperCase()}`) || env("STRIPE_INTRO_COUPON") || "";
+}
+
 // 12-month commitment: full-price families commit to a year. Enforced SOFTLY via
 // an in-app retention gauntlet (not a Stripe schedule). Beta families are exempt.
 const COMMITMENT_MONTHS = 12;
@@ -81,7 +98,7 @@ function commitmentOf(sub: any) {
 /** Load the family's billing row + the Stripe subscription id (or null). */
 async function billingRow(familyId: string) {
   const { data } = await admin.from("family_billing")
-    .select("stripe_customer_id, stripe_subscription_id, base_interval, status, is_beta, committed_until")
+    .select("stripe_customer_id, stripe_subscription_id, base_interval, status, is_beta, committed_until, plan")
     .eq("family_id", familyId).maybeSingle();
   return data || null;
 }
@@ -103,7 +120,7 @@ async function resolveFamily(req: Request) {
 
 // Billing mutations are owner-only. Read-only actions (prices/status/claims) are
 // available to any ACTIVE member. Enforced server-side — never trust the client.
-const OWNER_ONLY = new Set(["create-checkout", "add-seat", "create-portal", "pause", "resume", "cancel", "keep", "configure-split", "remove-split"]);
+const OWNER_ONLY = new Set(["create-checkout", "change-plan", "add-seat", "create-portal", "pause", "resume", "cancel", "keep", "configure-split", "remove-split"]);
 const OWNER_ROLES = new Set(["architect", "co_architect"]);
 
 /** Get-or-create the family's Stripe customer + family_billing row. */
@@ -123,28 +140,60 @@ async function ensureCustomer(familyId: string, email: string): Promise<string> 
   return customer.id;
 }
 
-async function createCheckout(familyId: string, email: string, interval: string, seats = 0) {
-  const prices = PRICES[interval];
-  if (!prices?.base) return json({ error: `No base price configured for '${interval}'.` }, 400);
+async function createCheckout(familyId: string, email: string, interval: string, seats = 0, plan = "foundation") {
+  const p = normalizePlan(plan);
+  const base = basePriceId(p, interval);
+  if (!base) return json({ error: `No base price configured for '${p}' (${interval}).` }, 400);
   const customerId = await ensureCustomer(familyId, email);
   const appUrl = env("APP_URL") || "http://localhost:8765";
 
-  // Base plan (includes 1 child) + optional extra seats so a parent adding their
-  // 2nd child can subscribe and unlock capacity in a single checkout.
-  const line_items: { price: string; quantity: number }[] = [{ price: prices.base, quantity: 1 }];
-  if (seats > 0 && prices.seat) line_items.push({ price: prices.seat, quantity: seats });
+  // Chosen tier's base (incl. 5 children + 2 adults) + optional extra seats.
+  const seatPrice = PRICES[interval]?.seat;
+  const line_items: { price: string; quantity: number }[] = [{ price: base, quantity: 1 }];
+  if (seats > 0 && seatPrice) line_items.push({ price: seatPrice, quantity: seats });
 
+  // $9 first month via a one-off intro coupon (duration=once), if configured.
+  // Stripe forbids discounts + allow_promotion_codes together, so pick one.
+  const coupon = introCoupon(p);
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
     line_items,
     success_url: `${appUrl}/#/children?billing=success`,
     cancel_url: `${appUrl}/#/children?billing=cancelled`,
-    subscription_data: { metadata: { family_id: familyId, base_interval: interval } },
-    metadata: { family_id: familyId, base_interval: interval },
-    allow_promotion_codes: true,
+    subscription_data: { metadata: { family_id: familyId, base_interval: interval, plan: p } },
+    metadata: { family_id: familyId, base_interval: interval, plan: p },
+    ...(coupon ? { discounts: [{ coupon }] } : { allow_promotion_codes: true }),
   });
   return json({ url: session.url });
+}
+
+/** Upgrade/downgrade an EXISTING subscription to another tier by swapping its
+    base line item to the new tier's price (Stripe prorates). Stamps the new plan
+    so the webhook + trigger update entitlement. No intro coupon on a change. */
+async function changePlan(familyId: string, plan: string) {
+  const target = normalizePlan(plan);
+  const row = await billingRow(familyId);
+  if (!row?.stripe_subscription_id || !["active", "trialing"].includes(row.status)) {
+    return json({ needsBase: true });
+  }
+  const interval = row.base_interval === "year" ? "year" : "month";
+  const newBase = basePriceId(target, interval);
+  if (!newBase) return json({ error: `No base price configured for '${target}' (${interval}).` }, 400);
+
+  const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id);
+  const baseItem = sub.items.data.find((it: any) => !SEAT_IDS.has(it.price.id) && !AISEAT_IDS.has(it.price.id));
+  if (!baseItem) return json({ error: "Couldn't find the base plan on your subscription." }, 400);
+  if (baseItem.price.id === newBase) return json({ ok: true, plan: target, unchanged: true });
+
+  await stripe.subscriptions.update(row.stripe_subscription_id, {
+    items: [{ id: baseItem.id, price: newBase }],
+    proration_behavior: "create_prorations",
+    metadata: { ...(sub.metadata || {}), family_id: familyId, plan: target },
+  });
+  await admin.from("family_billing").update({ plan: target, updated_at: new Date().toISOString() })
+    .eq("family_id", familyId);
+  return json({ ok: true, plan: target });
 }
 
 async function addSeat(familyId: string) {
@@ -305,6 +354,9 @@ async function persistSubscription(familyId: string, customerId: string, sub: an
     committed_until: commit.committedUntil,
     paused_until: commit.pausedUntil === "indefinite" ? null : commit.pausedUntil,
     cancel_at_period_end: commit.cancelAtPeriodEnd,
+    // Only stamp the tier when the subscription carries it (don't clobber to a
+    // default on a legacy claim that predates tiers).
+    ...(sub.metadata?.plan ? { plan: normalizePlan(sub.metadata.plan) } : {}),
     updated_at: new Date().toISOString(),
   }, { onConflict: "family_id" });
 }
@@ -553,7 +605,7 @@ async function restoreGuarantorFull(familyId: string) {
   const row = await billingRow(familyId);
   if (!row?.stripe_subscription_id) return;
   const interval = row.base_interval === "year" ? "year" : "month";
-  const fullBaseId = PRICES[interval]?.base;
+  const fullBaseId = basePriceId(row.plan || "foundation", interval);
   if (!fullBaseId) return;
   const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id);
   const baseItem = sub.items.data.find((it: any) => !SEAT_IDS.has(it.price.id) && !AISEAT_IDS.has(it.price.id));
@@ -599,7 +651,8 @@ Deno.serve(async (req) => {
     if (action === "get-prices")      return await getPrices();
     if (action === "claim-subscription") return await claimSubscription(familyId, email, (payload?.sessionId || "").toString());
     if (action === "claim-by-email")     return await claimByEmail(familyId, email);
-    if (action === "create-checkout") return await createCheckout(familyId, email, payload?.interval || "month", Math.max(0, Number(payload?.seats) || 0));
+    if (action === "create-checkout") return await createCheckout(familyId, email, payload?.interval || "month", Math.max(0, Number(payload?.seats) || 0), payload?.plan || "foundation");
+    if (action === "change-plan")     return await changePlan(familyId, payload?.plan || "foundation");
     if (action === "add-seat")        return await addSeat(familyId);
     if (action === "sync-ai-seats")   return await syncAiSeats(familyId, user!.id);
     if (action === "create-portal")   return await createPortal(familyId);
