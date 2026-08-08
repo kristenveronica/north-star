@@ -19,7 +19,7 @@ import { availableDomains, domainShort, REFLECTION_PROMPTS } from "../seed.js";
 import { esc, icon, toast, openModal, confirmDialog, renderCountdown, fmtDate, sparkle, DOMAIN_COLOR_CLASS, childColor } from "../components/ui.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 import { milestoneMinutes, loadByDay, scheduleMilestones } from "../lib/dailyPlan.js";
-import { recommendTermPlan, termPlanCadence } from "../lib/termPlan.js";
+import { recommendTermPlan, termPortfolioPhrase } from "../lib/termPlan.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 
@@ -104,31 +104,43 @@ export function renderProjects(container) {
     b.addEventListener("click", () => { _planView = b.dataset.planView; rerender(); });
   });
   container.querySelectorAll("[data-plan-generate]").forEach(b => {
-    b.addEventListener("click", () => openGeneratorModal({ childId: b.dataset.planGenerate, size: "medium" }));
+    b.addEventListener("click", () => openGeneratorModal({ childId: b.dataset.planGenerate, size: b.dataset.planSize || "medium" }));
   });
   container.querySelectorAll("[data-slot-generate]").forEach(b => {
     b.addEventListener("click", () => openGeneratorModal({ childId: b.dataset.child, size: b.dataset.slotSize || "medium" }));
   });
 }
 
-/* ====== Term Planner — how many projects to run for a child this term ======
-   Reads the family's rhythm (via recommendTermPlan). The parent can take the
-   plain suggestion (generate the first project) or open the structured term
-   view (slots they generate one at a time). Rhythm-family-level; scoped to the
-   selected child (or the first child when viewing all). */
+/* ====== Term Planner — a layered portfolio of projects for the term ======
+   Reads the family's rhythm (recommendTermPlan). The term runs a portfolio in
+   parallel — 1 long (the whole term), a few medium, several short — started in
+   offset waves so the child always has variety. The parent takes the plain
+   suggestion (generate the anchor project) or opens the structured term view
+   (the three layers on an offset timeline, generated one at a time).
+   Rhythm is family-level; scoped to the selected child (first child if all). */
+const TIER_COLOR = { long: "var(--primary)", medium: "var(--gold)", short: "var(--midnight)" };
+const TIER_NOTE = { long: "the whole term", medium: "~a month each", short: "1–2 weeks each" };
+
 function planChildFor(state) {
   if (_childFilter !== "all") return state.children.find(c => c.id === _childFilter) || null;
   return state.children[0] || null;
 }
 
-// Non-draft projects this child already has within the planning term window.
-function projectsStartedThisTerm(state, childId, term) {
-  return state.projects.filter(p => {
-    if (p.childId !== childId || p.status === "draft") return false;
+// Projects this child already started this term, bucketed by tier (from the
+// project's sizeBand, or inferred from its planned duration).
+function startedByTier(state, childId, term) {
+  const out = { long: 0, medium: 0, short: 0 };
+  state.projects.forEach(p => {
+    if (p.childId !== childId || p.status === "draft") return;
     const t = Date.parse(p.createdAt || "");
-    if (Number.isNaN(t)) return true;             // undated → count as started
-    return t >= term.start.getTime() && t <= term.end.getTime();
-  }).length;
+    if (!Number.isNaN(t) && (t < term.start.getTime() || t > term.end.getTime())) return;
+    const days = Number(p.durationDays) || 0;
+    const band = p.sizeBand || (days >= 56 ? "large" : days >= 21 ? "medium" : "small");
+    if (band === "large") out.long++;
+    else if (band === "small") out.short++;
+    else out.medium++;
+  });
+  return out;
 }
 
 function termPlanCard(state) {
@@ -144,7 +156,7 @@ function termPlanCard(state) {
           <div style="font-size:26px">🗓️</div>
           <div style="flex:1;min-width:220px">
             <h3 style="font-family:var(--font-serif);margin:0">Plan ${esc(child.name)}'s term</h3>
-            <p class="small text-muted" style="margin:4px 0 0">Set your <strong>Family Rhythm</strong> (days &amp; hours a week) and North Star will recommend how many projects to run this term.</p>
+            <p class="small text-muted" style="margin:4px 0 0">Set your <strong>Family Rhythm</strong> (days &amp; hours a week) and North Star will design a full term of projects around your real week.</p>
           </div>
           <a href="#/family-settings" class="btn btn-sm">Set Family Rhythm →</a>
         </div>
@@ -152,45 +164,49 @@ function termPlanCard(state) {
   }
 
   const t = plan.term;
-  const started = projectsStartedThisTerm(state, child.id, t);
-  const cadence = termPlanCadence(plan);
-  const concurrencyLine = plan.concurrency > 1 ? "running up to two at a time" : "one at a time";
+  const wr = t.weeksRemaining;
+  const started = startedByTier(state, child.id, t);
   const unit = plan.unit.toLowerCase();
   const eyebrow = t.active
-    ? `${esc(plan.unit)} ${t.index} · ${t.weeksRemaining} week${t.weeksRemaining === 1 ? "" : "s"} left`
+    ? `${esc(plan.unit)} ${t.index} · ${wr} week${wr === 1 ? "" : "s"} left`
     : `${esc(plan.unit)} ${t.index} · starts soon`;
   const heading = t.isFirst ? `Plan ${esc(child.name)}'s first ${unit}` : `Plan ${esc(child.name)}'s ${unit}`;
-  const suggestion = `Based on your family's rhythm (~${plan.weeklyBudgetHours} hrs/week) and a ${t.weeksRemaining}-week ${unit}, a calm plan for ${esc(child.name)} is about <strong>${plan.count} project${plan.count === 1 ? "" : "s"}</strong> — ${cadence}, ${concurrencyLine}.`;
-
-  const nextLabel = started === 0 ? "the first project" : (started >= plan.count ? "another project" : "the next project");
+  const suggestion = `Across ${esc(child.name)}'s ~${wr}-week ${unit} (~${plan.weeklyBudgetHours} hrs/week), a rich rhythm is about <strong>${plan.counts.total} projects running in parallel</strong>: ${termPortfolioPhrase(plan)} — offset in waves so about ${plan.concurrency} run at once and ${esc(child.name)} always has variety day to day.`;
 
   const toggle = `
-    <div class="chip-group" style="margin:0 0 12px">
+    <div class="chip-group" style="margin:0 0 14px">
       <button class="chip ${_planView === "suggestion" ? "selected" : ""}" data-plan-view="suggestion">Suggestion</button>
       <button class="chip ${_planView === "structured" ? "selected" : ""}" data-plan-view="structured">Term plan</button>
     </div>`;
 
   let bodyHtml;
   if (_planView === "structured") {
-    const slots = plan.slots.map(sl => {
-      const doneSlot = sl.index <= started;
-      const isNext = sl.index === started + 1;
+    const tierBlocks = plan.tiers.map(tier => {
+      const doneN = started[tier.key] || 0;
+      const rows = tier.items.map(it => slotRow(it, tier, doneN, child, wr)).join("");
       return `
-        <button class="chip term-slot${doneSlot ? " selected" : ""}"
-          ${doneSlot ? "disabled" : ""} data-slot-generate data-child="${child.id}" data-slot-size="${sl.size}"
-          title="~${sl.approxWeeks} weeks${doneSlot ? " · started" : (isNext ? " · up next" : "")}"
-          style="${isNext ? "outline:2px solid var(--primary);outline-offset:1px" : ""}">
-          ${doneSlot ? "✓ " : ""}Project ${sl.index}
-        </button>`;
+        <div style="margin:0 0 14px">
+          <div class="row-between" style="align-items:baseline">
+            <span class="fw-700" style="color:${TIER_COLOR[tier.key]}">${esc(tier.label)}</span>
+            <span class="small text-muted">${TIER_NOTE[tier.key]}${tier.key !== "long" ? ` · ${doneN}/${tier.items.length} started` : (doneN ? " · started" : "")}</span>
+          </div>
+          ${rows}
+        </div>`;
     }).join("");
     bodyHtml = `
-      <p class="small text-muted" style="margin:0 0 10px">${suggestion} <span style="white-space:nowrap">${started} of ${plan.count} started.</span></p>
-      <div class="row" style="gap:8px;flex-wrap:wrap">${slots}</div>
-      <p class="small text-muted" style="margin:10px 0 0">Tap a project slot to generate it — each is tailored to ${esc(child.name)}. You can always run fewer or more; this is a guide, not a limit.</p>`;
+      <p class="small text-muted" style="margin:0 0 14px">${suggestion}</p>
+      <div class="small text-muted" style="text-align:right;margin:0 0 2px">Weeks 1–${wr}</div>
+      ${tierBlocks}
+      <p class="small text-muted" style="margin:2px 0 0">The bars show when each project runs — offset so they overlap. Generate them in waves as the term unfolds. This is a guide, not a limit.</p>`;
   } else {
+    const anchorSize = plan.counts.long ? "large" : (plan.counts.medium ? "medium" : "small");
+    const anchorLabel = plan.counts.long ? "the long-term project" : "the first project";
     bodyHtml = `
       <p class="small text-muted" style="margin:0 0 12px">${suggestion}</p>
-      <button class="btn btn-primary btn-sm" data-plan-generate="${child.id}">✨ Generate ${nextLabel} for ${esc(child.name)}</button>`;
+      <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-primary btn-sm" data-plan-generate="${child.id}" data-plan-size="${anchorSize}">✨ Generate ${anchorLabel} for ${esc(child.name)}</button>
+        ${plan.counts.short ? `<button class="btn btn-ghost btn-sm" data-plan-generate="${child.id}" data-plan-size="small">Prefer to start small? Generate a short one</button>` : ""}
+      </div>`;
   }
 
   return `
@@ -204,6 +220,28 @@ function termPlanCard(state) {
       </div>
       ${toggle}
       ${bodyHtml}
+    </div>`;
+}
+
+// One project slot: label, an offset timeline bar (startWeek→end within the
+// term), its week range, and a generate/started control.
+function slotRow(it, tier, doneN, child, weeksRemaining) {
+  const doneSlot = it.index <= doneN;
+  const isNext = it.index === doneN + 1;
+  const left = Math.round((it.startWeek / weeksRemaining) * 100);
+  const width = Math.max(6, Math.round((it.weeks / weeksRemaining) * 100));
+  const w1 = it.startWeek + 1;
+  const w2 = Math.min(weeksRemaining, it.startWeek + it.weeks);
+  return `
+    <div class="row" style="gap:10px;align-items:center;margin:7px 0">
+      <span class="small" style="width:66px;flex:none">Project ${it.index}</span>
+      <div style="position:relative;height:9px;flex:1;min-width:110px;background:var(--bg-2);border-radius:999px">
+        <div style="position:absolute;left:${left}%;width:${width}%;top:0;bottom:0;background:${TIER_COLOR[tier.key]};border-radius:999px;opacity:${doneSlot ? 0.45 : 1}"></div>
+      </div>
+      <span class="small text-muted" style="width:70px;flex:none;text-align:right">wk ${w1}–${w2}</span>
+      ${doneSlot
+        ? `<span class="tag tag-sage" style="flex:none">✓</span>`
+        : `<button class="btn btn-sm${isNext ? " btn-primary" : ""}" style="flex:none" data-slot-generate data-child="${child.id}" data-slot-size="${tier.size}">Generate</button>`}
     </div>`;
 }
 
