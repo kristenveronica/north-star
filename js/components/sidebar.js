@@ -80,7 +80,11 @@ export function renderSidebar() {
   try { setupPref = localStorage.getItem("ns::nav::setup"); } catch { /* ignore */ }
   const setupOpenByDefault = setupPref ? setupPref === "open" : !onboarded;
   const canSeeChildPortals = canAccessPath(member, "/children");
-  const previewable = !viewing ? (s.family?.relationships || []).filter(r => r.name && r.id) : [];
+  // Only people who actually have app access can be previewed with "View as".
+  // Plain family members (accessLevel "none") have no portal to preview.
+  const previewable = !viewing
+    ? (s.family?.relationships || []).filter(r => r.name && r.id && r.accessLevel !== "none")
+    : [];
 
   return `
     <aside class="sidebar">

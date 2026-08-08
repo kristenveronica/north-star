@@ -64,7 +64,7 @@ const normalizeTravel = (t) => ({
 export function makeFamilyState(fam = {}) {
   const loc = { ...(fam.location || {}) };
   const rel = (Array.isArray(fam.relationships) ? fam.relationships : []).map(r => ({
-    accessLevel: "contributor", permissions: [], ...r, id: r.id || uid(),
+    accessLevel: "none", permissions: [], ...r, id: r.id || uid(),
   }));
   const travel = normalizeTravel(fam.travel);
   const faith = {
@@ -91,9 +91,11 @@ export function gatherFamilyPatch(st) {
         roleNote: (r.roleNote || "").trim(),
         notes: (r.notes || "").trim(),
         email: (r.email || "").trim(),
-        accessLevel: r.accessLevel === "owner" ? "owner" : "contributor",
-        permissions: r.accessLevel === "owner" ? [] : (Array.isArray(r.permissions) ? r.permissions : []),
-        childIds: r.accessLevel === "owner" ? [] : (Array.isArray(r.childIds) ? r.childIds : []),
+        accessLevel: r.accessLevel === "owner" ? "owner" : (r.accessLevel === "none" ? "none" : "contributor"),
+        // Only a real contributor carries permissions / child scoping. A plain
+        // family member ("none") and a Full-Access owner both store none.
+        permissions: (r.accessLevel === "owner" || r.accessLevel === "none") ? [] : (Array.isArray(r.permissions) ? r.permissions : []),
+        childIds: (r.accessLevel === "owner" || r.accessLevel === "none") ? [] : (Array.isArray(r.childIds) ? r.childIds : []),
       }))
       .filter(r => r.name),
     travel: { mode: travel.mode, destinations: travel.destinations.filter(d => (d.city || "").trim()) },
@@ -165,7 +167,7 @@ export const relationshipsSection = {
   blurb: "The real people in your child's world — North Star only ever refers to those you add.",
   body() {
     return `
-      <p class="ns-acc__intro">The trusted adults in your child's world — parents, grandparents, tutors, mentors, coaches. North Star only ever refers to people you add here. For each person you can set an <strong>Access Level</strong> and customise exactly what they can see and do. Everyone else's portal is generated from the permissions you grant.</p>
+      <p class="ns-acc__intro">The real people in your child's world — parents, grandparents, siblings, tutors, mentors, coaches. Add anyone you'd like North Star to know by name; most are simply <strong>part of the family</strong> and need no login or setup. If you'd like someone to help inside the app, you can optionally make them a <strong>Contributor</strong> or give <strong>Full Access</strong> — but that's never required.</p>
       <div id="rel-list" class="stack"></div>
       <button class="btn btn-sm mt-2" id="rel-add" type="button">+ Add Person</button>`;
   },
@@ -190,16 +192,17 @@ export const relationshipsSection = {
         row.querySelector('[data-rk="notes"]').addEventListener("input", e => { rel[i].notes = e.target.value; });
         row.querySelector('[data-rk="remove"]').addEventListener("click", () => { rel.splice(i, 1); renderRel(); onChange(); });
 
-        // Access Level — Full Access vs Contributor. Full Access needs an explicit confirm.
+        // Access Level — Just a family member (no access) / Contributor / Full Access.
+        // Full Access needs an explicit confirm; the other two apply directly.
         const permsWrap = row.querySelector(`[data-perms="${i}"]`);
         const ownerNote = row.querySelector(`[data-owner-note="${i}"]`);
+        const inviteWrap = row.querySelector(`[data-invite-wrap="${i}"]`);
         const hint = row.querySelector(`[data-acc-hint="${i}"]`);
-        const setAccessUI = (owner) => {
-          permsWrap?.classList.toggle("hidden", owner);
-          ownerNote?.classList.toggle("hidden", !owner);
-          if (hint) hint.textContent = owner
-            ? "Full access across your family's environment — the same as you."
-            : "A contributor only sees what you allow — set it below.";
+        const setAccessUI = (level) => {
+          permsWrap?.classList.toggle("hidden", level !== "contributor");
+          ownerNote?.classList.toggle("hidden", level !== "owner");
+          inviteWrap?.toggleAttribute("hidden", level === "none");   // no login for a plain family member
+          if (hint) hint.textContent = accessHint(level);
         };
         row.querySelectorAll(`[data-acc-level="${i}"]`).forEach(radio => {
           radio.addEventListener("change", async () => {
@@ -211,14 +214,16 @@ export const relationshipsSection = {
                 confirmLabel: "Give Full Access",
               });
               if (!ok) {
-                row.querySelector(`[data-acc-level="${i}"][value="contributor"]`).checked = true;
+                // Revert to whatever they were before (a plain family member by default).
+                const prev = rel[i].accessLevel === "contributor" ? "contributor" : "none";
+                row.querySelector(`[data-acc-level="${i}"][value="${prev}"]`).checked = true;
                 return;
               }
               rel[i].accessLevel = "owner";
-              setAccessUI(true);
+              setAccessUI("owner");
             } else {
-              rel[i].accessLevel = "contributor";
-              setAccessUI(false);
+              rel[i].accessLevel = radio.value;   // "none" or "contributor"
+              setAccessUI(radio.value);
             }
             onChange();
           });
@@ -291,7 +296,7 @@ export const relationshipsSection = {
       });
     };
     root.querySelector("#rel-add").addEventListener("click", () => {
-      rel.push({ id: uid(), name: "", relationship: "Mother", roleNote: "", notes: "", accessLevel: "contributor", permissions: [...DEFAULT_CONTRIBUTOR_PERMS] });
+      rel.push({ id: uid(), name: "", relationship: "Mother", roleNote: "", notes: "", accessLevel: "none", permissions: [...DEFAULT_CONTRIBUTOR_PERMS] });
       renderRel();
     });
     renderRel();
@@ -612,10 +617,19 @@ function locDetailLine(loc) {
   return parts.length ? `<span class="text-muted">Saved as: ${esc(parts.join(", "))}${coords}</span>` : "";
 }
 
+// Hint under the access-level selector, per level.
+function accessHint(level) {
+  if (level === "owner") return "Full access across your family's environment — the same as you.";
+  if (level === "contributor") return "A contributor only sees what you allow — set it below.";
+  return "Just part of the family — no login or access needed. North Star can still mention them by name.";
+}
+
 function relRow(r, i, children = []) {
   const isOther = !REL_OPTIONS.includes(r.relationship) || r.relationship === "Other";
   const sel = isOther ? "Other" : r.relationship;
-  const isOwner = r.accessLevel === "owner";
+  const level = r.accessLevel === "owner" ? "owner" : (r.accessLevel === "none" ? "none" : "contributor");
+  const isOwner = level === "owner";
+  const isNone = level === "none";
   const childIds = Array.isArray(r.childIds) ? r.childIds : [];
   const childOn = (id) => !childIds.length || childIds.includes(id);
   return `
@@ -650,19 +664,20 @@ function relRow(r, i, children = []) {
 
     <div class="divider" style="margin:16px 0 12px"></div>
     <div class="field" style="margin:0">
-      <label class="small fw-700">Access Level</label>
-      <div class="row" style="gap:18px;margin-top:5px">
-        <label class="checkbox" style="cursor:pointer"><input type="radio" name="acc-${i}" data-acc-level="${i}" value="contributor" ${isOwner ? "" : "checked"}/> Contributor</label>
+      <label class="small fw-700">Access Level <span class="text-muted">(optional)</span></label>
+      <div class="row" style="gap:18px;margin-top:5px;flex-wrap:wrap">
+        <label class="checkbox" style="cursor:pointer"><input type="radio" name="acc-${i}" data-acc-level="${i}" value="none" ${isNone ? "checked" : ""}/> Just a family member</label>
+        <label class="checkbox" style="cursor:pointer"><input type="radio" name="acc-${i}" data-acc-level="${i}" value="contributor" ${level === "contributor" ? "checked" : ""}/> Contributor</label>
         <label class="checkbox" style="cursor:pointer"><input type="radio" name="acc-${i}" data-acc-level="${i}" value="owner" ${isOwner ? "checked" : ""}/> Full Access</label>
       </div>
-      <span class="hint" data-acc-hint="${i}">${isOwner ? "Full access across your family's environment — the same as you." : "A contributor only sees what you allow — set it below."}</span>
+      <span class="hint" data-acc-hint="${i}">${accessHint(level)}</span>
     </div>
 
     <div class="perm-owner-note ${isOwner ? "" : "hidden"}" data-owner-note="${i}">
       ✓ Full access to everything — Family North Star, settings, every child and AI configuration — the same authority as you.
     </div>
 
-    <div data-perms="${i}" class="perm-groups ${isOwner ? "hidden" : ""}">
+    <div data-perms="${i}" class="perm-groups ${level === "contributor" ? "" : "hidden"}">
       <div class="perm-group">
         <button type="button" class="perm-head" data-perm-head="contrib-${i}" aria-expanded="false">
           <span class="perm-head__chev" aria-hidden="true">&rsaquo;</span>
@@ -693,7 +708,7 @@ function relRow(r, i, children = []) {
       <p class="small text-muted" style="margin:10px 0 0">Configuration — Family North Star, Family Settings, Learning Profile, child profile editing, capability setup, billing and permissions — is reserved for Full Access adults and never appears in a Contributor's portal.</p>
     </div>
 
-    <div class="field" style="margin:14px 0 0">
+    <div class="field" data-invite-wrap="${i}" style="margin:14px 0 0"${isNone ? " hidden" : ""}>
       <label class="small">Email <span class="text-muted">(to invite them to their own login)</span></label>
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
         <input class="input" data-rk="email" type="email" value="${esc(r.email || "")}" placeholder="name@email.com" style="flex:1;min-width:200px"/>
