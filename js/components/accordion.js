@@ -21,6 +21,15 @@
 
 import { esc } from "./ui.js";
 
+// How far below the very top of the page an opened accordion header should land.
+// Clears the mobile sticky app bar when it's showing (it's display:none on
+// desktop, so this is just a small breathing gap there).
+function accScrollOffset() {
+  const bar = document.querySelector(".mobile-topbar");
+  const h = (bar && bar.offsetParent !== null) ? bar.getBoundingClientRect().height : 0;
+  return h + 12;
+}
+
 // pageId -> { open: sectionId|null, expandAll: bool }. Module-level so it
 // survives re-renders and in-app navigation (resets on a full page reload).
 const _state = {};
@@ -86,19 +95,27 @@ export function wireAccordion(container, pageId) {
   container.querySelectorAll("[data-acc-head]").forEach(btn => {
     btn.addEventListener("click", () => {
       const id = btn.dataset.accHead;
-      // Remember where the clicked header sits in the viewport BEFORE the toggle.
-      // Opening one section closes any other that was open — if that other section
-      // was ABOVE this one, the page collapses upward and the viewport drops into
-      // the middle/bottom of the section you just opened. Re-pin the header to its
-      // original spot afterwards so you always land at the TOP of what you opened.
+      // Remember where the clicked header sits in the viewport BEFORE the toggle
+      // (used only when CLOSING, to keep the header from jumping).
       const before = btn.getBoundingClientRect().top;
+      const willOpen = s.expandAll ? true : (s.open !== id);
       if (s.expandAll) { s.expandAll = false; s.open = id; }
       else { s.open = (s.open === id) ? null : id; }
       apply(id);
       requestAnimationFrame(() => {
-        const after = btn.getBoundingClientRect().top;
-        const delta = after - before;
-        if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+        if (willOpen) {
+          // Land at the TOP of what you just opened: align its header just below
+          // any sticky app bar so the panel's contents are immediately in view —
+          // never leaving the parent scrolled into the middle of the section.
+          const headTopDoc = btn.getBoundingClientRect().top + window.scrollY;
+          const target = Math.max(0, headTopDoc - accScrollOffset());
+          const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          window.scrollTo({ top: target, behavior: reduce ? "auto" : "smooth" });
+        } else {
+          // On close, keep the header pinned where it was (no upward jump).
+          const delta = btn.getBoundingClientRect().top - before;
+          if (Math.abs(delta) > 1) window.scrollBy(0, delta);
+        }
       });
     });
   });

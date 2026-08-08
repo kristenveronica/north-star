@@ -70,6 +70,21 @@ function captureDraft(card) {
 function persistSections() {
   if (_fst) setFamily(gatherFamilyPatch(_fst));
 }
+/* Persist the vision / identity / core-word draft to the family record (→ cloud),
+   mirroring persistSections() for the practical steps. The explicit "Save our
+   North Star" button still does the authoritative commit (and marks onboarded);
+   this just means nothing typed on these screens waits on that click to be saved. */
+function persistVision() {
+  setFamily({
+    parentName: _draft.parentName,
+    familyName: _draft.familyName,
+    mission: _draft.mission,
+    motto: _draft.motto,
+    coreWord: _draft.coreWord,
+    acronym: _draft.acronym,
+    vision: visionForCtx(),
+  });
+}
 function ensureFamilyRecord() {
   // A stable family id must exist before people can be invited from Step 1.
   update(s => { s.family = s.family || {}; if (!s.family.id) s.family.id = uid("fam"); });
@@ -158,7 +173,11 @@ function paint(card) {
     card.addEventListener("input", () => captureDraft(card));
     card.addEventListener("change", () => captureDraft(card));
     let secTimer;
-    const dp = () => { clearTimeout(secTimer); secTimer = setTimeout(() => { if (SECTION_STEPS.has(STEPS[_step])) persistSections(); }, 500); };
+    const dp = () => { clearTimeout(secTimer); secTimer = setTimeout(() => {
+      const st = STEPS[_step];
+      if (SECTION_STEPS.has(st)) persistSections();
+      else if (st === "vision" || st === "core-word") persistVision();
+    }, 500); };
     card.addEventListener("input", dp);
     card.addEventListener("change", dp);
     card._draftBound = true;
@@ -360,7 +379,7 @@ function paint(card) {
           const i = +btn.dataset.rl; btn.disabled = true; btn.textContent = "…";
           try {
             const out = await aiSuggestVision("letter", visionForCtx(), { ...familyForCtx(), letter: _draft.acronym[i].letter });
-            if (out?.value) { _draft.acronym[i].meaning = out.value; renderAcronymRows(); }
+            if (out?.value) { _draft.acronym[i].meaning = out.value; renderAcronymRows(); persistDraft(); persistVision(); }
           } catch (e) { toast(e.message || "Couldn't suggest", { type: "error" }); }
           finally { btn.disabled = false; btn.textContent = "↻"; }
         });
@@ -377,7 +396,7 @@ function paint(card) {
         _draft.motto = card.querySelector("#motto").value; _draft.mission = card.querySelector("#mission").value;
         try {
           const out = await aiSuggestVision(kind, visionForCtx(), familyForCtx());
-          if (out?.value) { f.value = out.value; st.textContent = "Suggested from your answers — edit anything."; r.classList.remove("hidden"); }
+          if (out?.value) { f.value = out.value; _draft[kind] = out.value; persistDraft(); persistVision(); st.textContent = "Suggested from your answers — edit anything."; r.classList.remove("hidden"); }
           else st.textContent = "Couldn't shape one just now.";
         } catch (e) { st.textContent = e.message || "Couldn't suggest just now."; }
         finally { btn.disabled = false; btn.textContent = label; }
@@ -398,6 +417,7 @@ function paint(card) {
           _draft.coreWord = sg.coreWord.toUpperCase().slice(0, 12);
           _draft.acronym = (sg.acronym || []).map(a => ({ letter: (a.letter || "").toUpperCase(), meaning: a.meaning || "" }));
           wordInput.value = _draft.coreWord; renderAcronymRows();
+          persistDraft(); persistVision();
           cwStatus.textContent = `Suggested "${_draft.coreWord}" — edit any letter, or regenerate.`; cwRegen.classList.remove("hidden");
         } else cwStatus.textContent = "Add a little more in Deeper Vision, then try again.";
       } catch (e) { cwStatus.textContent = e.message || "Couldn't suggest just now."; }
