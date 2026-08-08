@@ -686,8 +686,8 @@ export function renderChildPortal(container, params) {
     return;
   }
 
-  // The Living Lodge (flagged; ships dark on main — see docs/living-lodge-vision.md).
-  // enable per device:  localStorage.setItem('ns_lodge','1')
+  // The Living Lodge is the child home (live by default — see docs/living-lodge-vision.md).
+  // opt a device back to the classic portal:  localStorage.setItem('ns_lodge','0')
   if (nsLodgeEnabled()) { renderLodge(container, child); return; }
 
   // Child Dashboard V2 shell (flagged; structure + feel only — see PR1 above).

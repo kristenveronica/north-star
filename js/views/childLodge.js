@@ -5,9 +5,10 @@
    Guides, pets, seasons and atmosphere arrive in later slices —
    see docs/living-lodge-vision.md.
 
-   Flagged OFF by default so `main` stays shippable. Enable per
-   device in a browser console with:
-       localStorage.setItem('ns_lodge','1')
+   LIVE: the Lodge is now the default child home. To opt a single
+   device back to the classic portal (e.g. for support), run in a
+   browser console:
+       localStorage.setItem('ns_lodge','0')
    ============================================================ */
 
 import {
@@ -21,8 +22,9 @@ import { esc, toast } from "../components/ui.js";
 import { buildTodayPlan, fmtMinutes } from "../lib/dailyPlan.js";
 
 export function nsLodgeEnabled() {
-  try { return localStorage.getItem("ns_lodge") === "1"; }
-  catch { return false; }
+  // Live by default. Opt a device out with localStorage 'ns_lodge' === '0'.
+  try { return localStorage.getItem("ns_lodge") !== "0"; }
+  catch { return true; }
 }
 
 const ROOM_IMG = "assets/images/lodge/room.jpg";
