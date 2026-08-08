@@ -19,12 +19,15 @@ import { availableDomains, domainShort, REFLECTION_PROMPTS } from "../seed.js";
 import { esc, icon, toast, openModal, confirmDialog, renderCountdown, fmtDate, sparkle, DOMAIN_COLOR_CLASS, childColor } from "../components/ui.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 import { milestoneMinutes, loadByDay, scheduleMilestones } from "../lib/dailyPlan.js";
+import { recommendTermPlan, termPlanCadence } from "../lib/termPlan.js";
 import { navigate } from "../router.js";
 import { rerender } from "../app.js";
 
 /* ====== List view ====== */
 
 let _childFilter = "all";
+// Term Planner display: "suggestion" (generate the first) or "structured" (slots).
+let _planView = "suggestion";
 
 // What the family already owns — fed to the generator so projects use what they
 // have before recommending purchases (RESOURCES ALREADY OWNED + FAMILY INVENTORY).
@@ -67,6 +70,8 @@ export function renderProjects(container) {
       ${s.children.map(c => `<button class="chip ${_childFilter === c.id ? "selected" : ""}" data-filter="${c.id}">${esc(c.name)}</button>`).join("")}
     </div>
 
+    ${termPlanCard(s)}
+
     <h3 class="mt-2 mb-2">Active</h3>
     <div class="grid grid-auto">
       ${active.length === 0
@@ -85,7 +90,7 @@ export function renderProjects(container) {
     ` : ""}
   `;
 
-  container.querySelector("#generate").addEventListener("click", openGeneratorModal);
+  container.querySelector("#generate").addEventListener("click", () => openGeneratorModal());
   container.querySelector("#new-project").addEventListener("click", () => openProjectBuilder());
   container.querySelectorAll("[data-filter]").forEach(b => {
     b.addEventListener("click", () => { _childFilter = b.dataset.filter; rerender(); });
@@ -93,6 +98,113 @@ export function renderProjects(container) {
   container.querySelectorAll("[data-open]").forEach(b => {
     b.addEventListener("click", () => navigate("/projects/" + b.dataset.open));
   });
+
+  // ----- Term Planner wiring -----
+  container.querySelectorAll("[data-plan-view]").forEach(b => {
+    b.addEventListener("click", () => { _planView = b.dataset.planView; rerender(); });
+  });
+  container.querySelectorAll("[data-plan-generate]").forEach(b => {
+    b.addEventListener("click", () => openGeneratorModal({ childId: b.dataset.planGenerate, size: "medium" }));
+  });
+  container.querySelectorAll("[data-slot-generate]").forEach(b => {
+    b.addEventListener("click", () => openGeneratorModal({ childId: b.dataset.child, size: b.dataset.slotSize || "medium" }));
+  });
+}
+
+/* ====== Term Planner — how many projects to run for a child this term ======
+   Reads the family's rhythm (via recommendTermPlan). The parent can take the
+   plain suggestion (generate the first project) or open the structured term
+   view (slots they generate one at a time). Rhythm-family-level; scoped to the
+   selected child (or the first child when viewing all). */
+function planChildFor(state) {
+  if (_childFilter !== "all") return state.children.find(c => c.id === _childFilter) || null;
+  return state.children[0] || null;
+}
+
+// Non-draft projects this child already has within the planning term window.
+function projectsStartedThisTerm(state, childId, term) {
+  return state.projects.filter(p => {
+    if (p.childId !== childId || p.status === "draft") return false;
+    const t = Date.parse(p.createdAt || "");
+    if (Number.isNaN(t)) return true;             // undated → count as started
+    return t >= term.start.getTime() && t <= term.end.getTime();
+  }).length;
+}
+
+function termPlanCard(state) {
+  const child = planChildFor(state);
+  if (!child) return "";
+  const plan = recommendTermPlan(state.family?.rhythm || {});
+
+  // Rhythm not set yet → gentle nudge instead of a made-up number.
+  if (!plan.configured) {
+    return `
+      <div class="card mb-3" style="background:var(--card-elev);border:1px solid var(--border)">
+        <div class="row" style="gap:14px;align-items:center;flex-wrap:wrap">
+          <div style="font-size:26px">🗓️</div>
+          <div style="flex:1;min-width:220px">
+            <h3 style="font-family:var(--font-serif);margin:0">Plan ${esc(child.name)}'s term</h3>
+            <p class="small text-muted" style="margin:4px 0 0">Set your <strong>Family Rhythm</strong> (days &amp; hours a week) and North Star will recommend how many projects to run this term.</p>
+          </div>
+          <a href="#/family-settings" class="btn btn-sm">Set Family Rhythm →</a>
+        </div>
+      </div>`;
+  }
+
+  const t = plan.term;
+  const started = projectsStartedThisTerm(state, child.id, t);
+  const cadence = termPlanCadence(plan);
+  const concurrencyLine = plan.concurrency > 1 ? "running up to two at a time" : "one at a time";
+  const unit = plan.unit.toLowerCase();
+  const eyebrow = t.active
+    ? `${esc(plan.unit)} ${t.index} · ${t.weeksRemaining} week${t.weeksRemaining === 1 ? "" : "s"} left`
+    : `${esc(plan.unit)} ${t.index} · starts soon`;
+  const heading = t.isFirst ? `Plan ${esc(child.name)}'s first ${unit}` : `Plan ${esc(child.name)}'s ${unit}`;
+  const suggestion = `Based on your family's rhythm (~${plan.weeklyBudgetHours} hrs/week) and a ${t.weeksRemaining}-week ${unit}, a calm plan for ${esc(child.name)} is about <strong>${plan.count} project${plan.count === 1 ? "" : "s"}</strong> — ${cadence}, ${concurrencyLine}.`;
+
+  const nextLabel = started === 0 ? "the first project" : (started >= plan.count ? "another project" : "the next project");
+
+  const toggle = `
+    <div class="chip-group" style="margin:0 0 12px">
+      <button class="chip ${_planView === "suggestion" ? "selected" : ""}" data-plan-view="suggestion">Suggestion</button>
+      <button class="chip ${_planView === "structured" ? "selected" : ""}" data-plan-view="structured">Term plan</button>
+    </div>`;
+
+  let bodyHtml;
+  if (_planView === "structured") {
+    const slots = plan.slots.map(sl => {
+      const doneSlot = sl.index <= started;
+      const isNext = sl.index === started + 1;
+      return `
+        <button class="chip term-slot${doneSlot ? " selected" : ""}"
+          ${doneSlot ? "disabled" : ""} data-slot-generate data-child="${child.id}" data-slot-size="${sl.size}"
+          title="~${sl.approxWeeks} weeks${doneSlot ? " · started" : (isNext ? " · up next" : "")}"
+          style="${isNext ? "outline:2px solid var(--primary);outline-offset:1px" : ""}">
+          ${doneSlot ? "✓ " : ""}Project ${sl.index}
+        </button>`;
+    }).join("");
+    bodyHtml = `
+      <p class="small text-muted" style="margin:0 0 10px">${suggestion} <span style="white-space:nowrap">${started} of ${plan.count} started.</span></p>
+      <div class="row" style="gap:8px;flex-wrap:wrap">${slots}</div>
+      <p class="small text-muted" style="margin:10px 0 0">Tap a project slot to generate it — each is tailored to ${esc(child.name)}. You can always run fewer or more; this is a guide, not a limit.</p>`;
+  } else {
+    bodyHtml = `
+      <p class="small text-muted" style="margin:0 0 12px">${suggestion}</p>
+      <button class="btn btn-primary btn-sm" data-plan-generate="${child.id}">✨ Generate ${nextLabel} for ${esc(child.name)}</button>`;
+  }
+
+  return `
+    <div class="card mb-3" style="border:1px solid var(--border)">
+      <div class="row-between" style="gap:12px;flex-wrap:wrap;align-items:flex-start;margin-bottom:8px">
+        <div>
+          <div class="t-eyebrow">${eyebrow}</div>
+          <h3 style="font-family:var(--font-serif);margin:2px 0 0">${heading}</h3>
+        </div>
+        <span class="tag">~${plan.weeklyBudgetHours} hrs/week</span>
+      </div>
+      ${toggle}
+      ${bodyHtml}
+    </div>`;
 }
 
 function projectCard(p, state) {
@@ -132,13 +244,13 @@ const PROMPT_EXAMPLES = [
   "We're travelling to Japan for three weeks and want the kids to learn through the trip.",
 ];
 
-function openGeneratorModal() {
+function openGeneratorModal(opts = {}) {
   const s = getState();
   if (!s.children.length) { toast("Add a child first", { type: "warning" }); return; }
 
-  let childId = s.children[0].id;
+  let childId = (opts.childId && s.children.some(c => c.id === opts.childId)) ? opts.childId : s.children[0].id;
   let intent = "";            // the parent's free-text "spark"
-  let size = "auto";          // quest length: auto | small | medium | large
+  let size = opts.size || "auto";          // quest length: auto | small | medium | large
   let refinementsLeft = 3;    // 3 AI refinements before accepting
   let current = null;         // the proposed project being reviewed
   let resolved = false;       // true once accepted or saved-as-draft (so close ≠ decline)
