@@ -104,10 +104,10 @@ export function renderProjects(container) {
     b.addEventListener("click", () => { _planView = b.dataset.planView; rerender(); });
   });
   container.querySelectorAll("[data-plan-generate]").forEach(b => {
-    b.addEventListener("click", () => openGeneratorModal({ childId: b.dataset.planGenerate, size: b.dataset.planSize || "medium" }));
+    b.addEventListener("click", () => openGeneratorModal({ childId: b.dataset.planGenerate, size: b.dataset.planSize || "medium", startWeek: Number(b.dataset.startWeek) || 0 }));
   });
   container.querySelectorAll("[data-slot-generate]").forEach(b => {
-    b.addEventListener("click", () => openGeneratorModal({ childId: b.dataset.child, size: b.dataset.slotSize || "medium" }));
+    b.addEventListener("click", () => openGeneratorModal({ childId: b.dataset.child, size: b.dataset.slotSize || "medium", startWeek: Number(b.dataset.startWeek) || 0 }));
   });
 }
 
@@ -204,8 +204,8 @@ function termPlanCard(state) {
     bodyHtml = `
       <p class="small text-muted" style="margin:0 0 12px">${suggestion}</p>
       <div class="row" style="gap:8px;flex-wrap:wrap;align-items:center">
-        <button class="btn btn-primary btn-sm" data-plan-generate="${child.id}" data-plan-size="${anchorSize}">✨ Generate ${anchorLabel} for ${esc(child.name)}</button>
-        ${plan.counts.short ? `<button class="btn btn-ghost btn-sm" data-plan-generate="${child.id}" data-plan-size="small">Prefer to start small? Generate a short one</button>` : ""}
+        <button class="btn btn-primary btn-sm" data-plan-generate="${child.id}" data-plan-size="${anchorSize}" data-start-week="0">✨ Generate ${anchorLabel} for ${esc(child.name)}</button>
+        ${plan.counts.short ? `<button class="btn btn-ghost btn-sm" data-plan-generate="${child.id}" data-plan-size="small" data-start-week="0">Prefer to start small? Generate a short one</button>` : ""}
       </div>`;
   }
 
@@ -241,7 +241,7 @@ function slotRow(it, tier, doneN, child, weeksRemaining) {
       <span class="small text-muted" style="width:70px;flex:none;text-align:right">wk ${w1}–${w2}</span>
       ${doneSlot
         ? `<span class="tag tag-sage" style="flex:none">✓</span>`
-        : `<button class="btn btn-sm${isNext ? " btn-primary" : ""}" style="flex:none" data-slot-generate data-child="${child.id}" data-slot-size="${tier.size}">Generate</button>`}
+        : `<button class="btn btn-sm${isNext ? " btn-primary" : ""}" style="flex:none" data-slot-generate data-child="${child.id}" data-slot-size="${tier.size}" data-start-week="${it.startWeek}">Generate</button>`}
     </div>`;
 }
 
@@ -289,6 +289,10 @@ function openGeneratorModal(opts = {}) {
   let childId = (opts.childId && s.children.some(c => c.id === opts.childId)) ? opts.childId : s.children[0].id;
   let intent = "";            // the parent's free-text "spark"
   let size = opts.size || "auto";          // quest length: auto | small | medium | large
+  // Wave anchor: when launched from the Term Planner, the project belongs to a
+  // term "slot" and starts in a particular week — so its milestones land offset
+  // from the others (and follow the model's cadence rather than daily packing).
+  const startWeek = (opts.startWeek != null && Number.isFinite(Number(opts.startWeek))) ? Number(opts.startWeek) : null;
   let refinementsLeft = 3;    // 3 AI refinements before accepting
   let current = null;         // the proposed project being reviewed
   let resolved = false;       // true once accepted or saved-as-draft (so close ≠ decline)
@@ -460,7 +464,7 @@ function openGeneratorModal(opts = {}) {
     if (refineBtn) refineBtn.addEventListener("click", doRefine);
 
     foot.querySelector("#accept").addEventListener("click", () => {
-      const p = createProjectFromTemplate(current, child(), "active");
+      const p = createProjectFromTemplate(current, child(), "active", { startWeek });
       resolved = true;   // set before close() so onClose does not read this as a decline
       // Record accept AFTER the project exists, so the Archive id keys off p.id (stable).
       fireArchive(buildAcceptedArchive({
@@ -473,7 +477,7 @@ function openGeneratorModal(opts = {}) {
     });
     foot.querySelector("#save-draft").addEventListener("click", () => {
       resolved = true;   // kept, not declined
-      const p = createProjectFromTemplate(current, child(), "draft");
+      const p = createProjectFromTemplate(current, child(), "draft", { startWeek });
       modal.close();
       toast("Saved as a draft", { type: "success" });
       navigate("/projects/" + p.id);
@@ -564,25 +568,42 @@ function projectSnapshot(t) {
 
 /* Create real Project + Milestones from a generated template.
    status: "active" (accepted) or "draft" (saved to review later). */
-export function createProjectFromTemplate(t, child, status = "active") {
+export function createProjectFromTemplate(t, child, status = "active", opts = {}) {
+  // Wave anchor (Term Planner): a planned project starts in its slot's week so
+  // it runs OFFSET from the others; otherwise it starts today.
+  const planned = opts.startWeek != null;
+  const startWeek = planned ? Math.max(0, Number(opts.startWeek) || 0) : 0;
   const start = new Date(); start.setHours(17, 0, 0, 0);
+  if (startWeek) start.setDate(start.getDate() + startWeek * 7);
+  const offsetDate = (offDays) => { const d = new Date(start); d.setDate(d.getDate() + (Number(offDays) || 0)); d.setHours(17, 0, 0, 0); return d; };
 
-  // Capacity-informed scheduling (daily-load intelligence): place this project's
-  // missions onto learning days, packing each day up to the family's daily target
-  // and respecting the load the child's OTHER active projects already committed —
-  // so across all their projects a day fills to about the time the family wants.
-  const rhythm = getState().family?.rhythm || {};
-  const otherActiveMs = getState().milestones.filter((m) => {
-    if (m.completed) return false;
-    const p = getState().projects.find((pp) => pp.id === m.projectId);
-    return p && p.childId === child.id && p.status !== "completed";
-  });
-  const newItems = (t.milestones || []).map((m, i) => ({ id: String(i), minutes: milestoneMinutes(m) }));
-  const scheduled = scheduleMilestones(newItems, loadByDay(otherActiveMs), rhythm, start);
-  const dueByIdx = new Map(scheduled.map((s) => [s.id, s.dueDate]));
-  const due = scheduled.length
-    ? scheduled.reduce((mx, s) => (s.dueDate > mx ? s.dueDate : mx), scheduled[0].dueDate)
-    : (() => { const d = new Date(start); d.setDate(d.getDate() + (t.durationDays || 14)); return d; })();
+  let dueByIdx, due;
+  if (planned) {
+    // Honour the model's TIERED cadence (weekly checkpoints for a long project,
+    // every-few-days for medium, tighter for short — with gaps). Date each
+    // mission by its own dueOffsetDays from this project's wave start, rather
+    // than packing them into consecutive days. Cross-project balance for the day
+    // is handled by the daily plan composing across the portfolio.
+    dueByIdx = new Map((t.milestones || []).map((m, i) => [String(i), offsetDate(m.dueOffsetDays)]));
+    const maxOff = (t.milestones || []).reduce((mx, m) => Math.max(mx, Number(m.dueOffsetDays) || 0), 0);
+    due = offsetDate(Math.max(maxOff, t.durationDays || 14));
+  } else {
+    // Ad-hoc project: capacity-informed scheduling (daily-load intelligence) —
+    // pack missions onto learning days up to the family's daily target, respecting
+    // the load the child's OTHER active projects already committed.
+    const rhythm = getState().family?.rhythm || {};
+    const otherActiveMs = getState().milestones.filter((m) => {
+      if (m.completed) return false;
+      const p = getState().projects.find((pp) => pp.id === m.projectId);
+      return p && p.childId === child.id && p.status !== "completed";
+    });
+    const newItems = (t.milestones || []).map((m, i) => ({ id: String(i), minutes: milestoneMinutes(m) }));
+    const scheduled = scheduleMilestones(newItems, loadByDay(otherActiveMs), rhythm, start);
+    dueByIdx = new Map(scheduled.map((s) => [s.id, s.dueDate]));
+    due = scheduled.length
+      ? scheduled.reduce((mx, s) => (s.dueDate > mx ? s.dueDate : mx), scheduled[0].dueDate)
+      : offsetDate(t.durationDays || 14);
+  }
   const project = addProject({
     childId: child.id,
     title: t.title,

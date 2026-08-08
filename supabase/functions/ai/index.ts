@@ -432,7 +432,7 @@ const PROJECT_SCHEMA = {
   },
 };
 
-function sizeGuidance(size: string, age: number | null) {
+function sizeGuidance(size: string, age: number | null, weeks?: number) {
   const a = typeof age === "number" ? age : 10;
   const young = a <= 7;
   const granularity = young
@@ -440,16 +440,21 @@ function sizeGuidance(size: string, age: number | null) {
     : a <= 11
     ? "Make each mission a clear, bounded chunk the child can sink into for one focused sitting (roughly 25–45 minutes of genuine work) — several concrete steps that add up, NEVER a task that finishes in a few minutes. estimatedMinutes ~25–45 each."
     : "This child is 12+ and capable — make each mission a SUBSTANTIAL session (roughly 45–90 minutes of genuine work): several real steps that add up to something they can be proud of. Fewer, meatier missions beat many trivial ones. Never a mission that finishes in a few minutes. estimatedMinutes ~45–90 each.";
+  // CADENCE (Phase A): projects run in PARALLEL across a term, so a single
+  // project should NOT put a mission on every day — it has its own heartbeat
+  // with gaps, and the child's daily variety comes from combining projects.
+  // Set "dueOffsetDays" to pace the missions across the span with real gaps.
+  const w = (typeof weeks === "number" && weeks > 0) ? Math.round(weeks) : null;
   if (!size || size === "auto") {
-    return `SIZE: YOU CHOOSE — read the parent's request and this child, then pick the most fitting scope yourself and set "durationDays" + "sizeBand" to match. Small (7–14 days, 3–6 missions) for a focused single interest; medium (~30 days, 6–10 missions) for something richer; large/term (~63 days, 8–14 missions, a lasting habit) only when they clearly describe a habit, a big build, or a season-long journey (e.g. a multi-week trip). Don't over-scope — match the spark. ${granularity}`;
+    return `SIZE: YOU CHOOSE — read the parent's request and this child, then pick the most fitting scope yourself and set "durationDays" + "sizeBand" to match. Small (7–14 days, 3–6 missions) for a focused single interest; medium (~30 days, 6–10 missions) for something richer; large/term (~63 days, 8–14 missions, a lasting habit) only when they clearly describe a habit, a big build, or a season-long journey (e.g. a multi-week trip). Don't over-scope — match the spark. ${granularity} CADENCE: pace the missions across the whole duration using "dueOffsetDays", leaving GAPS between them — the child should not have a mission from THIS project every single day.`;
   }
   if (size === "large" || size === "term") {
-    return `SIZE: LARGE / TERM QUEST. Duration ~63 days (most of a 9–10 week term). 8–14 missions building toward a real LIFE SKILL the family wants this child to learn, and a lasting habit (it takes ~63 days for a child to form one). Spread missions roughly evenly across the term. A bigger, meaningful reward for completing the whole quest. ${granularity}`;
+    return `SIZE: LARGE / TERM QUEST. Duration ~63 days (most of a ${w || 9}–10 week term). 8–14 missions building toward a real LIFE SKILL the family wants this child to learn, and a lasting habit (it takes ~63 days for a child to form one). A bigger, meaningful reward for completing the whole quest. ${granularity} CADENCE: this is the term's SPINE — pace missions as roughly WEEKLY checkpoints across the ~${w || 9}-week span. Set "dueOffsetDays" to about 0, 7, 14, 21 … (about one mission a week, ~${w || 9} milestones total), with multi-day GAPS between them. It is returned to weekly, NEVER worked on daily.`;
   }
   if (size === "medium") {
-    return `SIZE: MEDIUM QUEST. Duration ~30 days (about a month). 6–10 missions. A mid-sized reward. ${granularity}`;
+    return `SIZE: MEDIUM QUEST. Duration ~30 days (about ${w || 4} weeks). 6–10 missions. A mid-sized reward. ${granularity} CADENCE: space missions every ~3–4 days across the ~${w || 4}-week span — set "dueOffsetDays" to 0, 3, 7, 10, 14 … with GAPS between them, never one every day.`;
   }
-  return `SIZE: SMALL QUEST. Duration 7–14 days (1–2 weeks). 3–6 missions. A small, fun reward. ${granularity}`;
+  return `SIZE: SMALL QUEST. Duration 7–14 days (1–2 weeks). 3–6 missions. A small, fun reward. ${granularity} CADENCE: a tight sequence across ~${w || 2} week(s) — set "dueOffsetDays" stepping every ~2–3 days (0, 2, 4, 7 …), still leaving a little breathing room between missions.`;
 }
 
 // Build a compact summary of a previously-generated quest so the model can AMEND
@@ -600,7 +605,7 @@ family and child below to do the educational design they did NOT spell out — c
 academic skills, practical-life skills, real experiences, materials and milestones that best serve this
 child. The parent brought the spark; YOU build the pathway.\n` : ""}
 ${balanceLine ? balanceLine + "\n" : ""}
-${sizeGuidance(capacity.effectiveSize, c.age ?? null)}
+${sizeGuidance(capacity.effectiveSize, c.age ?? null, capacity.expectedProjectWeeks)}
 
 ${requestedDomains.length
   ? `REQUESTED CAPABILITY DOMAINS: The parent has chosen the Capability Domains this quest should develop: ${requestedDomains.join(", ")}. Treat this as the DESIRED SET — genuinely develop each one through the missions (don't just tag it), and don't lean on domains they didn't pick. These should be your capabilityMap.primary, and "domains" must include exactly this set.`
