@@ -244,7 +244,7 @@ export function renderFamilyVision(container) {
         const i = +btn.dataset.regenLetter;
         btn.disabled = true; btn.textContent = "…";
         try {
-          const out = await aiSuggestVision("letter", gatherVision(), { ...gatherCtx(), letter: acronym[i].letter });
+          const out = await aiSuggestVision("letter", gatherVision(), { ...gatherCtx(), letter: acronym[i].letter, avoid: acronym[i].meaning });
           if (out?.value) { acronym[i].meaning = out.value; renderAcronym(); paintPreview(); }
         } catch (e) { toast(e.message || "Couldn't suggest just now", { type: "error" }); }
         finally { btn.disabled = false; btn.textContent = "↻"; }
@@ -298,11 +298,14 @@ export function renderFamilyVision(container) {
     const rBtn = container.querySelector(regenId);
     const status = container.querySelector(statusId);
     const field = container.querySelector(fieldId);
-    const run = async (btn) => {
+    const run = async (btn, alternative) => {
       busy(btn, status, "North Star is shaping a suggestion…");
       const label = btn.textContent; btn.textContent = "Thinking…";
       try {
-        const out = await aiSuggestVision(kind, gatherVision(), gatherCtx());
+        const family = gatherCtx();
+        // "Suggest Alternative" → tell the server what to steer away from.
+        if (alternative) family.avoid = field.value.trim();
+        const out = await aiSuggestVision(kind, gatherVision(), family);
         if (out?.value) {
           field.value = out.value;
           status.textContent = "Suggested based on your answers — edit anything.";
@@ -313,7 +316,7 @@ export function renderFamilyVision(container) {
       finally { btn.disabled = false; btn.textContent = label; }
     };
     sBtn.addEventListener("click", () => run(sBtn));
-    rBtn.addEventListener("click", () => run(rBtn));
+    rBtn.addEventListener("click", () => run(rBtn, true));
   };
   wireText("motto", "#suggest-motto", "#regen-motto", "#motto-status", "#motto");
   wireText("mission", "#suggest-mission", "#regen-mission", "#mission-status", "#mission");

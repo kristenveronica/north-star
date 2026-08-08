@@ -205,7 +205,7 @@ family said. Keep meanings concrete and warm, not generic. Add a one-sentence ra
 Make the three options feel meaningfully different from each other.`;
   const userText = `Here is what this family shared about who they hope to raise:
 ${visionLines(v)}
-${payload?.currentWord ? `\nThey are currently considering the word "${payload.currentWord}" — you may refine it or offer alternatives.` : ""}
+${payload?.currentWord ? `\nThey currently have the word "${payload.currentWord}". Offer three DIFFERENT alternatives — do NOT return "${payload.currentWord}" itself; propose fresh words with a different feel.` : ""}
 
 Propose 3 core words with acronyms.`;
   return callClaude(system, userText, CORE_WORD_SCHEMA, apiKey);
@@ -225,9 +225,17 @@ async function suggestVision(payload: any, apiKey: string) {
   const kind = (payload?.kind || "outcomes").toString();
   const v = payload?.vision || {};
   const f = payload?.family || {};
+  // When the parent taps "Suggest Alternative", their current value arrives as
+  // `avoid` so we can steer FIRMLY to something different rather than echoing the
+  // value back (which is what made the current text look "stuck"). We deliberately
+  // do NOT restate the current value as an established fact in the context below.
+  const avoid = (payload?.avoid ?? f.avoid ?? "").toString().trim();
+  const differ = avoid
+    ? `\n\nIMPORTANT — this is a "suggest an alternative" request. They already have: "${avoid}". Offer a genuinely DIFFERENT option: a fresh angle, rhythm and wording. Do NOT return that one again or a light reword of it.`
+    : "";
   const ctx = `THIS FAMILY'S REFLECTIONS
 ${visionLines(v)}
-- Family name: ${f.familyName || "—"}${f.coreWord ? `\n- Core word: ${f.coreWord}` : ""}${f.motto ? `\n- Family Credo: ${f.motto}` : ""}`;
+- Family name: ${f.familyName || "—"}${f.coreWord ? `\n- Core word: ${f.coreWord}` : ""}`;
 
   if (kind === "letter") {
     const letter = (f.letter || "").toString().toUpperCase();
@@ -235,27 +243,27 @@ ${visionLines(v)}
     const system = `TASK: Suggest ONE short value or capability — a single word or 2–3 word phrase — that
 STARTS WITH THE LETTER "${letter}", to sit inside this family's core word "${word}" as that letter's
 meaning. It must reflect THIS family's vision and feel warm and true. Return only the word/phrase in "value".`;
-    return callClaude(system, ctx + `\n\nSuggest one "${letter}" meaning for "${word}".`, TEXT_VALUE_SCHEMA, apiKey);
+    return callClaude(system, ctx + `\n\nSuggest one "${letter}" meaning for "${word}".` + differ, TEXT_VALUE_SCHEMA, apiKey);
   }
   if (kind === "outcomes") {
     const system = `TASK: From this family's reflections, propose 8–10 DESIRED OUTCOMES their educational
 journey should produce — the kind of capable, whole person they are raising. Each outcome is SHORT
 (2–5 words), warm, concrete, and clearly grounded in what THEY said (not generic boilerplate). Span
 character, capability, relationships, contribution and wellbeing. Return them in "outcomes".`;
-    return callClaude(system, ctx + "\n\nPropose the desired outcomes.", OUTCOMES_SCHEMA, apiKey);
+    return callClaude(system, ctx + "\n\nPropose the desired outcomes." + differ, OUTCOMES_SCHEMA, apiKey);
   }
   if (kind === "motto") {
     const system = `TASK: Suggest ONE short, memorable FAMILY CREDO — a phrase children can remember,
 repeat and grow up with (ideally 3–8 words; two short clauses is fine). It must capture THIS family's
 values and hopes, in their spirit. Warm and true, never corporate or cliché. Return only the credo in "value".`;
-    return callClaude(system, ctx + "\n\nSuggest one family credo.", TEXT_VALUE_SCHEMA, apiKey);
+    return callClaude(system, ctx + "\n\nSuggest one family credo." + differ, TEXT_VALUE_SCHEMA, apiKey);
   }
   // family vision (the field key remains "mission")
   const system = `TASK: Suggest ONE warm FAMILY VISION (1–2 sentences) — the deeper "why" behind THIS
 family's educational journey and who they are becoming together, a guiding light for the projects and
 experiences North Star will suggest. Write in the family's own voice (e.g. "We are raising…"). Grounded
 in their answers, never generic. Return it in "value".`;
-  return callClaude(system, ctx + "\n\nSuggest one family vision.", TEXT_VALUE_SCHEMA, apiKey);
+  return callClaude(system, ctx + "\n\nSuggest one family vision." + differ, TEXT_VALUE_SCHEMA, apiKey);
 }
 
 // ---- Action: tidy text (normalize formatting ONLY — never rewrite) ----------
@@ -665,7 +673,7 @@ REAL-WORLD & SAFETY RULES (from the family's Settings — use ONLY what is provi
 - LOCATION: If a home location is given, suggest specific, real nearby experiences where relevant (parks, libraries, museums, trails, creeks, beaches, farms, local businesses, cultural/historical sites, nature areas).
 - MOBILITY: Respect the child's mobility permissions exactly. Do NOT suggest the child independently walk, ride a bike, use public transport, travel to local businesses, or drive UNLESS that specific permission is listed. When unsure, keep every outing adult-supervised.
 - TRAVEL: If Travel/Worldschool mode is on, weight the quest toward the listed destination(s) and their dates, following each destination's preference (local experiences only / destination-based projects only / both).
-- FAITH: Only weave in faith elements if faith integration is on; honour the tradition/denomination/notes given, warmly and never preachy. Never introduce faith otherwise.
+- FAITH: When faith integration is ON, treat the family's faith as a genuine, woven-through dimension of the quest — not a bolt-on mention. Honour their specific tradition and denomination ACCURATELY, and follow the parent's faith notes exactly (they set the tone and the boundaries). Meaningful integration looks like: connecting the quest's character and values to their faith (tie the family's CORE WORD and virtues to their tradition's teaching); including at least one reflection prompt rooted in their faith where it fits naturally; drawing on tradition-appropriate practices, stories, figures, texts, seasons or holy days that genuinely enrich the learning; and — when a faith community or church is named — suggesting real, concrete ways to connect the work to it (acts of service, people to learn from, events). Keep it warm, age-appropriate and true to what THIS family actually believes: never generic, never preachy, never proselytising, and never implying judgement of those who believe differently. When faith integration is OFF, introduce NO faith or religious content of any kind.
 - PEOPLE: Only reference the real people listed (by their name + role). Never invent relatives, mentors or friends.
 - LEARNING RESOURCES (intelligent procurement): List every resource the quest needs in "materials" so it flows into the family's Learning Resources engine. For each: pick a "source" (buy/borrow/build/repurpose/create), set "format" to "printable" if North Star could simply generate it (worksheets, flash cards, templates, trackers) instead of buying, set "frequency" of use, and tag the "capabilityDomains" it supports. Do NOT suggest resources the family already has (see "RESOURCES ALREADY OWNED"). Keep the list lean and genuinely needed.
 - FAMILY INVENTORY FIRST (core principle): ALWAYS prioritise what the family already owns (see FAMILY INVENTORY) before recommending any purchase. Actively DESIGN the quest around their existing things — "you already own a microscope" → biology/observation missions that use it; "you have a keyboard" → composition, theory or songwriting; "you own a mountain bike" → navigation, endurance, mechanics or outdoor-adventure missions; owned games/books/instruments/tools become the raw material of missions. Reference owned items by name. This makes North Star feel deeply personal and reduces unnecessary spending. Only suggest buying when nothing owned will do.

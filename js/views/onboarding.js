@@ -378,7 +378,7 @@ function paint(card) {
         btn.addEventListener("click", async () => {
           const i = +btn.dataset.rl; btn.disabled = true; btn.textContent = "…";
           try {
-            const out = await aiSuggestVision("letter", visionForCtx(), { ...familyForCtx(), letter: _draft.acronym[i].letter });
+            const out = await aiSuggestVision("letter", visionForCtx(), { ...familyForCtx(), letter: _draft.acronym[i].letter, avoid: _draft.acronym[i].meaning });
             if (out?.value) { _draft.acronym[i].meaning = out.value; renderAcronymRows(); persistDraft(); persistVision(); }
           } catch (e) { toast(e.message || "Couldn't suggest", { type: "error" }); }
           finally { btn.disabled = false; btn.textContent = "↻"; }
@@ -391,18 +391,21 @@ function paint(card) {
 
     const wireText = (kind, sId, rId, stId, fId) => {
       const s = card.querySelector(sId), r = card.querySelector(rId), st = card.querySelector(stId), f = card.querySelector(fId);
-      const run = async (btn) => {
+      const run = async (btn, alternative) => {
         btn.disabled = true; const label = btn.textContent; btn.textContent = "Thinking…"; st.textContent = "North Star is shaping a suggestion…";
         _draft.motto = card.querySelector("#motto").value; _draft.mission = card.querySelector("#mission").value;
         try {
-          const out = await aiSuggestVision(kind, visionForCtx(), familyForCtx());
+          const family = familyForCtx();
+          // "Suggest Alternative" → tell the server what to steer away from.
+          if (alternative) family.avoid = f.value.trim();
+          const out = await aiSuggestVision(kind, visionForCtx(), family);
           if (out?.value) { f.value = out.value; _draft[kind] = out.value; persistDraft(); persistVision(); st.textContent = "Suggested from your answers — edit anything."; r.classList.remove("hidden"); }
           else st.textContent = "Couldn't shape one just now.";
         } catch (e) { st.textContent = e.message || "Couldn't suggest just now."; }
         finally { btn.disabled = false; btn.textContent = label; }
       };
       s.addEventListener("click", () => run(s));
-      r.addEventListener("click", () => run(r));
+      r.addEventListener("click", () => run(r, true));
     };
     wireText("motto", "#suggest-motto", "#regen-motto", "#motto-status", "#motto");
     wireText("mission", "#suggest-mission", "#regen-mission", "#mission-status", "#mission");
