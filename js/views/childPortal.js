@@ -20,6 +20,7 @@ import { readAloudSmart, stopVoice } from "../lib/voice.js";
 import { guideAvatar } from "../components/guide.js";
 import { openProjectPdfModal } from "../components/pdfModal.js";
 import { renderLodge, nsLodgeEnabled, lodgeShell } from "./childLodge.js";
+import { buildTodayPlan, fmtMinutes } from "../lib/dailyPlan.js";
 
 /* ============================================================
    handleMilestoneTap — shared milestone interaction.
@@ -975,6 +976,169 @@ function saField(key, label) {
       <textarea class="textarea" data-sa="${key}" data-voice data-voice-label="Tap and tell me" rows="3" placeholder="Type or tap the mic to speak..."></textarea>
     </div>
   `;
+}
+
+/* ====== Kid sub-pages (Lodge sidebar destinations) ======
+   Today's Plan, Projects and Settings. Each honours the same code + PIN gate
+   as the rest of the portal and mounts into the Lodge shell (page mode) when
+   the Lodge is on, with a plain fallback header otherwise. */
+
+// Resolve the child for a kid sub-page; handles the "bad code" screen and the
+// PIN redirect. Returns the child, or null if the caller should stop.
+function resolveKidPage(container, params) {
+  const child = getChildByCode((params.code || "").toUpperCase());
+  if (!child) {
+    container.innerHTML = `<div class="welcome"><div class="welcome-card center"><h1>That code doesn't work.</h1><a href="#/kid" class="btn btn-primary mt-2">Try again</a></div></div>`;
+    return null;
+  }
+  if (child.pin && sessionStorage.getItem("kid-pin-ok::" + child.id) !== "1") {
+    location.hash = `#/kid/${child.accessCode}`;
+    return null;
+  }
+  return child;
+}
+
+// Minimal top bar for the (rare) case a child has opted this device out of the
+// Lodge but still lands on a sub-page URL.
+function kidPageFallbackHead(child) {
+  return `
+    <div class="topbar-kid">
+      <a href="#/kid/${child.accessCode}" class="btn btn-ghost btn-sm">← Home</a>
+      <a href="#/" class="btn btn-ghost btn-sm">Parent view</a>
+    </div>`;
+}
+
+export function renderChildPlan(container, params) {
+  const child = resolveKidPage(container, params);
+  if (!child) return;
+  const s = getState();
+  const rerender = () => renderChildPlan(container, params);
+
+  const all = (getActiveMilestonesForChild(child.id) || []).filter(m => !m.completed);
+  const dayPlan = buildTodayPlan(all, s.family?.rhythm || {});
+  const todayIds = new Set(dayPlan.items.map(it => it.milestone.id));
+  const today = dayPlan.items.map(it => it.milestone);
+  const later = all.filter(m => !todayIds.has(m.id));
+
+  const timeLine = today.length
+    ? `About ${fmtMinutes(dayPlan.totalMinutes)} of learning today${dayPlan.status === "light" ? " — a lighter day." : "."}`
+    : "You're all caught up — nothing waiting right now.";
+
+  const lodge = nsLodgeEnabled();
+  const mount = lodge ? lodgeShell(container, child, "Today's Plan", "page") : container;
+
+  const body = `
+    <div class="lg-pagehead">
+      <div>
+        <h1 style="margin:0">Today's Plan</h1>
+        <p class="small text-muted" style="margin:2px 0 0">${esc(timeLine)}</p>
+      </div>
+    </div>
+    <div class="kid-content" style="padding-top:8px">
+      ${today.length
+        ? `<div class="stack mb-3">${today.map(m => missionRow(m, s)).join("")}</div>`
+        : `<div class="empty">Every mission for today is done. Enjoy some free time — or open a project to get ahead.</div>`}
+      ${later.length ? `
+        <h2 class="mb-2">Coming up next</h2>
+        <div class="stack mb-3">${later.slice(0, 12).map(m => missionRow(m, s)).join("")}</div>
+        ${later.length > 12 ? `<p class="small text-muted">+${later.length - 12} more further ahead — see your <a href="#/kid/${child.accessCode}/calendar">calendar</a>.</p>` : ""}
+      ` : ""}
+    </div>`;
+
+  mount.innerHTML = (lodge ? "" : kidPageFallbackHead(child)) + body;
+  mount.querySelectorAll("[data-complete-ms]").forEach(b =>
+    b.addEventListener("click", () => handleMilestoneTap(b.dataset.completeMs, b, rerender)));
+  mount.querySelectorAll("[data-ms-detail]").forEach(el =>
+    el.addEventListener("click", () => openMissionDetail(el.dataset.msDetail)));
+}
+
+export function renderChildProjects(container, params) {
+  const child = resolveKidPage(container, params);
+  if (!child) return;
+  const s = getState();
+  const stats = getChildStats(child.id);
+  const active = stats.activeProjects;
+  const done = stats.completedProjects;
+
+  const lodge = nsLodgeEnabled();
+  const mount = lodge ? lodgeShell(container, child, "Projects", "page") : container;
+
+  const sub = active.length
+    ? `${active.length} on the go right now — tap one to open its Project HQ.`
+    : "No projects yet — ask a parent to set up your first one.";
+
+  const body = `
+    <div class="lg-pagehead">
+      <div>
+        <h1 style="margin:0">Your Projects</h1>
+        <p class="small text-muted" style="margin:2px 0 0">${sub}</p>
+      </div>
+    </div>
+    <div class="kid-content" style="padding-top:8px">
+      ${active.length
+        ? `<div class="grid grid-auto mb-3">${active.map(p => projectTile(p, s, child)).join("")}</div>`
+        : `<div class="empty">Nothing active yet.</div>`}
+      ${done.length ? `
+        <h2 class="mb-2">Finished</h2>
+        <div class="grid grid-auto mb-3">${done.map(p => projectTile(p, s, child)).join("")}</div>
+      ` : ""}
+    </div>`;
+
+  mount.innerHTML = (lodge ? "" : kidPageFallbackHead(child)) + body;
+  mount.querySelectorAll("[data-open-hq]").forEach(b =>
+    b.addEventListener("click", () => navigate(`/kid/${child.accessCode}/project/${b.dataset.openHq}`)));
+}
+
+export function renderChildSettings(container, params) {
+  const child = resolveKidPage(container, params);
+  if (!child) return;
+  const stats = getChildStats(child.id);
+  const rerender = () => renderChildSettings(container, params);
+
+  const lodge = nsLodgeEnabled();
+  const mount = lodge ? lodgeShell(container, child, "Settings", "page") : container;
+
+  const body = `
+    <div class="lg-pagehead">
+      <div>
+        <h1 style="margin:0">Settings</h1>
+        <p class="small text-muted" style="margin:2px 0 0">Make the lodge yours.</p>
+      </div>
+    </div>
+    <div class="kid-content" style="padding-top:8px;max-width:640px">
+      <div class="card mb-3">
+        <div class="row" style="gap:14px;align-items:center">
+          <div class="child-card-avatar avatar-${child.avatarIndex}" style="width:56px;height:56px;font-size:22px">${initials(child.name)}</div>
+          <div>
+            <div class="fw-700" style="font-size:20px;font-family:var(--font-serif)">${esc(child.name)}</div>
+            <div class="small text-muted">⭐ ${stats.totalStars} stars · ${stats.totalMomentum} momentum · 🏅 ${stats.badges} badge${stats.badges === 1 ? "" : "s"}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="row" style="gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+          <div>
+            <h3 style="font-family:var(--font-serif)">Sound</h3>
+            <p class="small text-muted" style="margin:0">Little chimes when you earn a star.</p>
+          </div>
+          ${soundToggleHTML()}
+        </div>
+      </div>
+
+      <div class="card mb-3">
+        <div class="row" style="gap:14px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+          <div>
+            <h3 style="font-family:var(--font-serif)">Grown-up area</h3>
+            <p class="small text-muted" style="margin:0">Switch back to the parent view.</p>
+          </div>
+          <a href="#/" class="btn">Parent view →</a>
+        </div>
+      </div>
+    </div>`;
+
+  mount.innerHTML = (lodge ? "" : kidPageFallbackHead(child)) + body;
+  wireSoundToggle(mount, rerender);
 }
 
 function missionRow(m, s) {

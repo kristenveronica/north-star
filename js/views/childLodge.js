@@ -186,10 +186,10 @@ function sidebarHTML(child, activeKey) {
       <div class="lg-brand"><span class="lg-mark">✦</span><span class="lg-wm">North Star<small>Guide Lodge</small></span></div>
       <nav class="lg-navlist">
         ${item("Lodge", "Lodge", IC.lodge, `#/kid/${code}`)}
-        ${item("Today's Plan", "Today's Plan", IC.plan, null)}
+        ${item("Today's Plan", "Today's Plan", IC.plan, `#/kid/${code}/plan`)}
         ${item("Calendar", "Calendar", IC.cal, `#/kid/${code}/calendar`)}
-        ${item("Projects", "Projects", IC.proj, null)}
-        ${item("Settings", "Settings", IC.set, null)}
+        ${item("Projects", "Projects", IC.proj, `#/kid/${code}/projects`)}
+        ${item("Settings", "Settings", IC.set, `#/kid/${code}/settings`)}
       </nav>
       <div class="lg-foot">
         <span class="lg-ava">${esc((child.name || "?").slice(0, 1).toUpperCase())}</span>
